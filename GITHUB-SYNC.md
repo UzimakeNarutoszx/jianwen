@@ -37,6 +37,6 @@ GitHub 保存源代码不会自动运行 FastAPI 或数据库；运行配置和�
 
 ## 后端凭据
 
-数据库密码和阿里云 AccessKey 不再具有源码中的默认值，须通过运行环境提供 `MYSQL_PASSWORD`、`ALIYUN_DYPNS_ACCESS_KEY_ID` 和 `ALIYUN_DYPNS_ACCESS_KEY_SECRET`。本机原有值保留在 Git 忽略的 `backend/.env` 中；配置类不会自动加载该文件，启动环境需显式注入这些变量。生产环境还需设置独立的 `SECRET_KEY`。
+数据库密码和阿里云 AccessKey 不再具有源码中的默认值，须配置 `MYSQL_PASSWORD`、`ALIYUN_DYPNS_ACCESS_KEY_ID` 和 `ALIYUN_DYPNS_ACCESS_KEY_SECRET`。本机原有值保留在 Git 忽略的 `backend/.env` 中，后端启动时自动加载；进程环境变量优先于文件。生产环境还需设置独立的 `SECRET_KEY`。
 
 首次推送曾被 GitHub 密钥保护拦截，已从未发布的提交中删除硬编码凭据。建议在阿里云控制台轮换曾写入源码的 AccessKey，不要绕过密钥保护。
