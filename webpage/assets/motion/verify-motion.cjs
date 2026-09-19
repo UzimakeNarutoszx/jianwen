@@ -10,7 +10,7 @@ class Element {
 }
 function setup(reduced=false, saveData=false) {
   const container=new Element(); container.dataset.motionFilm='ambient'
-  const doc={currentScript:{src:'http://localhost/js/motion.js'},hidden:false,events:{},createElement:()=>new Element(),querySelectorAll:s=>s==='[data-motion-film]'?[container]:[],addEventListener(k,v){this.events[k]=v}}
+  const doc={currentScript:{src:'http://localhost/js/motion.js'},hidden:false,events:{},createElement:()=>new Element(),querySelectorAll:s=>s==='[data-motion-film=ambient]'?[container]:[],addEventListener(k,v){this.events[k]=v}}
   const media={matches:reduced,addEventListener(){}}
   let intersect
   class Observer{constructor(fn){intersect=intersect||fn}observe(){}unobserve(){}}
@@ -24,11 +24,11 @@ async function main(){
   p.visible(false);assert.equal(p.video.paused,true)
   p.visible(true);await flush();p.doc.hidden=true;p.doc.events.visibilitychange();assert.equal(p.video.paused,true)
   p=setup(true);p.visible(true);await flush();assert.equal(p.video.src,undefined,'Reduced motion avoids video download')
-  p.button.events.click();await flush();assert.equal(p.video.paused,false,'Explicit click enables reduced-motion video')
-  p.button.events.click();assert.equal(p.video.paused,true)
-  p.visible(false);p.visible(true);assert.equal(p.video.paused,true,'Manual pause survives scrolling')
+  p=setup();p.visible(true);await flush();assert.equal(p.container.children.length,1,'No video controls')
+  p.video.currentTime=4.5;p.video.events.timeupdate();assert.equal(p.video.paused,true)
+  p.visible(false);p.visible(true);assert.equal(p.video.paused,true,'Completed ambient animation stays stopped')
   p=setup(false,true);p.visible(true);await flush();assert.equal(p.video.src,undefined,'Save Data avoids download')
-  p.video.events.error();assert.equal(p.button.hidden,true)
-  console.log('Motion controls: lazy loading, viewport/background pause, reduced motion, Save Data, manual override, persistent pause and error fallback passed.')
+  p.video.events.error();assert.equal(p.video.paused,true)
+  console.log('Motion controls: lazy loading, viewport/background pause, reduced motion, Save Data, no buttons, finite playback and error fallback passed.')
 }
 main().catch(e=>{console.error(e);process.exitCode=1})

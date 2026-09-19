@@ -31,7 +31,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20260919-5'
+const SITE_VERSION = '20260919-6'
 
 function versionedPage(href) {
   const [path, hash] = href.split('#')
@@ -137,77 +137,16 @@ function stripHeadingPeriods(root) {
   })
 }
 
-function initializeGlobalBgm() {
-  if (document.getElementById('site-bgm')) return
-  const inJianwen = location.pathname.includes('/jianwen/')
-  const root = inJianwen ? '../' : ''
-  if (!document.getElementById('global-bgm-style')) {
-    const style = document.createElement('style')
-    style.id = 'global-bgm-style'
-    style.textContent = '.bgm-control{position:fixed;right:24px;bottom:24px;z-index:30}.bgm-toggle{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border:1px solid rgba(255,255,255,.92);border-radius:999px;background:rgba(255,255,255,.9);box-shadow:0 12px 30px rgba(31,47,58,.18);backdrop-filter:blur(14px);color:#143e52;font:800 13px/1.2 inherit;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}.bgm-toggle:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(31,47,58,.24)}.bgm-toggle:focus-visible{outline:3px solid rgba(212,170,78,.6);outline-offset:3px}.bgm-icon{font-size:16px;line-height:1}.bgm-toggle.is-muted{color:#667780}@media(max-width:620px){.bgm-control{right:16px;bottom:16px}.bgm-toggle{padding:9px 12px}}@media(prefers-reduced-motion:reduce){.bgm-toggle{transition:none}}@media(prefers-color-scheme:dark){.bgm-toggle{border-color:rgba(219,239,241,.2);background:rgba(20,50,63,.92);color:#edf5f4}.bgm-toggle.is-muted{color:#c2d1d4}}'
-    document.head.appendChild(style)
-  }
-  const control = document.createElement('div')
-  control.className = 'bgm-control'
-  control.innerHTML = '<button id="bgm-toggle" class="bgm-toggle" type="button" aria-label="静音背景音乐" title="静音背景音乐"><span class="bgm-icon" aria-hidden="true">🔊</span><span class="bgm-label">静音</span></button>'
-
-  const audio = document.createElement('audio')
-  audio.id = 'site-bgm'
-  audio.autoplay = true
-  audio.loop = true
-  audio.playsInline = true
-  audio.preload = 'auto'
-  audio.src = `${root}assets/Vastness.mp3`
-  audio.setAttribute('aria-hidden', 'true')
-
-  document.body.append(control, audio)
-  const toggle = control.querySelector('#bgm-toggle')
-  const icon = control.querySelector('.bgm-icon')
-  const label = control.querySelector('.bgm-label')
-  const storageKey = 'jianwen_bgm_muted'
-  let storedMuted = null
-
-  try { storedMuted = localStorage.getItem(storageKey) } catch {}
-  audio.volume = 0.2
-  audio.muted = storedMuted !== 'false'
-
-  function updateToggle() {
-    const muted = audio.muted
-    toggle.classList.toggle('is-muted', muted)
-    icon.textContent = muted ? '🔇' : '🔊'
-    label.textContent = muted ? '开启声音' : '静音'
-    toggle.setAttribute('aria-label', muted ? '开启背景音乐' : '静音背景音乐')
-    toggle.title = muted ? '开启背景音乐' : '静音背景音乐'
-  }
-
-  function savePreference() {
-    try { localStorage.setItem(storageKey, String(audio.muted)) } catch {}
-  }
-
-  updateToggle()
-  audio.play().catch(() => {
-    audio.muted = true
-    updateToggle()
-    audio.play().catch(() => {})
-  })
-  toggle.addEventListener('click', () => {
-    audio.muted = !audio.muted
-    savePreference()
-    updateToggle()
-    audio.play().catch(() => {})
-  })
-}
 
 renderShell()
 window.addEventListener('jianwen-session-change', renderShell)
 stripHeadingPeriods(document)
-initializeGlobalBgm()
 if (location.pathname.endsWith('/avatar-features.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20260919-5'
+  apiScript.src = 'js/api-browser.js?v=20260919-6'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20260919-5'
+    chatScript.src = 'js/ajin-chat.js?v=20260919-6'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

@@ -14,10 +14,6 @@
 /* Shared refinement: keeps every redesigned page readable and navigable. */
 :root{color-scheme:light dark}
 .site-header{position:relative;z-index:10}
-.bgm-control{position:fixed;right:24px;bottom:24px;z-index:30}.bgm-toggle{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border:1px solid rgba(255,255,255,.92);border-radius:999px;background:rgba(255,255,255,.9);box-shadow:0 12px 30px rgba(31,47,58,.18);backdrop-filter:blur(14px);color:var(--blue-dark);font:800 13px/1.2 inherit;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}.bgm-toggle:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(31,47,58,.24)}.bgm-toggle:focus-visible{outline:3px solid rgba(212,170,78,.6);outline-offset:3px}.bgm-icon{font-size:16px;line-height:1}.bgm-toggle.is-muted{color:var(--muted)}
-@media(max-width:620px){.bgm-control{right:16px;bottom:16px}.bgm-toggle{padding:9px 12px}}
-@media(prefers-reduced-motion:reduce){.bgm-toggle{transition:none}}
-@media(prefers-color-scheme:dark){.bgm-toggle{border-color:rgba(219,239,241,.2);background:rgba(20,50,63,.92);color:#edf5f4}.bgm-toggle.is-muted{color:#c2d1d4}}
 .site-nav a{transition:color .18s ease,border-color .18s ease}
 .site-nav a:focus-visible,.button:focus-visible,input:focus-visible,button:focus-visible{outline:3px solid rgba(212,170,78,.55);outline-offset:3px}
 .nav-account{padding:8px 13px!important;border:1px solid var(--line)!important;border-radius:999px}.nav-account.account-status{background:rgba(31,95,122,.1)}

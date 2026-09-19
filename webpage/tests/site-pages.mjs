@@ -16,7 +16,7 @@ for (const file of files) {
   const html = await readFile(file, 'utf8')
   assert.equal((html.match(/data-site-header/g) || []).length, 1, `${page}: one common header`)
   assert.ok(html.includes('data-site-footer'), `${page}: footer`)
-  assert.doesNotMatch(html, /<style\b|intro\.html|avatar-contact\.html/, `${page}: retired styles/pages`)
+  assert.doesNotMatch(html, /<style\b|avatar-contact\.html/, `${page}: retired styles/pages`)
   const css = [...html.matchAll(/<link[^>]*href="([^"]+\.css[^\"]*)"/g)].map(match => match[1])
   assert.ok(css.at(-1).includes('editorial.css'), `${page}: final common theme`)
   for (const match of html.matchAll(/(?:href|src)="([^"${}]+)"/g)) {
@@ -36,13 +36,13 @@ for (const file of files) {
     vm.runInNewContext(`${source}\nrenderShell()`, context)
     assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
     for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
-      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20260919-5', `${page}: every header link uses current version`)
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20260919-6', `${page}: every header link uses current version`)
     }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)
     assert.ok(hrefs.includes(`jianwen/${loggedIn ? 'profile' : 'login'}.html`))
-    assert.equal((header.innerHTML.match(/aria-current="page"/g) || []).length, 1, `${page}: active navigation`)
+    assert.equal((header.innerHTML.match(/aria-current="page"/g) || []).length, page === 'intro.html' ? 0 : 1, `${page}: active navigation`)
   }
 }
-assert.equal(files.length, 15)
+assert.equal(files.length, 16)
 console.log(`All ${files.length} pages: complete navigation in both session states, shared theme last, local assets resolved, retired pages removed.`)
