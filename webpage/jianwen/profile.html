@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>我的 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20260919-3">
-  <link rel="stylesheet" href="../css/pages/jianwen-profile.css?v=20260919-3">
+  <link rel="stylesheet" href="../css/site.css?v=20260919-5">
+  <link rel="stylesheet" href="../css/pages/jianwen-profile.css?v=20260919-5">
 
-<link rel="stylesheet" href="../css/editorial.css?v=20260919-3">
+<link rel="stylesheet" href="../css/editorial.css?v=20260919-5">
 <link rel="icon" href="../assets/brand.webp" type="image/webp">
 </head>
 <body data-page="jianwen-profile">
@@ -17,13 +17,13 @@
     <div id="profile" class="profile-content"><div class="empty-state">加载中…</div></div>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20260919-3"></script>
-  <script src="../js/api-browser.js?v=20260919-3"></script>
+  <script src="../js/site.js?v=20260919-5"></script>
+  <script src="../js/api-browser.js?v=20260919-5"></script>
   <script>
     (async function () {
       const root = document.querySelector('#profile')
       const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
-      const articleBlock = (title, items, scrollable = false) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div${scrollable ? ' class="profile-scroll-list"' : ''}>${items.map(item => `<a class="link-item" href="article.html?id=${encodeURIComponent(item.article_id)}"><div><strong>${escapeHtml(item.title || item.article_id)}</strong><p>${escapeHtml(item.desc || '打开文章继续阅读。')}</p></div><span class="link-arrow">↗</span></a>`).join('')}</div>` : '<p class="auth-state">暂无内容。</p>'}</section>`
+      const articleBlock = (title, items, scrollable = false) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div${scrollable ? ' class="profile-scroll-list"' : ''}>${items.map(item => `<a class="link-item" href="article.html?id=${encodeURIComponent(item.article_id)}&v=20260919-5"><div><strong>${escapeHtml(item.title || item.article_id)}</strong><p>${escapeHtml(item.desc || '打开文章继续阅读。')}</p></div><span class="link-arrow">↗</span></a>`).join('')}</div>` : '<p class="auth-state">暂无内容。</p>'}</section>`
       const aiBlock = (title, items) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div class="profile-scroll-list">${items.map(item => `<article class="link-item"><div><strong>${escapeHtml(item.question)}</strong><p>${escapeHtml(item.answer || '已记录问答。')}</p>${item.sources ? `<small>${escapeHtml(item.sources)}</small>` : ''}</div></article>`).join('')}</div>` : '<p class="auth-state">暂无记录。</p>'}</section>`
       const isAjinRecord = item => /阿烬|ajin/i.test(String(item.sources || ''))
 
@@ -54,10 +54,10 @@
           location.href = 'login.html'
         })
       } catch (error) {
-        root.innerHTML = `<div class="empty-state"><strong>账号数据加载失败</strong><p>${escapeHtml(error.message)}</p><a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname)}">重新登录</a></div>`
+        root.innerHTML = `<div class="empty-state"><strong>账号数据加载失败</strong><p>${escapeHtml(error.message)}</p><a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname)}&v=20260919-5">重新登录</a></div>`
       }
     })()
   </script>
-  <script src="../js/profile-settings.js?v=20260919-3"></script>
+  <script src="../js/profile-settings.js?v=20260919-5"></script>
 </body>
 </html>

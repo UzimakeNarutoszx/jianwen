@@ -4,22 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>发现 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20260919-3">
-  <link rel="stylesheet" href="../css/pages/jianwen-discover.css?v=20260919-3">
+  <link rel="stylesheet" href="../css/site.css?v=20260919-5">
+  <link rel="stylesheet" href="../css/pages/jianwen-discover.css?v=20260919-5">
 
-<link rel="stylesheet" href="../css/editorial.css?v=20260919-3">
+<link rel="stylesheet" href="../css/editorial.css?v=20260919-5">
 <link rel="icon" href="../assets/brand.webp" type="image/webp">
 </head>
 <body data-page="jianwen-discover">
   <header data-site-header></header>
   <main class="page-shell">
     <section class="discover-hero"><div><p class="eyebrow">JIANWEN / DISCOVER</p><h1>从主题进入世界</h1><p>把分散的信息组织成可以继续阅读、比较和追问的议题路径。</p></div><div class="discover-status"><strong>探索大厅</strong><span>主题 · 专题 · 最近更新</span></div></section>
-    <div class="discover-tools"><a href="search.html">进入信息检索台&nbsp;↗</a></div>
+    <div class="discover-tools"><a href="search.html?v=20260919-5">进入信息检索台&nbsp;↗</a></div>
     <div id="discover" class="discover-layout"><div class="empty-state">加载中…</div></div>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20260919-3"></script>
-  <script src="../js/api-browser.js?v=20260919-3"></script>
+  <script src="../js/site.js?v=20260919-5"></script>
+  <script src="../js/api-browser.js?v=20260919-5"></script>
   <script>
     (async function () {
       const root = document.querySelector('#discover')
@@ -40,10 +40,10 @@
         const topicCards = topics.map(item => {
           const name = escapeHtml(item.name)
           const image = imageUrl(item.image)
-          return `<a class="topic-card" href="search.html?category=${encodeURIComponent(item.name)}">${image ? `<img class="topic-image" src="${escapeHtml(image)}" alt="" loading="lazy">` : `<span class="topic-initial" aria-hidden="true">${escapeHtml(String(item.name || '见').slice(0, 1))}</span>`}<span class="topic-name">${name}</span>${item.is_priority ? '<span class="topic-priority">重点</span>' : ''}</a>`
+          return `<a class="topic-card" href="search.html?category=${encodeURIComponent(item.name)}&v=20260919-5">${image ? `<img class="topic-image" src="${escapeHtml(image)}" alt="" loading="lazy">` : `<span class="topic-initial" aria-hidden="true">${escapeHtml(String(item.name || '见').slice(0, 1))}</span>`}<span class="topic-name">${name}</span>${item.is_priority ? '<span class="topic-priority">重点</span>' : ''}</a>`
         }).join('') || '<p class="discover-empty">暂无主题。</p>'
-        const featureCards = features.map(item => { const image = imageUrl(item.image); return `<a class="discover-feature" href="search.html?category=${encodeURIComponent(item.category_name || '')}">${image ? `<img class="feature-image" src="${escapeHtml(image)}" alt="" loading="lazy">` : ''}<span class="feature-meta"><span>${escapeHtml(item.category_name || '专题')}</span><span>${escapeHtml(item.count || 0)} 篇</span></span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.desc || '')}</p>${item.tags ? `<span class="feature-tags">${escapeHtml(item.tags)}</span>` : ''}<span class="feature-open" aria-hidden="true">↗</span></a>` }).join('') || '<p class="discover-empty">暂无专题。</p>'
-        const updateCards = updates.map((item, index) => `<a class="update-card" href="article.html?id=${encodeURIComponent(item.article_id || item.id)}"><span class="update-rank" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="update-copy"><span class="update-meta"><span>${escapeHtml(item.topic || item.category || '公共议题')}</span>${item.read_time ? `<span>${escapeHtml(item.read_time)}</span>` : ''}</span><strong>${escapeHtml(item.title)}</strong><span class="update-desc">${escapeHtml(item.desc || '')}</span>${item.source || item.sources ? `<span class="update-source">${escapeHtml(item.source || item.sources)}</span>` : ''}</span></a>`).join('') || '<p class="discover-empty">暂无更新。</p>'
+        const featureCards = features.map(item => { const image = imageUrl(item.image); return `<a class="discover-feature" href="search.html?category=${encodeURIComponent(item.category_name || '')}&v=20260919-5">${image ? `<img class="feature-image" src="${escapeHtml(image)}" alt="" loading="lazy">` : ''}<span class="feature-meta"><span>${escapeHtml(item.category_name || '专题')}</span><span>${escapeHtml(item.count || 0)} 篇</span></span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.desc || '')}</p>${item.tags ? `<span class="feature-tags">${escapeHtml(item.tags)}</span>` : ''}<span class="feature-open" aria-hidden="true">↗</span></a>` }).join('') || '<p class="discover-empty">暂无专题。</p>'
+        const updateCards = updates.map((item, index) => `<a class="update-card" href="article.html?id=${encodeURIComponent(item.article_id || item.id)}&v=20260919-5"><span class="update-rank" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><span class="update-copy"><span class="update-meta"><span>${escapeHtml(item.topic || item.category || '公共议题')}</span>${item.read_time ? `<span>${escapeHtml(item.read_time)}</span>` : ''}</span><strong>${escapeHtml(item.title)}</strong><span class="update-desc">${escapeHtml(item.desc || '')}</span>${item.source || item.sources ? `<span class="update-source">${escapeHtml(item.source || item.sources)}</span>` : ''}</span></a>`).join('') || '<p class="discover-empty">暂无更新。</p>'
         root.innerHTML = `<section class="discover-section topic-section"><div class="discover-heading"><div><p class="eyebrow">TOPIC HALL</p><h2>主题频道</h2></div><span>${topics.length} 个入口</span></div><div class="topic-grid">${topicCards}</div></section><div class="discover-columns"><section class="discover-section"><div class="discover-heading"><div><p class="eyebrow">SPECIAL FILES</p><h2>专题简报</h2></div><span>成组理解</span></div><div class="discover-feature-list">${featureCards}</div></section><section class="discover-section"><div class="discover-heading"><div><p class="eyebrow">LIVE UPDATE</p><h2>最近更新</h2></div><span>来自后端</span></div><div class="update-list">${updateCards}</div></section></div>`
       } catch (error) {
         root.innerHTML = `<div class="empty-state"><strong>发现内容加载失败</strong><p>${escapeHtml(error.message)}</p><button class="button button-secondary" type="button" onclick="location.reload()">重新加载</button></div>`

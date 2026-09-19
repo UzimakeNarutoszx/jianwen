@@ -28,11 +28,16 @@ for (const file of files) {
   for (const loggedIn of [false, true]) {
     const header = {}, footer = {}, main = { id: 'content' }
     const context = {
+      URLSearchParams,
       location: { protocol: 'http:', pathname: `/${page}` },
       localStorage: { getItem: key => key === 'jianwen_auth_token' && loggedIn ? 'valid-test-token' : null },
       document: { querySelector: selector => selector === '[data-site-header]' ? header : selector === '[data-site-footer]' ? footer : selector === 'main' ? main : {} }
     }
     vm.runInNewContext(`${source}\nrenderShell()`, context)
+    assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
+    for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20260919-5', `${page}: every header link uses current version`)
+    }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)
     assert.ok(hrefs.includes(`jianwen/${loggedIn ? 'profile' : 'login'}.html`))

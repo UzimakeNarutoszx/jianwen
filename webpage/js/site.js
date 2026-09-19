@@ -31,10 +31,14 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20260919-3'
+const SITE_VERSION = '20260919-5'
 
 function versionedPage(href) {
-  return `${href}${href.includes('?') ? '&' : '?'}v=${SITE_VERSION}`
+  const [path, hash] = href.split('#')
+  const [pathname, query = ''] = path.split('?')
+  const params = new URLSearchParams(query)
+  params.set('v', SITE_VERSION)
+  return `${pathname}?${params}${hash === undefined ? '' : `#${hash}`}`
 }
 
 function escapeHtml(value) {
@@ -91,11 +95,11 @@ function renderShell() {
   if (header) {
     header.className = 'site-header'
     header.id = 'site-navigation'
-    const portalNav = portalPages.map(page => `<a href="${root}${page.href}" ${!inJianwen && current === page.href ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
-    const ajinNav = ajinPages.map(page => `<a href="${root}${page.href}" ${!inJianwen && current === page.href ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
+    const portalNav = portalPages.map(page => `<a href="${versionedPage(`${root}${page.href}`)}" ${!inJianwen && current === page.href ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
+    const ajinNav = ajinPages.map(page => `<a href="${versionedPage(`${root}${page.href}`)}" ${!inJianwen && current === page.href ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
     const jianwenNav = jianwenPages.map(page => `<a href="${versionedPage(`${root}${page.href}`)}" ${inJianwen && isJianwenCurrent(page.key, current) ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
     const accountCurrent = inJianwen && isJianwenCurrent('account', current) ? ' aria-current="page"' : ''
-    header.innerHTML = `<div class="header-top"><a class="brand" href="${root}index.html"><span class="brand-mark"><img src="${root}assets/brand.webp" alt=""></span><span>见闻 <small>JIANWEN</small></span></a><span class="header-caption">保持好奇，也保持思考。</span><a class="nav-account" href="${accountHref}"${accountCurrent}>${token ? '我的见闻' : '登录 / 注册'} <span aria-hidden="true">↗</span></a></div><nav class="site-nav" aria-label="全站导航"><div class="nav-group"><span class="nav-label">门户</span>${portalNav}</div><div class="nav-group"><span class="nav-label">阅读</span>${jianwenNav}</div><div class="nav-group"><span class="nav-label">阿烬</span>${ajinNav}</div></nav>`
+    header.innerHTML = `<div class="header-top"><a class="brand" href="${versionedPage(`${root}index.html`)}"><span class="brand-mark"><img src="${root}assets/brand.webp" alt=""></span><span>见闻 <small>JIANWEN</small></span></a><span class="header-caption">保持好奇，也保持思考。</span><a class="nav-account" href="${accountHref}"${accountCurrent}>${token ? '我的见闻' : '登录 / 注册'} <span aria-hidden="true">↗</span></a></div><nav class="site-nav" aria-label="全站导航"><div class="nav-group">${portalNav}</div><div class="nav-group">${jianwenNav}</div><div class="nav-group">${ajinNav}</div></nav>`
     const main = document.querySelector('main')
     if (main && !document.querySelector('.skip-link')) {
       main.id ||= 'main-content'
@@ -109,7 +113,7 @@ function renderShell() {
 
   if (footer) {
     footer.className = 'site-footer'
-    footer.innerHTML = `<p>© 2026 见闻 · 个人门户</p><div class="footer-links"><a href="${root}index.html">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a></div>`
+    footer.innerHTML = `<p>© 2026 见闻 · 个人门户</p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a></div>`
   }
 }
 
@@ -200,10 +204,10 @@ stripHeadingPeriods(document)
 initializeGlobalBgm()
 if (location.pathname.endsWith('/avatar-features.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20260919-3'
+  apiScript.src = 'js/api-browser.js?v=20260919-5'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20260919-3'
+    chatScript.src = 'js/ajin-chat.js?v=20260919-5'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)
