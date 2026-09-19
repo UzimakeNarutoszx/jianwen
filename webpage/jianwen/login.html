@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20260919-3">
+  <link rel="stylesheet" href="../css/pages/jianwen-login.css?v=20260919-3">
+
+<link rel="stylesheet" href="../css/editorial.css?v=20260919-3">
+<link rel="icon" href="../assets/brand.webp" type="image/webp">
+</head>
+<body data-page="jianwen-login">
+  <header data-site-header></header>
+  <main class="page-shell auth-page">
+    <section class="auth-head">
+      <div class="auth-brand"><img src="../assets/深色.png" alt="见闻"></div>
+      <div>
+        <span class="trust-badge">后端账号同步</span>
+        <p class="eyebrow">JIANWEN / ACCOUNT</p>
+        <h1 id="auth-title">登录见闻</h1>
+        <p id="auth-subtitle">使用见闻软件中的手机号和密码登录。</p>
+        <p class="auth-session" id="auth-session" hidden>当前已有有效会话。<a href="profile.html">进入个人中心 →</a></p>
+      </div>
+    </section>
+
+    <div class="auth-tabs" role="tablist" aria-label="账户操作">
+      <button class="auth-tab active" data-mode="login" type="button" role="tab" aria-selected="true">密码登录</button>
+      <button class="auth-tab" data-mode="register" type="button" role="tab" aria-selected="false">注册</button>
+      <button class="auth-tab" data-mode="forgot" type="button" role="tab" aria-selected="false">重置密码</button>
+    </div>
+
+    <form id="auth-form" class="auth-panel" novalidate>
+      <label class="auth-field register-only"><span>昵称</span><input id="nickname" maxlength="16" autocomplete="nickname" placeholder="用于展示的名字"></label>
+      <label class="auth-field"><span>手机号</span><input id="phone" inputmode="numeric" maxlength="11" autocomplete="tel" placeholder="请输入手机号" required></label>
+      <label class="auth-field"><span id="password-label">密码</span><input id="password" type="password" minlength="6" maxlength="32" autocomplete="current-password" placeholder="请输入密码" required></label>
+      <label class="auth-field confirm-only"><span>确认密码</span><input id="confirm-password" type="password" minlength="6" maxlength="32" autocomplete="new-password" placeholder="请再次输入密码"></label>
+      <label class="auth-field code-only"><span>验证码</span><span class="sms-row"><input id="sms-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="请输入 6 位验证码"><button id="sms-button" class="button button-secondary sms-button" type="button">获取验证码</button></span></label>
+      <label class="agreement register-only"><input id="agreement" type="checkbox"><span>已阅读并同意用户协议和隐私政策</span></label>
+      <p id="auth-state" class="auth-state" role="status" aria-live="polite">&nbsp;</p>
+      <button id="submit-button" class="button button-primary auth-submit" type="submit">登录</button>
+    </form>
+
+    <div class="auth-footer"><span>账号、收藏、阅读历史和问答记录均与见闻后端同步</span><button id="switch-button" type="button">没有账号，去注册</button></div>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20260919-3"></script>
+  <script src="../js/api-browser.js?v=20260919-3"></script>
+  <script src="../js/login.js?v=20260919-3"></script>
+</body>
+</html>

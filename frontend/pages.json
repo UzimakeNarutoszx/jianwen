@@ -1,0 +1,166 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "见闻",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/today/today",
+      "style": {
+        "navigationBarTitleText": "见闻",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/discover/discover",
+      "style": {
+        "navigationBarTitleText": "发现",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/ask/ask",
+      "style": {
+        "navigationBarTitleText": "问问",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "登录注册",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/article/detail",
+      "style": {
+        "navigationBarTitleText": "文章详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/classics/detail",
+      "style": {
+        "navigationBarTitleText": "经典文献",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/classics/reader",
+      "style": {
+        "navigationBarTitleText": "电子书",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/category/category",
+      "style": {
+        "navigationBarTitleText": "分类",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/search/search",
+      "style": {
+        "navigationBarTitleText": "搜索",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/history",
+      "style": {
+        "navigationBarTitleText": "最近看过",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/ask-records",
+      "style": {
+        "navigationBarTitleText": "问问记录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/font-size",
+      "style": {
+        "navigationBarTitleText": "字号",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/legal",
+      "style": {
+        "navigationBarTitleText": "隐私政策与用户协议",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/sources",
+      "style": {
+        "navigationBarTitleText": "内容来源说明",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "见闻",
+    "navigationBarBackgroundColor": "#F3F6F8",
+    "backgroundColor": "#F3F6F8"
+  },
+  "tabBar": {
+    "color": "#8A949E",
+    "selectedColor": "#1F5F7A",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "height": "66px",
+    "fontSize": "13px",
+    "iconWidth": "26px",
+    "spacing": "4px",
+    "list": [
+      {
+        "pagePath": "pages/today/today",
+        "text": "今日",
+        "iconPath": "static/icons/tab-today.png",
+        "selectedIconPath": "static/icons/tab-today-active.png"
+      },
+      {
+        "pagePath": "pages/discover/discover",
+        "text": "发现",
+        "iconPath": "static/icons/tab-discover.png",
+        "selectedIconPath": "static/icons/tab-discover-active.png"
+      },
+      {
+        "pagePath": "pages/ask/ask",
+        "text": "问问",
+        "iconPath": "static/icons/tab-ask.png",
+        "selectedIconPath": "static/icons/tab-ask-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/icons/tab-profile.png",
+        "selectedIconPath": "static/icons/tab-profile-active.png"
+      }
+    ]
+  },
+  "uniIdRouter": {}
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>搜索 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20260919-3">
+  <link rel="stylesheet" href="../css/pages/jianwen-search.css?v=20260919-3">
+
+<link rel="stylesheet" href="../css/editorial.css?v=20260919-3">
+<link rel="icon" href="../assets/brand.webp" type="image/webp">
+</head>
+<body data-page="jianwen-search">
+  <header data-site-header></header>
+  <main class="page-shell">
+    <section class="search-hero"><p class="eyebrow">JIANWEN / SEARCH</p><h1>搜索见闻内容</h1><p>用关键词定位文章，再沿着主题和来源继续阅读。</p></section>
+    <form id="search-form" class="link-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="query" type="search" placeholder="搜索文章、主题或来源" aria-label="搜索文章"></label><button class="button button-primary" type="submit">搜索</button></form>
+    <div id="categories" class="filter-row" aria-label="内容分类"></div>
+    <div class="search-summary"><span id="result-count">等待搜索</span><button id="clear-search" class="search-clear" type="button" hidden>清除条件</button></div>
+    <div id="results" class="link-groups" aria-live="polite"><div class="empty-state"><strong>从一个关键词开始</strong><p>搜索感兴趣的话题，或选择上方主题浏览相关文章。</p></div></div>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20260919-3"></script>
+  <script src="../js/api-browser.js?v=20260919-3"></script>
+  <script>
+    (function () {
+      const query = document.querySelector('#query')
+      const results = document.querySelector('#results')
+      const categories = document.querySelector('#categories')
+      const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+      let category = new URLSearchParams(location.search).get('category') || ''
+      let searchVersion = 0
+
+      async function run() {
+        const version = ++searchVersion
+        results.innerHTML = '<div class="empty-state">加载中…</div>'
+        document.querySelector('#result-count').textContent = '搜索中…'
+        document.querySelector('#clear-search').hidden = !(query.value.trim() || category)
+        try {
+          const data = await window.jianwenApi.articles({ q: query.value.trim(), category })
+          if (version !== searchVersion) return
+          document.querySelector('#result-count').textContent = `${data.length} 条结果`
+          document.querySelector('#clear-search').hidden = !(query.value.trim() || category)
+          results.innerHTML = data.length ? data.map(item => `<article class="search-result"><p class="eyebrow">${escapeHtml(item.topic || item.category || '见闻')}</p><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.desc || '打开文章查看完整内容与来源依据。')}</p><a class="text-link" href="article.html?id=${encodeURIComponent(item.article_id || item.id)}">阅读详情</a></article>`).join('') : '<div class="empty-state"><strong>没有找到相关内容</strong><p>换个关键词，或从上方主题频道开始浏览。</p></div>'
+        } catch (error) {
+          if (version !== searchVersion) return
+          document.querySelector('#result-count').textContent = '暂时无法获取结果'
+          results.innerHTML = `<div class="empty-state"><strong>搜索服务暂不可用</strong><p>${escapeHtml(error.message)}</p><a class="button button-secondary" href="index.html">返回今日</a></div>`
+        }
+      }
+
+      async function loadCategories() {
+        try {
+          const data = await window.jianwenApi.categories()
+          categories.innerHTML = `<button class="filter-button ${category ? '' : 'active'}" type="button" data-category="">全部</button>${data.map(item => `<button class="filter-button ${item.name === category ? 'active' : ''}" type="button" data-category="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join('')}`
+        } catch (error) {
+          categories.innerHTML = `<span class="auth-state">${escapeHtml(error.message)}</span>`
+        }
+      }
+
+      categories.addEventListener('click', event => {
+        const button = event.target.closest('[data-category]')
+        if (!button) return
+        category = button.dataset.category
+        query.value = ''
+        categories.querySelectorAll('button').forEach(item => item.classList.toggle('active', item === button))
+        run()
+      })
+      document.querySelector('#search-form').addEventListener('submit', event => {
+        event.preventDefault()
+        category = ''
+        categories.querySelectorAll('button').forEach(item => item.classList.toggle('active', item.dataset.category === ''))
+        run()
+      })
+      document.querySelector('#clear-search').addEventListener('click', () => {
+        searchVersion += 1
+        query.value = ''
+        category = ''
+        categories.querySelectorAll('button').forEach(item => item.classList.toggle('active', item.dataset.category === ''))
+        results.innerHTML = '<div class="empty-state">输入关键词开始检索。</div>'
+        document.querySelector('#result-count').textContent = '等待搜索'
+        document.querySelector('#clear-search').hidden = true
+      })
+
+      loadCategories()
+      if (category) run()
+    })()
+  </script>
+</body>
+</html>

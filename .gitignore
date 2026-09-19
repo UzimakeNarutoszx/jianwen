@@ -1,0 +1,49 @@
+# Local credentials and private configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+
+# Dependencies, build outputs and caches
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+unpackage/
+.coverage
+htmlcov/
+
+# Runtime data, uploads, diagnostics and generated verification artifacts
+logs/
+*.log
+*.pid
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+/backend/uploads/
+/output/
+/.playwright-cli/
+test-results/
+playwright-report/
+
+# Local backups and editor/OS files
+/webpage - 副本/
+backups/
+*.bak
+*.backup
+*.tmp
+.DS_Store
+Thumbs.db
+.idea/

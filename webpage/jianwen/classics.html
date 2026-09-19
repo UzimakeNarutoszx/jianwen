@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>原典书架 · 见闻</title>
+  <meta name="description" content="从原文开始理解经典。在线阅读章节，保存每本书的阅读位置，回到思想的源头。">
+  <link rel="stylesheet" href="../css/site.css?v=20260919-3">
+  <link rel="stylesheet" href="../css/pages/jianwen-classics.css?v=20260919-3">
+
+<link rel="stylesheet" href="../css/editorial.css?v=20260919-3">
+<link rel="icon" href="../assets/brand.webp" type="image/webp">
+</head>
+<body data-page="jianwen-classics">
+  <header data-site-header></header>
+  <main class="page-shell">
+    <section class="classics-hero"><div><p class="eyebrow">JIANWEN / CLASSICS</p><h1>回到思想的源头。</h1><p>从原文开始理解。在一章一节之间，与经典认真相遇。</p></div><div class="classics-mark"><strong>原典书架</strong>在线逐章阅读 · 自动记住进度</div></section>
+    <div class="classics-tools"><input id="book-search" class="classics-search" type="search" aria-label="搜索书名、作者或类别" placeholder="搜索书名、作者或类别" autocomplete="off"><span id="book-count" class="classics-count" role="status">正在整理书架…</span></div>
+    <div id="books" class="work-grid" aria-busy="true"><div class="empty-state classics-empty" role="status">加载中…</div></div>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20260919-3"></script>
+  <script src="../js/api-browser.js?v=20260919-3"></script>
+  <script>
+    (async function () {
+      const root = document.querySelector('#books')
+      const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
+      const safeUrl = value => { try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) ? url.href : '' } catch { return '' } }
+      let books = []
+      function render() {
+        const query = document.querySelector('#book-search').value.trim().toLocaleLowerCase()
+        const filtered = books.filter(item => [item.title, item.author, item.category].join(' ').toLocaleLowerCase().includes(query))
+        document.querySelector('#book-count').textContent = query ? `找到 ${filtered.length} 本经典` : `${books.length} 本经典 · 阅读进度保存在此设备`
+        root.innerHTML = filtered.map(item => {
+          const sourceUrl = safeUrl(item.external_url)
+          let saved = null
+          try { saved = JSON.parse(localStorage.getItem(`jianwen_web_reader_${encodeURIComponent(item.book_id)}`) || 'null') } catch {}
+          return `<article class="classic-card"><span class="classic-index" aria-hidden="true">${String(books.indexOf(item) + 1).padStart(2, '0')}</span><div><p class="eyebrow">${escapeHtml(item.category || '经典')}</p><h2>${escapeHtml(item.title)}</h2><p class="classic-author">${escapeHtml(item.author || '经典文献')}</p><p class="classic-description">${escapeHtml(item.description || '从原典出发，建立可靠的阅读坐标。')}</p></div><div><div class="classic-actions"><a class="classic-open" href="reader.html?book=${encodeURIComponent(item.book_id)}">${saved?.chapterId ? '继续阅读' : '打开阅读'} →</a>${sourceUrl ? `<a class="text-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(sourceUrl)}">原始出处 ↗</a>` : ''}</div>${saved?.chapterTitle ? `<p class="classic-progress">上次读到 · ${escapeHtml(saved.chapterTitle)}</p>` : ''}</div></article>`
+        }).join('') || `<div class="empty-state classics-empty">${query ? '没有找到匹配的经典，试试其他书名或作者。' : '暂无经典文献。'}</div>`
+      }
+      document.querySelector('#book-search').addEventListener('input', render)
+      window.addEventListener('pageshow', () => { if (books.length) render() })
+      async function load() {
+        root.setAttribute('aria-busy', 'true')
+        try { books = await window.jianwenApi.classicBooks(); render() }
+        catch (error) {
+          document.querySelector('#book-count').textContent = '书架暂时无法加载'
+          root.innerHTML = `<div class="empty-state classics-empty"><strong>经典文献加载失败</strong><p>${escapeHtml(error.message)}</p><button type="button" class="filter-button" id="retry-books">重新加载</button></div>`
+          document.querySelector('#retry-books').addEventListener('click', load)
+        } finally { root.setAttribute('aria-busy', 'false') }
+      }
+      await load()
+    })()
+  </script>
+</body>
+</html>
