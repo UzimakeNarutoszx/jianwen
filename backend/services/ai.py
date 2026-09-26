@@ -22,11 +22,11 @@ class AIResult:
 
 
 def _open_request(request: urllib.request.Request):
-    if settings.ark_use_env_proxy:
-        return urllib.request.urlopen(request, timeout=settings.ark_timeout_seconds)
+    if settings.ai_use_env_proxy:
+        return urllib.request.urlopen(request, timeout=settings.ai_timeout_seconds)
     return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
         request,
-        timeout=settings.ark_timeout_seconds,
+        timeout=settings.ai_timeout_seconds,
     )
 
 
@@ -39,19 +39,19 @@ def _build_payload(
     max_tokens: int | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "model": model or settings.ark_model,
+        "model": model or settings.ai_model,
         "messages": messages,
     }
-    if settings.ark_thinking_disabled:
+    if settings.ai_thinking_disabled:
         payload["thinking"] = {"type": "disabled"}
     if temperature is not None:
         payload["temperature"] = temperature
-    elif settings.ark_temperature is not None:
-        payload["temperature"] = settings.ark_temperature
+    elif settings.ai_temperature is not None:
+        payload["temperature"] = settings.ai_temperature
     if top_p is not None:
         payload["top_p"] = top_p
-    elif settings.ark_top_p is not None:
-        payload["top_p"] = settings.ark_top_p
+    elif settings.ai_top_p is not None:
+        payload["top_p"] = settings.ai_top_p
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     return payload
@@ -109,8 +109,8 @@ def chat_completions(
     top_p: float | None = None,
     max_tokens: int | None = None,
 ) -> AIResult:
-    if not settings.ark_api_key:
-        raise AIClientError("ARK_API_KEY is missing")
+    if not settings.ai_api_key:
+        raise AIClientError("AI_API_KEY is missing")
 
     payload = _build_payload(
         messages,
@@ -121,11 +121,11 @@ def chat_completions(
     )
 
     request = urllib.request.Request(
-        settings.ark_chat_completions_url,
+        settings.ai_chat_completions_url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.ark_api_key}",
+            "Authorization": f"Bearer {settings.ai_api_key}",
         },
         method="POST",
     )
@@ -135,14 +135,14 @@ def chat_completions(
             raw_text = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")
-        raise AIClientError(f"Ark API returned HTTP {exc.code}: {details or exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise AIClientError(f"Ark API request failed: {exc.reason}") from exc
+        raise AIClientError(f"AI API returned HTTP {exc.code}: {details or exc.reason}") from exc
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise AIClientError(f"AI API request failed: {getattr(exc, 'reason', str(exc))}") from exc
 
     try:
         raw = json.loads(raw_text)
     except json.JSONDecodeError as exc:
-        raise AIClientError(f"Ark API returned invalid JSON: {raw_text[:500]}") from exc
+        raise AIClientError(f"AI API returned invalid JSON: {raw_text[:500]}") from exc
 
     text = _extract_text(raw)
     return AIResult(text=text, raw=raw)
@@ -156,8 +156,8 @@ def stream_chat_completions(
     top_p: float | None = None,
     max_tokens: int | None = None,
 ) -> Iterator[str]:
-    if not settings.ark_api_key:
-        raise AIClientError("ARK_API_KEY is missing")
+    if not settings.ai_api_key:
+        raise AIClientError("AI_API_KEY is missing")
 
     payload = _build_payload(
         messages,
@@ -169,11 +169,11 @@ def stream_chat_completions(
     payload["stream"] = True
 
     request = urllib.request.Request(
-        settings.ark_chat_completions_url,
+        settings.ai_chat_completions_url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.ark_api_key}",
+            "Authorization": f"Bearer {settings.ai_api_key}",
         },
         method="POST",
     )
@@ -199,9 +199,9 @@ def stream_chat_completions(
                     yield text
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")
-        raise AIClientError(f"Ark API returned HTTP {exc.code}: {details or exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise AIClientError(f"Ark API request failed: {exc.reason}") from exc
+        raise AIClientError(f"AI API returned HTTP {exc.code}: {details or exc.reason}") from exc
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise AIClientError(f"AI API request failed: {getattr(exc, 'reason', str(exc))}") from exc
 
 
 def ask(

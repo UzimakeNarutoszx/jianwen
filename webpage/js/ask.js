@@ -44,6 +44,18 @@
   if (articleId) { input.placeholder = '围绕这篇文章提出一个问题'; state.textContent = '已带入文章上下文' }
   if (initialQuestion) input.value = initialQuestion
   function renderAnswer() { renderTimer = null; output.innerHTML = `<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy">${markdown(answer)}</div></article>` }
+  function restoreAnswer() {
+    if (initialQuestion) return
+    try {
+      const saved = JSON.parse(localStorage.getItem('jianwen_web_ask_last') || 'null')
+      if (!saved || !saved.question || !saved.answer) return
+      lastQuestion = saved.question; answer = saved.answer; answerChanged = true; input.value = saved.question
+      renderAnswer(); status.textContent = '已恢复上一次问问记录'
+    } catch { localStorage.removeItem('jianwen_web_ask_last') }
+  }
+  function saveAnswer() {
+    if (lastQuestion && answer) localStorage.setItem('jianwen_web_ask_last', JSON.stringify({ question: lastQuestion, answer, savedAt: Date.now() }))
+  }
   function updateAnswer(text) { answer = text; status.textContent = '正在生成回答…'; if (!renderTimer) renderTimer = setTimeout(renderAnswer,80) }
   document.querySelector('.prompt-grid').addEventListener('click', event => { const b = event.target.closest('.prompt-chip'); if (!b || requestActive) return; input.value = b.dataset.question || b.textContent.trim(); input.focus() })
   async function loadPrompts() {
@@ -68,13 +80,13 @@
       const response = await fetch(`${window.jianwenApi.baseUrl()}/api/v1/content/ask/stream`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ question, article_id:articleId }), signal:controller.signal })
       if (!response.ok) { if (response.status === 401) window.clearSession(); const data = await response.json().catch(() => ({})); throw new Error(typeof data.detail === 'string' ? data.detail : `请求失败（${response.status}），请稍后重试。`) }
       await consumeStream(response,updateAnswer,controller.signal)
-      status.textContent = '回答接收完毕 · 请结合原始资料核对'
+      status.textContent = '回答接收完毕 · 请结合原始资料核对'; saveAnswer()
     } catch (error) {
       const message = stopped ? '已停止生成，已收到的内容已保留。' : timedOut ? '等待回答超时，请稍后重试。' : error.message || '网络连接中断，请稍后重试。'
       status.textContent = message; retry.hidden = false
       if (!answer) output.innerHTML = `<div class="answer-placeholder"><strong>${stopped ? '已停止生成' : '暂时无法回答'}</strong><p>${escapeHtml(message)}</p>${window.getToken() ? '' : `<a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname + location.search)}">重新登录</a>`}</div>`
     } finally {
-      clearTimeout(timer); clearTimeout(renderTimer); renderTimer = null; if (answer) renderAnswer()
+      clearTimeout(timer); clearTimeout(renderTimer); renderTimer = null; if (answer) renderAnswer(); saveAnswer()
       requestActive = false; output.removeAttribute('aria-busy'); submit.disabled = false; input.readOnly = false; stop.hidden = true; actions.hidden = false; copy.disabled = !answer
     }
   }
@@ -83,5 +95,5 @@
   retry.addEventListener('click', () => { input.value = lastQuestion; ask(lastQuestion) })
   copy.addEventListener('click', async () => { if (!answer) return; try { await navigator.clipboard.writeText(answer); copy.textContent = '已复制' } catch { status.textContent = '浏览器未允许访问剪贴板，请选中回答后复制。' } })
   window.addEventListener('pagehide', () => controller?.abort())
-  loadPrompts()
+  restoreAnswer(); loadPrompts()
 })()

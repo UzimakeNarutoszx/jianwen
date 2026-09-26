@@ -239,6 +239,20 @@ def _local_answer(db: Session, question: str) -> AiAnswerResponse | None:
     return None
 
 
+def _ajin_fallback_answer(question: str) -> AiAnswerResponse:
+    """Keep 阿烬 usable when the configured external model is unavailable."""
+    text = question.strip()
+    if any(word in text for word in ("架子鼓", "鼓", "音乐", "BGM")):
+        answer = "可以先把目标拆小：选一首熟悉的歌，先用慢速练底鼓和军鼓的基本拍，再逐步加上镲片和填充。录一遍回听，比盯着谱子更容易发现节奏问题。"
+    elif any(word in text for word in ("代码", "Python", "编程", "项目")):
+        answer = "先把问题缩成一个能运行的小例子，再逐步加回原来的功能。遇到报错时先看完整错误信息和出错位置，修一个变量后立刻重跑，别一次改很多处。"
+    elif any(word in text for word in ("数学", "方程", "几何")):
+        answer = "先把已知条件和要证明的目标写清楚，再找它们之间最直接的关系。卡住时回到定义或画图，通常比继续套公式更快。"
+    else:
+        answer = "我现在暂时接不上外部模型，但这个问题可以继续聊。先把你最想解决的一个具体点说出来，我们从那里往下拆。"
+    return AiAnswerResponse(answer=answer, sources="阿烬本地应急回复；外部 AI 服务恢复后将继续提供完整对话。")
+
+
 def _today_usage_window() -> tuple[datetime, datetime]:
     start = datetime.combine(date.today(), time.min)
     return start, start + timedelta(days=1)
@@ -495,7 +509,14 @@ def answer_question(
         result = ask_ai(question, context=_build_ask_context(db, payload.article_id))
     except AIClientError as exc:
         logger.warning("Ark AI request failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 服务暂时不可用，请稍后再试")
+        fallback = _local_answer(db, question)
+        if fallback is None:
+            fallback = AiAnswerResponse(
+                answer="外部 AI 服务暂时不可用。你可以先根据页面中的文章和来源继续阅读，稍后再试。",
+                sources="见闻本地应急回复",
+            )
+        _save_ai_usage(db, current_user, question, fallback.answer, fallback.sources)
+        return fallback
 
     if not result.text:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
@@ -532,7 +553,9 @@ def chat_with_ajin(
         result = ask_ajin(question, history=payload.history)
     except AIClientError as exc:
         logger.warning("Ajin AI request failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="阿烬暂时无法回应，请稍后再试") from exc
+        fallback = _ajin_fallback_answer(question)
+        _save_ai_usage(db, current_user, question, fallback.answer, fallback.sources)
+        return fallback
 
     if not result.text:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="阿烬没有返回有效回答")
@@ -561,7 +584,16 @@ def stream_answer_question(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
     except AIClientError as exc:
         logger.warning("Ark AI stream request failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 服务暂时不可用，请稍后再试")
+        fallback = _local_answer(db, question)
+        if fallback is None:
+            fallback = AiAnswerResponse(
+                answer="外部 AI 服务暂时不可用。你可以先根据页面中的文章和来源继续阅读，稍后再试。",
+                sources="见闻本地应急回复",
+            )
+        # The first chunk is already assigned below; keep the iterator empty
+        # so the fallback is not emitted twice.
+        stream = iter(())
+        first_chunk = fallback.answer
 
     def generate():
         chunks: list[str] = [first_chunk]

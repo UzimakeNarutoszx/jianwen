@@ -2,6 +2,7 @@ const FAVORITE_KEY = 'jianwen_favorite_articles'
 const READ_KEY = 'jianwen_read_articles'
 const HISTORY_KEY = 'jianwen_article_history'
 const ASK_RECORD_KEY = 'jianwen_ask_records'
+const ASK_SESSION_KEY = 'jianwen_ask_session'
 
 function readArray(key) {
   const value = uni.getStorageSync(key)
@@ -78,4 +79,17 @@ export function addAskRecord(question, answer, sources = '') {
 
 export function getAskRecords() {
   return readArray(ASK_RECORD_KEY)
+}
+
+export function getAskSession() {
+  const value = uni.getStorageSync(ASK_SESSION_KEY)
+  return value && typeof value === 'object' ? value : { messages: [], linkedArticle: null }
+}
+
+export function saveAskSession(session) {
+  uni.setStorageSync(ASK_SESSION_KEY, {
+    messages: Array.isArray(session?.messages) ? session.messages.slice(-40) : [],
+    linkedArticle: session?.linkedArticle || null,
+    savedAt: Date.now()
+  })
 }

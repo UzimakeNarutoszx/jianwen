@@ -8,7 +8,7 @@
 
     <view class="auth-head">
       <view class="brand-card">
-        <image class="brand-logo" src="/static/浅色.png" mode="aspectFit" />
+        <image class="brand-logo" src="/static/brand-icon.png" mode="aspectFit" />
       </view>
       <view class="head-copy">
         <text class="trust-badge">安全同步</text>

@@ -167,7 +167,7 @@ export default {
     },
     accountActionText() { return this.authUser ? '编辑' : '登录' },
     avatarImage() {
-      return this.authUser && this.authUser.avatar_path ? buildFileUrl(this.authUser.avatar_path) : '/static/深色.png'
+      return this.authUser && this.authUser.avatar_path ? buildFileUrl(this.authUser.avatar_path) : '/static/brand-icon.png'
     },
     groupedSettings() {
       const groups = [

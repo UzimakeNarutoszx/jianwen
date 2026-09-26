@@ -4,7 +4,7 @@
     <view class="ambient-glow glow-blue"></view>
     <view class="brand-panel">
       <view class="brand-icon-wrap">
-        <image class="brand-icon" src="/static/icons/tab-today-active.png" mode="aspectFit" />
+        <image class="brand-icon" src="/static/brand-icon.png" mode="aspectFit" />
       </view>
       <text class="brand-title">见闻</text>
       <text class="subtle loading-copy">正在整理今日简报</text>

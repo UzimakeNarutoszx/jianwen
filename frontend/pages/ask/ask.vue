@@ -16,7 +16,7 @@
         <view class="hero-grid"></view>
         <view class="hero-accent-line"></view>
         <view class="ask-orb">
-          <image class="ask-orb-icon" src="/static/浅色.png" mode="aspectFit" />
+          <image class="ask-orb-icon" src="/static/brand-icon.png" mode="aspectFit" />
         </view>
         <view class="ask-hero-copy">
           <text class="hero-kicker">AI RESEARCH DESK</text>
@@ -152,7 +152,7 @@
 import { askQuestion, askQuestionStream, getAskBootstrap } from '@/utils/api.js'
 import { markdownToHtml } from '@/utils/markdown.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
-import { addAskRecord } from '@/utils/user-data.js'
+import { addAskRecord, getAskSession, saveAskSession } from '@/utils/user-data.js'
 
 let messageId = 3
 
@@ -193,16 +193,26 @@ export default {
     }
   },
   onHide() {
+    saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     this.stopThinkingTimer()
     this.clearStreamRenderTimer()
     this.clearBottomScrollTimer()
   },
   onUnload() {
+    saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     this.stopThinkingTimer()
     this.clearStreamRenderTimer()
     this.clearBottomScrollTimer()
   },
   onShow() {
+    if (!this.messages.length) {
+      const session = getAskSession()
+      this.messages = Array.isArray(session.messages) ? session.messages : []
+      this.linkedArticle = session.linkedArticle || null
+      this.hasAsked = this.messages.some(message => message.role === 'user')
+      const lastUser = [...this.messages].reverse().find(message => message.role === 'user')
+      if (lastUser) this.activeNavId = lastUser.id
+    }
     this.loadSettings()
     this.loadContent()
     this.consumePendingAskContext()
@@ -274,6 +284,7 @@ export default {
           : `来自问问记录：正在围绕「${pending.title || '历史问题'}」继续追问`,
         sources: pending.sources || ''
       })
+      saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
       this.scrollToBottom({ duration: 0 })
       if (pending.question) {
         this.draft = pending.question
@@ -303,6 +314,7 @@ export default {
         sources: '',
         thinkingLabel: '已思考 0 秒'
       })
+      saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
       this.scrollToBottom({ duration: 120 })
       this.thinkingMessageId = pendingId
       this.startThinkingTimer()
@@ -372,6 +384,7 @@ export default {
         ...this.messages[index],
         ...patch
       })
+      saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     },
     queueAssistantText(id, text) {
       this.streamRenderMessageId = id

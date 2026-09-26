@@ -7,7 +7,7 @@
 
       <view class="topbar">
         <view class="brand-lockup">
-          <image class="brand-mark" src="/static/icons/tab-today-active.png" mode="aspectFit" />
+          <image class="brand-mark" src="/static/brand-icon.png" mode="aspectFit" />
           <view>
             <text class="brand-title">见闻</text>
             <text class="date-text">{{ todayText }}</text>

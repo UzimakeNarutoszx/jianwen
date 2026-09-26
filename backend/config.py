@@ -46,21 +46,18 @@ def _env_bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     project_name: str = "见闻 AI"
-    ark_api_base_url: str = os.getenv(
-        "ARK_API_BASE_URL",
-        "https://ark.cn-beijing.volces.com/api/v3",
-    )
-    ark_api_key: str = os.getenv("ARK_API_KEY", "")
-    ark_model: str = os.getenv("ARK_MODEL", "doubao-seed-1-8-251228")
-    ark_timeout_seconds: int = int(os.getenv("ARK_TIMEOUT_SECONDS", "60"))
-    ark_use_env_proxy: bool = _env_bool("ARK_USE_ENV_PROXY", True)
-    ark_thinking_disabled: bool = _env_bool("ARK_THINKING_DISABLED", True)
-    ark_temperature: float = float(os.getenv("ARK_TEMPERATURE", "0.2"))
-    ark_top_p: float = float(os.getenv("ARK_TOP_P", "0.9"))
+    ai_api_base_url: str = os.getenv("AI_API_BASE_URL", "https://api.aicodewith.com/v1")
+    ai_api_key: str = os.getenv("AI_API_KEY", "")
+    ai_model: str = os.getenv("AI_MODEL", "deepseek-flash")
+    ai_timeout_seconds: int = int(os.getenv("AI_TIMEOUT_SECONDS", "180"))
+    ai_use_env_proxy: bool = _env_bool("AI_USE_ENV_PROXY", False)
+    ai_thinking_disabled: bool = _env_bool("AI_THINKING_DISABLED", True)
+    ai_temperature: float = float(os.getenv("AI_TEMPERATURE", "0.2"))
+    ai_top_p: float = float(os.getenv("AI_TOP_P", "0.9"))
 
     @property
-    def ark_chat_completions_url(self) -> str:
-        return f"{self.ark_api_base_url.rstrip('/')}/chat/completions"
+    def ai_chat_completions_url(self) -> str:
+        return f"{self.ai_api_base_url.rstrip('/')}/chat/completions"
 
 
 settings = Settings()

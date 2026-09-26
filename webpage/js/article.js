@@ -32,9 +32,10 @@
     </section>`
   }
 
-  function renderInsights(value) {
+  function renderInsights(value, sections) {
     const impacts = String(value || '普通用户 / 相关从业者').split('/').map(item => item.trim()).filter(Boolean)
-    const timeline = ['先读摘要', '理解背景', '核对来源', '继续追问']
+    const timeline = (Array.isArray(sections) ? sections : []).map(section => section.heading || section.title).filter(Boolean).slice(0, 4)
+    if (!timeline.length) timeline.push('先读事实', '再看影响', '最后核对来源')
     return `<div class="insight-grid">
       <section class="article-card"><div class="module-head"><h2>影响范围</h2></div><div class="impact-tags">${impacts.map(item => `<span class="impact-tag">${escapeHtml(item)}</span>`).join('')}</div></section>
       <section class="article-card"><div class="module-head"><h2>阅读路线</h2></div><ol class="article-timeline">${timeline.map((item, index) => `<li class="timeline-step"><span class="timeline-marker">${index + 1}</span><span>${item}</span></li>`).join('')}</ol></section>
@@ -132,7 +133,7 @@
     document.title = `${article.title} · 见闻`
     hero.innerHTML = `<div class="article-topline"><span class="article-topic">${escapeHtml(topic)}</span><span class="article-kicker">深度解读报告</span></div><h1>${escapeHtml(article.title || '未命名文章')}</h1><p class="article-deck">${escapeHtml(article.desc || '阅读背景、影响与来源依据。')}</p><div class="article-meta"><span>${escapeHtml(readTime)} · AI 辅助整理</span><span>${escapeHtml(source)}</span></div>`
     body.className = 'article-stack'
-    body.innerHTML = `${renderSummary(article.summary)}${renderInsights(article.relation)}${renderSections(article.sections, article.content)}${renderAsk()}${renderReferences(article.references)}<div class="article-actions"><a class="button button-secondary" href="index.html">返回今日</a><a class="button button-primary" href="ask.html?article=${encodeURIComponent(articleId)}">继续追问</a></div>`
+    body.innerHTML = `${renderSummary(article.summary)}${renderInsights(article.relation, article.sections)}${renderSections(article.sections, article.content)}${renderAsk()}${renderReferences(article.references)}<div class="article-actions"><a class="button button-secondary" href="index.html">返回今日</a><a class="button button-primary" href="ask.html?article=${encodeURIComponent(articleId)}">继续追问</a></div>`
     bindArticleActions()
 
     const related = document.createElement('section')
