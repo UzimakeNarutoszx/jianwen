@@ -1,5 +1,5 @@
 (function () {
-  const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000'
+  const DEFAULT_API_BASE_URL = `http://${window.location.hostname || '127.0.0.1'}:8000`
   const TOKEN_KEY = 'jianwen_auth_token'
   const USER_KEY = 'jianwen_auth_user'
   const EXPIRES_KEY = 'jianwen_login_expires_at'
@@ -101,7 +101,7 @@
       response = await fetch(`${baseUrl()}${path}`, Object.assign(requestOptions, { headers }))
     } catch (error) {
       if (error && error.name === 'AbortError') throw new Error(`请求超时：${path}`)
-      throw new Error('无法连接见闻服务，请确认后端已在 127.0.0.1:8000 启动。')
+      throw new Error(`无法连接见闻服务，请确认后端已在 ${baseUrl()} 启动。`)
     } finally {
       clearTimeout(timeoutId)
     }

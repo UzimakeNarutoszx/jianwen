@@ -6,10 +6,15 @@ import json
 import logging
 import re
 import threading
-import time as time_module
 import urllib.error
 import urllib.request
+import ssl
 from zoneinfo import ZoneInfo
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
 
 from sqlalchemy.orm import Session
 
@@ -29,6 +34,7 @@ IDEAL_SECTION_LENGTH = 210
 MAX_SECTION_LENGTH = 300
 ARTICLE_SECTION_COUNT = 3
 SOURCE_TIMEOUT_SECONDS = 10
+SCHEDULER_POLL_SECONDS = 60
 SOURCE_LIST_URLS = (
     "https://www.gov.cn/yaowen/liebiao/YAOWENLIEBIAO.json",
     "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
@@ -110,15 +116,28 @@ def stop_daily_article_scheduler() -> None:
 
 
 def _daily_article_scheduler_loop() -> None:
+    # Polling also recovers from reloads, sleep/wake, and a missed exact 06:00
+    # wake-up. A failed refresh remains eligible on the next poll.
+    processed_date: date | None = None
     while not _scheduler_stop_event.is_set():
-        wait_seconds = max(1, (_next_rollover_datetime() - get_content_datetime()).total_seconds())
+        current_date = get_content_date()
+        if current_date != processed_date:
+            try:
+                scheduled_daily_article_refresh()
+            except Exception:
+                logger.exception("Scheduled daily article refresh failed for %s", current_date)
+                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS):
+                    break
+                continue
+            processed_date = current_date
+            continue
+
+        wait_seconds = min(
+            SCHEDULER_POLL_SECONDS,
+            max(1, (_next_rollover_datetime() - get_content_datetime()).total_seconds()),
+        )
         if _scheduler_stop_event.wait(wait_seconds):
             break
-        try:
-            scheduled_daily_article_refresh()
-        except Exception:
-            logger.exception("Scheduled daily article refresh failed")
-        time_module.sleep(1)
 
 
 def _next_rollover_datetime(now: datetime | None = None) -> datetime:
@@ -460,7 +479,11 @@ def _fetch_recent_policy_materials(content_date: date) -> list[dict[str, str]]:
     for list_url in SOURCE_LIST_URLS:
         try:
             request = urllib.request.Request(list_url, headers={"User-Agent": "Jianwen/1.0"})
-            with urllib.request.urlopen(request, timeout=SOURCE_TIMEOUT_SECONDS) as response:
+            context = ssl.create_default_context(cafile=certifi.where()) if certifi else None
+            opener = urllib.request.build_opener(
+                urllib.request.HTTPSHandler(context=context)
+            ) if context else urllib.request.build_opener()
+            with opener.open(request, timeout=SOURCE_TIMEOUT_SECONDS) as response:
                 records = json.loads(response.read().decode("utf-8"))
         except (OSError, ValueError, urllib.error.URLError) as exc:
             logger.warning("Official material list unavailable (%s): %s", list_url, exc)
@@ -488,7 +511,11 @@ def _fetch_recent_policy_materials(content_date: date) -> list[dict[str, str]]:
 def _fetch_official_excerpt(url: str) -> str:
     try:
         request = urllib.request.Request(url, headers={"User-Agent": "Jianwen/1.0"})
-        with urllib.request.urlopen(request, timeout=SOURCE_TIMEOUT_SECONDS) as response:
+        context = ssl.create_default_context(cafile=certifi.where()) if certifi else None
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=context)
+        ) if context else urllib.request.build_opener()
+        with opener.open(request, timeout=SOURCE_TIMEOUT_SECONDS) as response:
             html = response.read().decode("utf-8", errors="ignore")
     except (OSError, urllib.error.URLError) as exc:
         logger.warning("Official material page unavailable (%s): %s", url, exc)

@@ -4,7 +4,7 @@ import vm from 'node:vm'
 
 const calls = []
 const context = {
-  window: {}, localStorage: { getItem: key => key === 'jianwen_auth_token' ? 'test-token' : null },
+  window: { location: { hostname: '127.0.0.1' } }, localStorage: { getItem: key => key === 'jianwen_auth_token' ? 'test-token' : null },
   AbortController, FormData, setTimeout, clearTimeout, URLSearchParams,
   fetch: async (url, options) => {
     calls.push({ url, options })

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -15,6 +15,13 @@ app = FastAPI(title=settings.PROJECT_NAME, docs_url=None, redoc_url=None)
 
 Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+# Content records use the same image paths as the H5 bundle. Mount those
+# directories explicitly before the backend-owned static directory.
+frontend_static = Path(__file__).resolve().parents[2] / "frontend" / "static"
+for directory_name in ("images", "icons", "app-icons"):
+    directory = frontend_static / directory_name
+    if directory.is_dir():
+        app.mount(f"/static/{directory_name}", StaticFiles(directory=directory), name=f"static-{directory_name}")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 app.add_middleware(
@@ -41,6 +48,16 @@ def on_shutdown() -> None:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def service_root() -> dict[str, str]:
+    return {"service": app.title, "health": "/health", "docs": "/docs"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    return FileResponse(Path(__file__).parent / "static" / "favicon.ico")
 
 
 @app.get("/docs", include_in_schema=False)
