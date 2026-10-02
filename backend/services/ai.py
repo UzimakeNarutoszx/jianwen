@@ -6,6 +6,12 @@ from collections.abc import Iterator
 from typing import Any
 import urllib.error
 import urllib.request
+import ssl
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
 
 from config import settings
 from services.prompts import build_ajin_messages, build_ask_messages
@@ -22,9 +28,17 @@ class AIResult:
 
 
 def _open_request(request: urllib.request.Request):
+    ssl_context = None
+    if request.full_url.lower().startswith("https://") and certifi is not None:
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
     if settings.ai_use_env_proxy:
-        return urllib.request.urlopen(request, timeout=settings.ai_timeout_seconds)
-    return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
+        return urllib.request.urlopen(
+            request, timeout=settings.ai_timeout_seconds, context=ssl_context
+        )
+    handlers = [urllib.request.ProxyHandler({})]
+    if ssl_context is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=ssl_context))
+    return urllib.request.build_opener(*handlers).open(
         request,
         timeout=settings.ai_timeout_seconds,
     )
