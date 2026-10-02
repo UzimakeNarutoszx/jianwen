@@ -35,7 +35,7 @@ assert.equal(Array.isArray(categories), true)
 const classics = await requestJson(`${apiBase}/api/v1/content/classic-books`)
 assert.equal(Array.isArray(classics), true)
 
-for (const page of ['index.html', 'article.html', 'discover.html', 'search.html', 'classics.html', 'ask.html', 'login.html', 'profile.html']) {
+for (const page of ['index.html', 'article.html', 'discover.html', 'ask.html', 'login.html', 'profile.html']) {
   const response = await fetch(`${webBase}/jianwen/${page}`)
   assert.equal(response.ok, true, `${page} returned ${response.status}`)
   const html = await response.text()
@@ -53,7 +53,7 @@ const loginHtml = await readFile(`${webpageRoot}/jianwen/login.html`, 'utf8')
 const loginScript = await readFile(`${webpageRoot}/js/login.js`, 'utf8')
 assert.doesNotMatch(loginHtml + loginScript, /jianwen_local_account|localSession|access_token:\s*`local-/)
 
-const pageFiles = ['discover.html', 'search.html', 'classics.html', 'profile.html']
+const pageFiles = ['discover.html', 'profile.html']
 for (const file of pageFiles) {
   const html = await readFile(`${webpageRoot}/jianwen/${file}`, 'utf8')
   assert.match(html, /api-browser\.js/)

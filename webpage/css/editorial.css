@@ -70,8 +70,20 @@ body{background:var(--paper);color:var(--ink)}
 .site-header .site-nav .nav-group{display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px;padding:0 28px;white-space:normal}
 .site-header .site-nav .nav-group:first-child{padding-left:0}
 .site-header .site-nav .nav-group:last-child{padding-right:0}
-.site-header .site-nav .nav-group+.nav-group{border-left:1px solid #bccbc2}
+.site-header .site-nav .nav-group+.nav-group{border-left:0}
 @media(max-width:1100px){.site-header .site-nav .nav-group{padding:0 18px;gap:6px 14px}}
 @media(max-width:760px){.site-header .site-nav{display:grid;grid-template-columns:1fr;gap:8px}.site-header .site-nav .nav-group{padding:0;gap:8px 18px}.site-header .site-nav .nav-group+.nav-group{border-left:0;border-top:1px solid var(--line);padding-top:8px}}
 
 .editorial-hero h1{font-size:clamp(28px,3.35vw,49px);line-height:1.45}.home-subtitle{font-size:clamp(18px,1.7vw,24px);color:var(--blue);margin:18px 0}
+
+/* Section navigation stays consistent across long-form pages. */
+.discover-anchor-nav,.ajin-anchor-nav{position:sticky;top:0;z-index:6;display:flex;gap:8px;overflow:auto;padding:12px 0;margin-bottom:8px;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);scrollbar-width:none}
+.discover-anchor-nav::-webkit-scrollbar,.ajin-anchor-nav::-webkit-scrollbar{display:none}
+.discover-anchor-nav a,.ajin-anchor-nav a{flex:0 0 auto;padding:7px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px;white-space:nowrap}
+.discover-anchor-nav a:hover,.ajin-anchor-nav a:hover,.discover-anchor-nav a:focus-visible,.ajin-anchor-nav a:focus-visible{color:var(--blue-dark);border-color:var(--blue)}
+#discover-search,#discover,#classics,#ajin-home,#capabilities,#profile,#growth,#ajin-chat-host,#contact{scroll-margin-top:76px}
+@media(max-width:760px){.discover-anchor-nav,.ajin-anchor-nav{margin-inline:-16px;padding-inline:16px}.discover-anchor-nav a,.ajin-anchor-nav a{padding:6px 11px;font-size:12px}}
+/* Navigation groups are separated by spacing only; no vertical dividers. */
+.site-header .site-nav .nav-group+.nav-group{border-left:0}
+.site-header .site-nav{gap:24px}
+.site-header .site-nav .nav-group{padding:0;gap:24px}

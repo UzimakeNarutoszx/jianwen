@@ -1,12 +1,13 @@
 (function () {
-  const note = document.querySelector('.feature-note')
+  const note = document.querySelector('.feature-note') || document.querySelector('#ajin-chat-host')
   if (!note) return
   const section = document.createElement('section')
   section.className = 'ajin-chat'
   section.id = 'ajin-chat'
   section.setAttribute('aria-labelledby', 'ajin-chat-title')
   section.innerHTML = '<div class="ajin-chat-heading"><div><p class="eyebrow">AJIN / CHAT</p><h2 id="ajin-chat-title">和阿烬聊聊</h2><p>像“问问”一样直接输入问题，阿烬会用自己的兴趣和思考方式接住话题。</p></div><div class="ajin-chat-status"><span class="status-dot" aria-hidden="true"></span><span>阿烬已就绪</span></div></div><div id="ajin-chat-log" class="ajin-chat-log" aria-live="polite"></div><form id="ajin-chat-form" class="ajin-chat-form" novalidate><input id="ajin-chat-input" required maxlength="4000" autocomplete="off" placeholder="例如：给我一个适合架子鼓练习的游戏 BGM…"><button class="button button-primary" type="submit">发送 <span aria-hidden="true">→</span></button></form><p id="ajin-chat-hint" class="ajin-chat-hint">需要登录后使用，对话会遵循阿烬的角色提示词。</p>'
-  note.parentNode.insertBefore(section, note)
+  if (note.id === 'ajin-chat-host') note.replaceWith(section)
+  else note.parentNode.insertBefore(section, note)
 
   const form = section.querySelector('#ajin-chat-form')
   const input = section.querySelector('#ajin-chat-input')

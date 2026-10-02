@@ -49,3 +49,46 @@ body.ajin-page .growth-boundary{background:#e7eddf;padding:40px}
 @media(max-width:1000px){body.ajin-page :is(.ajin-hero,.growth-hero,.aj-page-hero){gap:28px}.aj-film-copy{padding:28px}.aj-orbit{width:100px;height:100px;right:22px;bottom:35px}}
 @media(max-width:760px){body.ajin-page :is(.ajin-hero,.growth-hero,.aj-page-hero){grid-template-columns:1fr;padding:36px 0;gap:28px}body.ajin-page :is(.ajin-hero,.growth-hero,.aj-page-hero) h1{font-size:42px}body.ajin-page .profile-grid,body.ajin-page .feature-map{grid-template-columns:1fr}body.ajin-page .aj-film{aspect-ratio:auto;height:330px;min-height:0}.aj-film-copy{min-height:300px}.aj-film-copy>strong{font-size:42px}.ajin-metrics{margin-top:24px}body.ajin-page .ajin-chat{padding:20px}body.ajin-page .profile-card .profile-card-copy{padding:24px}body.ajin-page .growth-boundary{padding:26px}body.ajin-page .ajin-statement{padding:26px}body.ajin-page .ajin-statement p{font-size:23px}}
 @media(prefers-reduced-motion:reduce){.aj-wave i,.aj-orbit i{animation:none}.ajin-page .profile-card:hover img{transform:none}}
+/* Unified Ajin page: calm, purposeful motion and section navigation. */
+body.ajin-page .merged-capabilities .feature-map,body.ajin-page .merged-capabilities .feature-list{margin-top:24px}
+body.ajin-page .merged-growth .growth-section{padding:24px 0;border-top:0}
+body.ajin-page .merged-growth .growth-hero{display:none}
+body.ajin-page .merged-growth .growth-section-heading{margin-top:0}
+body.ajin-page .ajin-chat{scroll-margin-top:28px}
+body.ajin-page .design-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+body.ajin-page .growth-board{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:20px}
+body.ajin-page .growth-board-main,body.ajin-page .growth-board-side{min-width:0;padding:30px;border-radius:18px}
+body.ajin-page .growth-board-main{background:#fff;border:1px solid var(--line)}
+body.ajin-page .growth-board-side{border:0}
+body.ajin-page .memory-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+body.ajin-page .memory-card{min-width:0}
+body.ajin-page .growth-section-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:24px}
+body.ajin-page .growth-section-heading>p{max-width:440px;margin:0;color:var(--muted)}
+body.ajin-page .growth-loop{display:grid;gap:14px;margin-top:24px}
+body.ajin-page .topic-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+body.ajin-page .topic-card{display:block;min-width:0;min-height:0;padding:28px}
+body.ajin-page .topic-card .topic-number{display:block;margin-bottom:18px;color:var(--blue);font-size:11px;letter-spacing:.08em;font-weight:500}
+body.ajin-page .topic-card h3{margin:0 0 10px;font-size:22px;line-height:1.35}
+body.ajin-page .topic-card p{margin:0;color:var(--muted);font-size:15px;line-height:1.9}
+body.ajin-page .growth-boundary{border-radius:18px}
+body.ajin-page .ajin-chat-fab{position:fixed;right:24px;bottom:24px;z-index:20;display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:999px;background:var(--blue-dark);color:#fff;font-size:13px;font-weight:800;box-shadow:0 12px 28px rgba(20,62,82,.24)}
+body.ajin-page .ajin-chat-fab:hover{background:var(--blue)}
+body.ajin-page .ajin-chat-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:22px}
+body.ajin-page .ajin-chat-heading h2{margin:0 0 8px;font-size:28px;font-weight:550}
+body.ajin-page .ajin-chat-heading p{margin:0;color:var(--muted);font-size:14px;line-height:1.8}
+body.ajin-page .ajin-chat-status{display:flex;align-items:center;gap:8px;flex:none;color:var(--muted);font-size:12px}
+body.ajin-page .ajin-chat-log{display:grid;gap:10px;max-height:360px;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+body.ajin-page .ajin-chat-message{max-width:min(78%,620px);padding:11px 14px;border-radius:14px;background:var(--mist);font-size:14px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+body.ajin-page .ajin-chat-message.user{justify-self:end;background:var(--blue-dark);color:#fff}
+body.ajin-page .ajin-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:14px;padding:0;background:transparent}
+body.ajin-page .ajin-chat-form input{min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);outline:0}
+body.ajin-page .ajin-chat-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,95,122,.12)}
+body.ajin-page .ajin-chat-hint{margin:12px 0 0;color:var(--muted);font-size:12px}
+body.ajin-page #ajin-chat{margin-top:0}
+@media(max-width:900px){body.ajin-page .design-grid{grid-template-columns:repeat(2,minmax(0,1fr))}body.ajin-page .growth-board{grid-template-columns:1fr}body.ajin-page .memory-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){body.ajin-page .design-grid,body.ajin-page .memory-grid,body.ajin-page .topic-grid{grid-template-columns:1fr}body.ajin-page .growth-section-heading{display:block}body.ajin-page .growth-section-heading>p{margin-top:12px}body.ajin-page .growth-board-main,body.ajin-page .growth-board-side{padding:22px}}
+@media(max-width:760px){body.ajin-page .ajin-chat-fab{right:16px;bottom:16px;padding:11px 14px}}
+@media(max-width:560px){body.ajin-page .ajin-chat-heading{display:block}body.ajin-page .ajin-chat-status{margin-top:10px}body.ajin-page .ajin-chat-form{grid-template-columns:1fr}body.ajin-page .ajin-chat-form .button{width:100%}body.ajin-page .ajin-chat-message{max-width:92%}}
+body.ajin-page .ajin-photo-slot img.ajin-character{animation:ajin-settle .7s ease-out both}
+@keyframes ajin-settle{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){body.ajin-page .ajin-photo-slot img.ajin-character{animation:none}}

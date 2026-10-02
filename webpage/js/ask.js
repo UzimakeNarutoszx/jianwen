@@ -46,6 +46,7 @@
   function renderAnswer() { renderTimer = null; output.innerHTML = `<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy">${markdown(answer)}</div></article>` }
   function restoreAnswer() {
     if (initialQuestion) return
+    if (typeof localStorage === 'undefined') return
     try {
       const saved = JSON.parse(localStorage.getItem('jianwen_web_ask_last') || 'null')
       if (!saved || !saved.question || !saved.answer) return
@@ -54,6 +55,7 @@
     } catch { localStorage.removeItem('jianwen_web_ask_last') }
   }
   function saveAnswer() {
+    if (typeof localStorage === 'undefined') return
     if (lastQuestion && answer) localStorage.setItem('jianwen_web_ask_last', JSON.stringify({ question: lastQuestion, answer, savedAt: Date.now() }))
   }
   function updateAnswer(text) { answer = text; status.textContent = '正在生成回答…'; if (!renderTimer) renderTimer = setTimeout(renderAnswer,80) }
