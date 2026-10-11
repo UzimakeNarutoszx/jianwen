@@ -10,7 +10,7 @@ async function pages(directory) {
 }
 const files = await pages(root)
 const source = (await readFile(resolve(root, 'js/site.js'), 'utf8')).split("document.querySelectorAll('img[data-fallback]')")[0]
-const expected = ['index.html', 'jianwen/index.html', 'jianwen/discover.html', 'jianwen/ask.html', 'avatar.html']
+const expected = ['index.html', 'changelog.html', 'jianwen/index.html', 'jianwen/discover.html', 'jianwen/ask.html', 'avatar.html']
 for (const file of files) {
   const page = relative(root, file).replaceAll('\\', '/')
   const html = await readFile(file, 'utf8')
@@ -36,7 +36,7 @@ for (const file of files) {
     vm.runInNewContext(`${source}\nrenderShell()`, context)
     assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
     for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
-      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261002-1', `${page}: every header link uses current version`)
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261011-1', `${page}: every header link uses current version`)
     }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)
@@ -44,5 +44,5 @@ for (const file of files) {
     assert.equal((header.innerHTML.match(/aria-current="page"/g) || []).length, page === 'intro.html' ? 0 : 1, `${page}: active navigation`)
   }
 }
-assert.equal(files.length, 10)
+assert.equal(files.length, 11)
 console.log(`All ${files.length} pages: complete navigation in both session states, shared theme last, local assets resolved, retired pages removed.`)

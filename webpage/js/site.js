@@ -9,7 +9,8 @@
 }
 
 const portalPages = [
-  { href: 'index.html', label: '首页' }
+  { href: 'index.html', label: '首页' },
+  { href: 'changelog.html', label: '更新日志' }
 ]
 
 const ajinPages = [
@@ -24,7 +25,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261002-1'
+const SITE_VERSION = '20261011-1'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -126,7 +127,7 @@ function renderShell() {
 
   if (footer) {
     footer.className = 'site-footer'
-    footer.innerHTML = `<p>© 2026 见闻 · 个人门户</p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a></div>`
+    footer.innerHTML = `<p>© 2026 见闻 · 个人门户</p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a><a href="${versionedPage(`${root}changelog.html`)}">更新日志</a></div>`
   }
 }
 
@@ -158,10 +159,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261002-1'
+  apiScript.src = 'js/api-browser.js?v=20261011-1'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261002-1'
+    chatScript.src = 'js/ajin-chat.js?v=20261011-1'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="见闻网站与 App 的更新日志">
+<title>更新日志 · 见闻</title>
+<link rel="stylesheet" href="css/site.css?v=20261011-1"><link rel="stylesheet" href="css/pages/changelog.css?v=20261011-1"><link rel="stylesheet" href="css/promo.css?v=20261011-1"><link rel="stylesheet" href="css/editorial.css?v=20261011-1"><link rel="icon" href="assets/agents.png?v=agents-1" type="image/png">
+</head>
+<body data-page="changelog"><header data-site-header></header>
+<main id="main-content" class="page-shell">
+<section class="page-intro compact" aria-labelledby="changelog-title"><p class="eyebrow">CHANGELOG / 更新日志</p><h1 id="changelog-title">更新日志</h1><p>见闻网站与 App 的每一次变化。最新的在最上面。</p></section>
+
+<section class="promo-block" aria-labelledby="latest-title"><div class="promo-film" data-promo-film><video controls playsinline preload="none" poster="assets/promo/jianwen-promo-poster.webp" aria-label="见闻宣传片，30 秒"><source src="assets/promo/jianwen-promo-v4-720.mp4" type="video/mp4"></video><p class="promo-film-error" role="status">视频暂时无法播放</p></div><div class="promo-copy"><p class="eyebrow">最新 · 2026-10-11</p><h2 id="latest-title">见闻宣传片上线</h2><p>30 秒看完见闻能做什么：每天 5 件事、先给结论的文章、带依据的 AI 问问、经典原文阅读，以及手机浏览器和电脑网页版。</p><ul class="promo-meta" aria-label="视频信息"><li>30 秒</li><li>竖版</li><li>有旁白</li></ul><div class="promo-actions"><a class="button button-primary" href="index.html?v=20261011-1#video">在首页观看</a><a class="button button-secondary" href="jianwen/index.html?v=20261011-1">开始今日阅读 ↗</a></div></div></section>
+
+<nav class="changelog-filters" aria-label="按产品筛选"><a href="changelog.html?v=20261011-1" data-filter="all">全部更新</a><a href="changelog.html?v=20261011-1&amp;type=web" data-filter="web">网站</a><a href="changelog.html?v=20261011-1&amp;type=app" data-filter="app">App</a><a href="changelog.html?v=20261011-1&amp;type=ai" data-filter="ai">后端与 AI</a></nav>
+<nav class="changelog-months" aria-label="按月份跳转"><a href="#month-2026-10">2026 年 10 月</a><a href="#month-2026-09">2026 年 9 月</a></nav>
+<p class="changelog-count" aria-live="polite" data-changelog-count></p>
+<section class="changelog-month" id="month-2026-10" aria-labelledby="m-2026-10"><h2 id="m-2026-10">2026 年 10 月</h2>
+<div class="timeline">
+<article data-type="web app"><time datetime="2026-10-11">2026-10-11</time><div><h3>宣传片上线，三处问题修复</h3>
+<h4>新功能</h4><ul><li data-type="web">首页和更新日志页加入 30 秒见闻宣传片，可点播，带旁白。</li><li data-type="web">新增「更新日志」页面，导航和页脚都能进入。</li></ul>
+<h4>改进与修复</h4><ul><li data-type="app">App 里分类、搜索、收藏、最近看过、问问记录这几个页面，打开时不再报错。</li><li data-type="web">首页分区导航在手机上不再左右多出一截。</li><li data-type="app">没有指定书目时打开经典阅读器，会提示无法打开，不再把整个书单当成一本书显示。</li></ul></div></article>
+<article data-type="web app ai"><time datetime="2026-10-02">2026-10-02</time><div><h3>Beta 版：导航更精简，发现页整合搜索和经典</h3>
+<h4>新功能</h4><ul><li data-type="web">发现页并入搜索和经典阅读：「先搜一个问题」「回到思想的源头」两个区块。</li><li data-type="web">阿烬的介绍、能力、成长和对话合成一页，带分区导航，可以直接在页面里和阿烬对话。</li><li data-type="web">首页新增分区导航和滚动进度条。</li><li data-type="web app">网站和 App 会连接当前打开页面的主机，同一网络下用手机也能访问。</li></ul>
+<h4>改进与修复</h4><ul><li data-type="web">全站导航精简为首页、今日、发现、AI 问问、阿烬几项。</li><li data-type="web">还停留在旧版本的窗口会自动刷新到新版，更新能马上看到。</li><li data-type="web">发现页在手机上改为单栏排列，搜索、结果和经典卡片不再挤在一起。</li><li data-type="ai">修复 AI 问问和阿烬在新运行环境下连接失败的问题。</li><li data-type="ai">文章配图的地址与 App 统一，图片能正常显示。</li></ul></div></article>
+</div></section>
+
+<section class="changelog-month" id="month-2026-09" aria-labelledby="m-2026-09"><h2 id="m-2026-09">2026 年 9 月</h2>
+<div class="timeline">
+<article data-type="app ai"><time datetime="2026-09-26">2026-09-26</time><div><h3>每日文章改用官方来源，AI 不可用时也能回答</h3>
+<h4>新功能</h4><ul><li data-type="ai">每日 5 篇文章改为从中国政府网的最新新闻和政策出发生成；每篇必须写明成本或风险，只引用给定来源。</li><li data-type="app">问问的对话会保存在本机，离开再回来还能接着看。</li><li data-type="app">App 换上新图标，网页图标和问问图标同步更新。</li></ul>
+<h4>改进与修复</h4><ul><li data-type="ai">文章生成后会检查篇数、段落长度、来源和空话套话，不合格先重试一次，再不行就改用本地文章。</li><li data-type="ai">外部 AI 暂时不可用时，问问会根据站内内容回答，阿烬也会给出本地回复，不再直接报错。</li></ul></div></article>
+<article data-type="web"><time datetime="2026-09-19">2026-09-19</time><div><h3>横屏网站首版</h3>
+<h4>新功能</h4><ul><li data-type="web">门户首页改为横屏双栏布局，全站统一视觉。</li><li data-type="web">经典阅读器：书架可搜索，支持目录搜索、上下章、字号、专注模式和每本书的阅读进度；登录后进度存进账号。</li><li data-type="web">AI 问问流式回答，支持停止、重试和复制，回答里的格式安全显示。</li><li data-type="web">文章页显示相关推荐；个人页可以修改昵称、简介和关注主题。</li><li data-type="web">「播放序幕」开场页，可重播，按 Esc 退出。</li></ul>
+<h4>改进与修复</h4><ul><li data-type="web">支持跳过导航、清晰的键盘焦点和减少动态效果。</li><li data-type="web">修复关注主题重复时报错、收藏和历史标题为空、搜索里的特殊符号被误当成通配符等问题。</li><li data-type="web">修复头像上传和登录过期的边界情况，以及旧脚本缓存导致更新不显示。</li></ul></div></article>
+</div></section>
+</main><footer data-site-footer></footer>
+<script src="js/site.js?v=20261011-1"></script><script src="js/promo.js?v=20261011-1"></script><script src="js/changelog.js?v=20261011-1"></script>
+</body></html>
