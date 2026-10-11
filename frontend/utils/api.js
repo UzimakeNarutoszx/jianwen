@@ -288,6 +288,8 @@ export function getClassicBooks() {
 }
 
 export function getClassicBookDetail(bookId) {
+  // 空 bookId 会请求到书目列表接口，把数组当成一本书渲染
+  if (!bookId) return Promise.reject(new Error('未指定经典文献'))
   return apiRequest({ url: `/api/v1/content/classic-books/${encodeURIComponent(bookId)}` }).then(fromClassicBook)
 }
 
