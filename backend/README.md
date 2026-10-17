@@ -67,3 +67,17 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### Today checklist
 
 - `GET /api/v1/profile/today-checklist`：当前登录用户的今日理解清单，返回今日文章列表、每篇是否已读、已读数量和是否完成。
+
+## 个人周报
+
+网站入口：`/jianwen/weekly.html`，导航栏与“我的”页均可进入。每周视频为独立功能。
+
+- `POST /api/v1/profile/reading-activity`：登录后上报阅读片段，字段为 `batch_id`、`kind`（`article` / `classic`）、`content_id`、带时区的 `started_at` / `ended_at`，名著另带 `book_id` 与 0–100 的 `scroll_progress`。单批最多 16 秒，接受最近七天的离线重试；不允许指定用户 ID。
+- `GET /api/v1/profile/weekly-report?week_start=YYYY-MM-DD`：只返回登录用户自己的自然周统计、每日序列、主题分布、完整阅读与问题明细；日期必须是周一，省略时为北京时间本周，响应为 `private, no-store`。
+- 新增 `user_reading_batches`、`user_reading_intervals`、`user_article_reading_days`，正常启动后自动创建，无需修改现有表。片段使用 UTC 微秒时间存储，按北京时间午夜拆分；按用户锁串行写入并扣除已记录重叠时间，批次重试不重复计算。
+- 文章按已有浏览／已读记录计数，并与实际停留片段合并去重；同一天同一篇只计一次，周汇总按文章去重。名著章节在所选周累计前台有效停留满 30 秒才计入周阅读明细；章节日计数单独按当天 30 秒判定。计时在页面隐藏、失焦或 60 秒无操作时暂停。图表时长包含不足 30 秒的有效停留片段。
+- 旧表的无时区日期沿用现有后端／数据库本地时间约定，再转换到北京时间。部署时应保持应用和数据库时区一致；旧文章浏览历史合并到普通文章阅读计数，但不倒推有效时长；名著历史位置仍只作参考。新文章阅读另按北京时间日期持久保存，重读不会覆盖历史周。停留时间采集从新功能启用后开始。
+- 清空文章浏览历史会同时删除该用户的文章阅读片段和按日阅读记录；清空问答记录后周报同步更新。未保存周报快照。名著仍沿用原有位置同步接口。
+- 图表与导出依赖本地固定版本 ECharts 5.6.0、html-to-image 1.11.13，许可证随 `webpage/js/vendor/` 分发；导出不上传个人记录。
+
+验证命令：安装 `requirements-dev.txt` 后，在 `backend` 运行 `python -m unittest tests.test_weekly_report tests.test_reading_positions tests.test_profile_routes`；项目根目录运行 `node webpage/tests/reading-activity.test.cjs`、`node webpage/tests/site-pages.mjs`。浏览器回归脚本为 `webpage/tests/weekly-browser.js`，使用合成数据验证桌面／手机、106 条问题的 PNG 导出，以及账号切换和退出后的清理。

@@ -1,0 +1,57 @@
+{
+  "cutoff": "2026-10-17T18:30:00+08:00",
+  "verifiedOn": "2026-10-17",
+  "research": "Source pages retrieved via AnySearch; article snapshots read from the existing public local API. No content generation endpoint was called.",
+  "visuals": {
+    "origin": "Original Blender scene authored in blender/identity.py, rendered with Blender 5.2.2 LTS; source saved in public/identity/identity.blend",
+    "poster": "Remotion WeeklyCover with the same original Blender hold frame"
+  },
+  "sources": [
+    "eldercare-source.md",
+    "manufacturing-source.md",
+    "trade-source.md",
+    "harvest-source.md",
+    "ai-daily-20261017-1.json",
+    "ai-daily-20261017-4.json",
+    "changelog-snapshot.html"
+  ],
+  "voice": {
+    "engine": "Qwen3-TTS / MLX-Audio 0.5.9",
+    "model": "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit",
+    "voice": "Vivian",
+    "tempo": 1.25,
+    "durationSeconds": 293.8333333333333,
+    "loudnessLUFS": -16.5,
+    "truePeakDbFS": -1.3,
+    "scope": "Generated locally from authored narration; no API key or cloud TTS requests."
+  },
+  "music": {
+    "title": "雨",
+    "artistTag": "昔日烬",
+    "rightsBasis": "User explicitly confirmed in this task on 2026-10-17 that 憩、柱、雨、岚、终 are their originals and authorized their use. See music-library.json. Earlier CLAUDE_HANDOFF.md entry 2026-10-11 also identifies 雨 as user-original. No public-domain or CC license claim.",
+    "sourceSnapshot": "music/雨.mp3",
+    "sourceSha256": "39e5ff4da91a1ae9f66dfbdb61ad204bbff3ffa56a25c1de97e98f5c515c01e8",
+    "narrationSha256": "e6c3d3c871bf175930e15947efeac50b7834fbf1366e13703cdbc86b34140931",
+    "mix": {
+      "loopCrossfadeSeconds": 3,
+      "fadeInSeconds": 3,
+      "fadeOutSeconds": 5,
+      "musicTargetLUFS": -30,
+      "speechDucking": true,
+      "mixTargetLUFS": -16,
+      "mixTruePeakCeilingDb": -1.5
+    },
+    "output": {
+      "file": "soundtrack-ff38de6e3c35.m4a",
+      "sha256": "ff38de6e3c35773422a329f4b2f442a001c40979c6687ece07f6e204b4e57745",
+      "credit": "原创配乐《雨》 · 昔日烬"
+    },
+    "measured": {
+      "loudnessLUFS": -15.97,
+      "truePeakDbTP": -3.28,
+      "sampleRate": 48000,
+      "channels": 2,
+      "durationSeconds": 293.8
+    }
+  }
+}

@@ -112,10 +112,10 @@
       : await response.text().catch(() => '')
 
     if (response.status === 401 && requiresAuth) {
-      clearSession()
+      if (getToken() === token) clearSession()
       throw new Error('登录已失效，请重新登录。')
     }
-    if (!response.ok) throw new Error(errorMessage(data && data.detail))
+    if (!response.ok) { const error = new Error(errorMessage(data && data.detail)); error.status = response.status; throw error }
     return data
   }
 
@@ -162,6 +162,8 @@
   window.markArticleRead = markArticleRead
   window.jianwenApi = {
     baseUrl,
+    weeklyReport: week => authRequest(`/api/v1/profile/weekly-report${week ? `?week_start=${encodeURIComponent(week)}` : ''}`, { cache: 'no-store' }),
+    readingActivity: data => authRequest('/api/v1/profile/reading-activity', { method: 'POST', body: JSON.stringify(data), keepalive: true }),
     today: () => publicRequest('/api/v1/content/today'),
     personalizedToday: () => authRequest('/api/v1/content/today/personalized'),
     dailyQuote: date => publicRequest(`/api/v1/content/daily-quote${date ? `?date=${encodeURIComponent(date)}` : ''}`),

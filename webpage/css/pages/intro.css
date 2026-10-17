@@ -1,6 +1,6 @@
-body[data-page="intro"]{min-height:100svh;overflow:hidden;background:#06131c;color:#fff}
+body[data-page="intro"]{min-height:100svh;overflow-x:hidden;background:var(--paper);color:var(--ink)}
 body[data-page="intro"] [data-site-header],body[data-page="intro"] [data-site-footer]{display:none}
-.intro-page{position:fixed;inset:0;width:100%;height:100svh;margin:0;overflow:hidden;isolation:isolate;background:radial-gradient(circle at 50% 42%,#16475a 0,#0a2938 32%,#06131c 70%,#03090e 100%);color:#fff}
+.intro-page{position:relative;inset:auto;width:100%;height:100svh;min-height:680px;margin:0;overflow:hidden;isolation:isolate;background:radial-gradient(circle at 50% 42%,#16475a 0,#0a2938 32%,#06131c 70%,#03090e 100%);color:#fff}
 .intro-page:before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(115deg,rgba(212,170,78,.08),transparent 30%,transparent 68%,rgba(71,181,183,.09)),radial-gradient(circle at 50% 120%,rgba(50,141,146,.3),transparent 45%)}
 .intro-page:after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(180deg,rgba(2,8,12,.44),transparent 18%,transparent 74%,rgba(2,8,12,.58)),repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0,rgba(255,255,255,.018) 1px,transparent 1px,transparent 9vw)}
 #intro-particles{position:absolute;inset:0;z-index:-1}

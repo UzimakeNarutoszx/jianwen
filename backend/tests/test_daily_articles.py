@@ -1,5 +1,6 @@
 from datetime import date, datetime
 import unittest
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -138,6 +139,27 @@ class DailyArticleTests(unittest.TestCase):
         expected_offset = int("20260703") % 4
         expected = [f"article-{((expected_offset + index) % 4) + 1}" for index in range(4)]
         self.assertEqual([article.article_id for article in articles], expected)
+
+    def test_scheduler_replaces_a_full_fallback_set(self) -> None:
+        selected_date = date(2026, 7, 3)
+        with self.Session() as db:
+            old = [ContentArticle(article_id=f"old-{i}", title="Old") for i in range(5)]
+            db.add_all(old)
+            db.flush()
+            db.add_all([DailyArticleSet(content_date=selected_date, article_id=a.article_id, position=i)
+                        for i, a in enumerate(old, 1)])
+            db.commit()
+            def generate(session, content_date):
+                rows = [ContentArticle(article_id=f"fresh-{i}", title="Fresh") for i in range(5)]
+                session.add_all(rows)
+                session.flush()
+                return rows
+            with patch.object(daily_articles, "SessionLocal", return_value=db), \
+                 patch.object(daily_articles, "get_content_date", return_value=selected_date), \
+                 patch.object(daily_articles, "_generate_ai_articles", side_effect=generate):
+                daily_articles.scheduled_daily_article_refresh()
+                rows = daily_articles._daily_articles_for_date(db, selected_date)
+                self.assertEqual([a.article_id for a in rows], [f"fresh-{i}" for i in range(5)])
 
 
 if __name__ == "__main__":

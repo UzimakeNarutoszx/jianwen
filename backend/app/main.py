@@ -24,6 +24,15 @@ for directory_name in ("images", "icons", "app-icons"):
         app.mount(f"/static/{directory_name}", StaticFiles(directory=directory), name=f"static-{directory_name}")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
+# Share only the public content catalogs and weekly media, never the website root.
+webpage_root = Path(__file__).resolve().parents[2] / "webpage"
+for public_path, directory in (
+    ("/public/data", webpage_root / "data"),
+    ("/public/assets/weekly-video", webpage_root / "assets" / "weekly-video"),
+):
+    if directory.is_dir():
+        app.mount(public_path, StaticFiles(directory=directory), name=public_path.strip("/").replace("/", "-"))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -36,7 +45,6 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     init_database()
-    scheduled_daily_article_refresh()
     start_daily_article_scheduler()
 
 

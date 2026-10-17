@@ -147,6 +147,7 @@
 
     window.markArticleRead(articleId)
     if (window.getToken()) window.jianwenApi.saveHistory(articleId, article).catch(() => {})
+    window.jianwenReading?.setTarget({ kind: 'article', content_id: articleId })
     loadFavorite()
   } catch (error) {
     hero.innerHTML = '<p class="eyebrow">JIANWEN / ARTICLE</p><h1>文章暂时不可用</h1><p class="article-deck">后端未返回这篇文章。</p>'

@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ from app.core.config import settings
 from app.models.content import ClassicBook, ClassicBookChapter, ContentArticle
 from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic, UserReadingPosition
 from app.models.user import User
+from app.models.reading import ArticleReadingDay, ReadingInterval
 from app.services.daily_articles import ensure_daily_articles
 from app.schemas.profile import (
     AiUsageRecordRequest,
@@ -326,15 +328,25 @@ def save_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserBrowsingHistory:
+    db.query(User).filter(User.id == current_user.id).with_for_update().one()
     record = (
         db.query(UserBrowsingHistory)
         .filter(UserBrowsingHistory.user_id == current_user.id, UserBrowsingHistory.article_id == payload.article_id)
-        .first()
+        .with_for_update().first()
     )
     if record is None:
         record = UserBrowsingHistory(user_id=current_user.id, article_id=payload.article_id)
     _apply_article_payload(record, payload, db)
     record.visited_at = datetime.now()
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    daily = db.query(ArticleReadingDay).filter_by(
+        user_id=current_user.id, article_id=payload.article_id, content_date=day
+    ).with_for_update().first()
+    if daily is None:
+        daily = ArticleReadingDay(user_id=current_user.id, article_id=payload.article_id, content_date=day)
+    daily.title = record.title or payload.article_id
+    daily.topic = record.topic
+    db.add(daily)
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -346,7 +358,10 @@ def clear_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
+    db.query(User).filter(User.id == current_user.id).with_for_update().one()
     db.query(UserBrowsingHistory).filter(UserBrowsingHistory.user_id == current_user.id).delete()
+    db.query(ReadingInterval).filter(ReadingInterval.user_id == current_user.id, ReadingInterval.kind == "article").delete()
+    db.query(ArticleReadingDay).filter(ArticleReadingDay.user_id == current_user.id).delete()
     db.commit()
     return MessageResponse(message="浏览记录已清空")
 

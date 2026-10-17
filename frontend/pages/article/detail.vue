@@ -1,5 +1,5 @@
 ﻿<template>
-  <view :class="['page article-page', darkMode ? 'dark-mode' : '', `font-${fontSize}`]">
+  <view :class="['page article-page', darkMode ? 'dark-mode' : '', `font-${fontSize}`]" @touchstart="recordReadingInteraction">
     <view class="detail-nav">
       <view class="article-nav-button article-back-button back-button" @tap.stop="handleNavAction('back')" @click.stop="handleNavAction('back')" role="button" aria-label="返回">
         <text class="back-symbol"></text>
@@ -105,6 +105,7 @@
 </template>
 
 <script>
+import { readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
 import { deleteRemoteFavorite, getArticleDetail, getRemoteFavorite, saveRemoteFavorite, saveRemoteHistory } from '@/utils/api.js'
 import { addArticleHistory, isArticleFavorite, markArticleRead as markArticleReadRecord, toggleArticleFavorite } from '@/utils/user-data.js'
 
@@ -167,17 +168,30 @@ export default {
     this.loadArticle()
   },
   onShow() {
+    this._readingVisible = true
+    resumeReadingActivity()
+    if (this._articleReady) this.startReadingActivity()
     this.loadSettings()
     this.isFavorite = isArticleFavorite(this.articleId)
     this.refreshFavoriteStatus()
   },
   onReachBottom() {
+    readingActivity.progress(100)
     this.markArticleRead()
   },
+  onHide() { this._readingVisible = false; readingActivity.clear() },
+  onUnload() { this._readingVisible = false; readingActivity.clear() },
+  onPageScroll() { readingActivity.interact() },
   methods: {
+    recordReadingInteraction() { readingActivity.interact() },
+    startReadingActivity() {
+      if (this._readingVisible) readingActivity.setTarget({ kind: 'article', content_id: String(this.articleId), scroll_progress: 0 })
+    },
     async loadArticle() {
       try {
         this.article = await getArticleDetail(this.articleId)
+        this._articleReady = true
+        this.startReadingActivity()
         this.addHistory()
       } catch (error) {
         uni.showToast({ title: error.message || '文章加载失败', icon: 'none' })

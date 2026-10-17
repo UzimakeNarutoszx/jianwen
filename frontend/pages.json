@@ -118,6 +118,20 @@
         "navigationBarTitleText": "内容来源说明",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/weekly/weekly",
+      "style": {
+        "navigationBarTitleText": "每周",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/changelog",
+      "style": {
+        "navigationBarTitleText": "更新日志",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {
@@ -147,6 +161,12 @@
         "text": "发现",
         "iconPath": "static/icons/tab-discover.png",
         "selectedIconPath": "static/icons/tab-discover-active.png"
+      },
+      {
+        "pagePath": "pages/weekly/weekly",
+        "text": "每周",
+        "iconPath": "static/icons/tab-weekly.png",
+        "selectedIconPath": "static/icons/tab-weekly-active.png"
       },
       {
         "pagePath": "pages/ask/ask",

@@ -1,0 +1,15 @@
+{
+  "confirmedOn": "2026-10-17",
+  "rightsBasis": "用户在本任务中明确确认：憩、柱、雨、岚、终都是自己的原创，可用于本视频配乐。原曲文件不修改。",
+  "sourceDirectory": "/Users/ens/Music/已完成文件",
+  "originals": [
+    {"title": "憩", "file": "憩.mp3", "status": "user-original-authorized"},
+    {"title": "柱", "file": "柱.mp3", "status": "user-original-authorized"},
+    {"title": "雨", "file": "雨.mp3", "status": "user-original-authorized"},
+    {"title": "岚", "file": "岚.mp3", "status": "user-original-authorized"},
+    {"title": "终", "file": "终.mp3", "status": "user-original-authorized"}
+  ],
+  "candidates": [
+    {"title": "Caravan", "status": "verify-specific-recording-before-use", "note": "用户表示早已免费、可以使用。实际选用前核对所用版本的词曲、编曲及录音授权；不因免费收听而声明所有版本均为公共领域。"}
+  ]
+}

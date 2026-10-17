@@ -10,6 +10,7 @@
 
 const portalPages = [
   { href: 'index.html', label: '首页' },
+  { href: 'weekly-video.html', label: '每周视频' },
   { href: 'changelog.html', label: '更新日志' }
 ]
 
@@ -20,12 +21,13 @@ const ajinPages = [
 const jianwenPages = [
   { href: 'jianwen/index.html', label: '今日', key: 'today' },
   { href: 'jianwen/discover.html', label: '发现', key: 'discover' },
-  { href: 'jianwen/ask.html', label: 'AI 问问', key: 'ask' }
+  { href: 'jianwen/ask.html', label: 'AI 问问', key: 'ask' },
+  { href: 'jianwen/weekly.html', label: '我的周报', key: 'weekly' }
 ]
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261011-1'
+const SITE_VERSION = '20261017-4'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -80,6 +82,7 @@ function readAuthUser() {
 function isJianwenCurrent(key, current) {
   if (key === 'today') return ['index.html', 'article.html'].includes(current)
   if (key === 'discover') return ['discover.html', 'reader.html'].includes(current)
+  if (key === 'weekly') return current === 'weekly.html'
   if (key === 'ask') return current === 'ask.html'
   if (key === 'account') return ['login.html', 'profile.html'].includes(current)
   return false
@@ -159,10 +162,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261011-1'
+  apiScript.src = 'js/api-browser.js?v=20261017-4'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261011-1'
+    chatScript.src = 'js/ajin-chat.js?v=20261017-4'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

@@ -1,5 +1,5 @@
 ﻿<template>
-  <view :class="['reader-page', darkMode ? 'dark-mode' : '', `font-${fontSize}`]">
+  <view :class="['reader-page', darkMode ? 'dark-mode' : '', `font-${fontSize}`]" @touchstart="recordInteraction">
     <view class="reader-topbar">
       <button class="back-button reader-back-button" @click="goBack">
         <text class="back-symbol"></text>
@@ -81,6 +81,7 @@
 </template>
 
 <script>
+import { readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
 import { getClassicBookChapter, getClassicBookDetail } from '@/utils/api.js'
 
 const BODY_LIMIT = 210
@@ -140,18 +141,39 @@ export default {
     this.loadBook()
   },
   onHide() {
+    this._readingVisible = false
+    readingActivity.clear()
     this.saveReadingPosition()
   },
   onUnload() {
+    this._readingVisible = false
+    readingActivity.clear()
     this.saveReadingPosition()
   },
+  onShow() {
+    this._readingVisible = true
+    resumeReadingActivity()
+    this.syncReadingActivity()
+  },
   methods: {
+    recordInteraction() { readingActivity.interact() },
+    syncReadingActivity() {
+      if (!this._readingVisible) return
+      const page = this.currentPageData
+      const chapter = this.getChapter(page.chapterId)
+      if (!page.chapterId || !chapter?.content) { readingActivity.clear(); return }
+      const chapterPages = this.pages.filter(item => item.chapterId === page.chapterId)
+      const index = chapterPages.findIndex(item => item.key === page.key)
+      const progress = Math.round((index + 1) / chapterPages.length * 100)
+      readingActivity.setTarget({ kind: 'classic', book_id: this.bookId, content_id: String(page.chapterId), scroll_progress: progress })
+    },
     async loadBook() {
       this.loading = true
       try {
         this.book = await getClassicBookDetail(this.bookId)
         this.pages = this.buildPages(this.book)
         this.currentPage = this.initialPageIndex()
+        this.syncReadingActivity()
         this.saveReadingPosition()
         this.loadChapterForCurrentPage()
       } catch (error) {
@@ -290,10 +312,12 @@ export default {
         uni.showToast({ title: error.message || '章节加载失败', icon: 'none' })
       } finally {
         delete this.loadingChapterIds[page.chapterId]
+        this.syncReadingActivity()
       }
     },
     handlePageChange(event) {
       this.currentPage = event.detail.current
+      this.syncReadingActivity()
       this.saveReadingPosition()
       this.loadChapterForCurrentPage()
     },

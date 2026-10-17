@@ -30,4 +30,9 @@ __all__ = [
     "UserFavoriteArticle",
     "UserFollowTopic",
     "UserReadingPosition",
+    "ArticleReadingDay",
+    "ReadingBatch",
+    "ReadingInterval",
 ]
+
+from app.models.reading import ArticleReadingDay, ReadingBatch, ReadingInterval  # noqa: F401

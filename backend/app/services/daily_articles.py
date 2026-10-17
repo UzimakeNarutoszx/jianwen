@@ -76,29 +76,38 @@ def get_content_date(now: datetime | None = None) -> date:
     return current.date()
 
 
-def ensure_daily_articles(db: Session, content_date: date | None = None) -> list[ContentArticle]:
+def ensure_daily_articles(
+    db: Session, content_date: date | None = None, *, retry_fallback: bool = False
+) -> list[ContentArticle]:
     selected_date = content_date or get_content_date()
     articles = _daily_articles_for_date(db, selected_date)
-    if len(articles) >= DAILY_ARTICLE_COUNT:
+    if len(articles) >= DAILY_ARTICLE_COUNT and (
+        not retry_fallback or all(_stored_article_is_valid(a, selected_date) for a in articles)
+    ):
         return articles[:DAILY_ARTICLE_COUNT]
-
-    db.query(DailyArticleSet).filter(DailyArticleSet.content_date == selected_date).delete()
-    db.flush()
-
+    existing_articles = articles
     articles = _generate_ai_articles(db, selected_date)
     if len(articles) < DAILY_ARTICLE_COUNT:
+        if len(existing_articles) >= DAILY_ARTICLE_COUNT:
+            return existing_articles[:DAILY_ARTICLE_COUNT]
         logger.warning("AI daily articles unavailable or incomplete; using fallback pool")
         articles = _fallback_articles(db, selected_date)
 
+    db.query(DailyArticleSet).filter(DailyArticleSet.content_date == selected_date).delete()
+    db.flush()
     for position, article in enumerate(articles[:DAILY_ARTICLE_COUNT], start=1):
         db.add(DailyArticleSet(content_date=selected_date, article_id=article.article_id, position=position))
     db.commit()
     return _daily_articles_for_date(db, selected_date)
 
 
-def scheduled_daily_article_refresh() -> None:
+def scheduled_daily_article_refresh() -> bool:
     with SessionLocal() as db:
-        ensure_daily_articles(db, get_content_date())
+        selected_date = get_content_date()
+        articles = ensure_daily_articles(db, selected_date, retry_fallback=True)
+        return len(articles) == DAILY_ARTICLE_COUNT and all(
+            _stored_article_is_valid(article, selected_date) for article in articles
+        )
 
 
 def start_daily_article_scheduler() -> None:
@@ -123,10 +132,14 @@ def _daily_article_scheduler_loop() -> None:
         current_date = get_content_date()
         if current_date != processed_date:
             try:
-                scheduled_daily_article_refresh()
+                complete = scheduled_daily_article_refresh()
             except Exception:
                 logger.exception("Scheduled daily article refresh failed for %s", current_date)
                 if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS):
+                    break
+                continue
+            if not complete:
+                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS * 5):
                     break
                 continue
             processed_date = current_date

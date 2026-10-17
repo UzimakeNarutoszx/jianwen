@@ -195,6 +195,7 @@ export default {
           ]
         }
       ]
+      groups.push({ title: '关于见闻', desc: '产品动态', items: [{ key: 'changelog', label: '更新日志', type: 'link' }] })
       groups.push({
         title: '账号',
         desc: this.authUser ? '登录状态' : '云端同步',
@@ -361,7 +362,7 @@ export default {
         this.saveSwitch(item.key)
         return
       }
-      const pageMap = { fontSize: '/pages/settings/font-size', legal: '/pages/settings/legal', sources: '/pages/settings/sources' }
+      const pageMap = { changelog: '/pages/settings/changelog', fontSize: '/pages/settings/font-size', legal: '/pages/settings/legal', sources: '/pages/settings/sources' }
       if (item.key === 'login') {
         uni.navigateTo({ url: '/pages/auth/login' })
         return

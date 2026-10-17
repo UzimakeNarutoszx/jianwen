@@ -1,6 +1,6 @@
-const DEFAULT_API_BASE_URL = typeof window !== 'undefined' && window.location.hostname
+const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname
   ? `http://${window.location.hostname}:8000`
-  : 'http://127.0.0.1:8000'
+  : 'http://127.0.0.1:8000')
 const TODAY_FALLBACK_ARTICLE_LIMIT = 5
 
 export function getApiBaseUrl() {
@@ -39,7 +39,9 @@ export function apiRequest({ url, method = 'GET', data = {}, token = '' }) {
           resolve(response.data)
           return
         }
-        reject(new Error(normalizeApiError(response.data && response.data.detail)))
+        const error = new Error(normalizeApiError(response.data && response.data.detail))
+        error.status = statusCode
+        reject(error)
       },
       fail(error) {
         reject(new Error(error.errMsg || '网络连接失败，请检查后端是否已启动'))
@@ -428,4 +430,27 @@ export function getRemoteFollowTopics() {
 
 export function saveRemoteFollowTopics(topics) {
   return authRequest({ url: '/api/v1/profile/topics', method: 'PUT', data: { topics } })
+}
+
+export function getWeeklyReport(week = '') {
+  return authRequest({ url: `/api/v1/profile/weekly-report${week ? `?week_start=${encodeURIComponent(week)}` : ''}` })
+}
+
+export function postReadingActivity(data, token = getAuthToken()) {
+  return apiRequest({ url: '/api/v1/profile/reading-activity', method: 'POST', data, token })
+}
+
+// Public resources share a root so relative media paths resolve identically in App and H5.
+export function buildPublicUrl(path = '') {
+  const root = `${getApiBaseUrl().replace(/\/$/, '')}/public/`
+  if (/^https?:\/\//i.test(path)) return path
+  return `${root}${path.replace(/^\/+/, '')}`
+}
+
+export function getWeeklyCatalog() {
+  return apiRequest({ url: '/public/data/weekly-videos.json', data: { _t: Date.now() } })
+}
+
+export function getChangelog() {
+  return apiRequest({ url: '/public/data/changelog.json', data: { _t: Date.now() } })
 }

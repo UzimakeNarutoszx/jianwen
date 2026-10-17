@@ -1,8 +1,12 @@
 <script>
+import { installReadingActivity, readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
 export default {
   onLaunch() {
+    installReadingActivity()
     console.log('Jianwen launched')
-  }
+  },
+  onShow() { resumeReadingActivity() },
+  onHide() { readingActivity.pause() }
 }
 </script>
 

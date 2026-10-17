@@ -1,0 +1,81 @@
+{
+  "episodes": [
+    {
+      "id": "2026-W42",
+      "number": 1,
+      "title": "从养老收费，到中国制造的新变化",
+      "description": "两篇重点文章，一次见闻更新回看，以及进出口和秋粮收获的本周观察。",
+      "weekStart": "2026-10-12",
+      "weekEnd": "2026-10-18",
+      "cutoff": "2026-10-17T18:30:00+08:00",
+      "durationSeconds": 293.8333333333333,
+      "chapters": [
+        {
+          "title": "片头导读",
+          "seconds": 0.0
+        },
+        {
+          "title": "本周重点文章",
+          "seconds": 22.366666666666667
+        },
+        {
+          "title": "本周见闻更新",
+          "seconds": 133.63333333333333
+        },
+        {
+          "title": "大事总结",
+          "seconds": 174.9
+        },
+        {
+          "title": "片尾来源",
+          "seconds": 274.06666666666666
+        }
+      ],
+      "articles": [
+        {
+          "title": "养老服务价格要分类管，普通人先看收费清单",
+          "url": "jianwen/article.html?id=ai-daily-20261017-1",
+          "date": "2026-10-17"
+        },
+        {
+          "title": "广交会首期聚焦先进制造，专精特新企业多了",
+          "url": "jianwen/article.html?id=ai-daily-20261017-4",
+          "date": "2026-10-17"
+        }
+      ],
+      "sources": [
+        {
+          "title": "国家发展改革委：完善价格形成机制，推动普惠养老服务提质扩面",
+          "url": "https://www.ndrc.gov.cn/xxgk/zcfb/tz/202610/t20261016_1408179.html",
+          "date": "2026-10-16"
+        },
+        {
+          "title": "第140届广交会：以前沿创新展品对接全球供需",
+          "url": "https://www.gov.cn/yaowen/liebiao/202610/content_7083478.htm",
+          "date": "2026-10-16"
+        },
+        {
+          "title": "央视网：海关总署介绍前三季度进出口情况",
+          "url": "https://news.cctv.com/2026/10/14/ARTIUWyrzbshAYGGLxXAgvpV261014.shtml",
+          "date": "2026-10-14"
+        },
+        {
+          "title": "中新网：全国秋粮收获进入高峰期，进度过六成",
+          "url": "https://www.chinanews.com.cn/cj/2026/10-16/10715499.shtml",
+          "date": "2026-10-16"
+        },
+        {
+          "title": "见闻公开更新日志",
+          "url": "changelog.html",
+          "date": "2026-10-11"
+        }
+      ],
+      "status": "published",
+      "publishedAt": "2026-10-17T19:01:42.786412+08:00",
+      "video": "assets/weekly-video/2026-W42/episode.mp4",
+      "poster": "assets/weekly-video/2026-W42/cover.jpg",
+      "captions": "assets/weekly-video/2026-W42/captions.vtt"
+    }
+  ],
+  "upcoming": null
+}

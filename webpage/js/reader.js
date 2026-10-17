@@ -75,6 +75,7 @@
   function savePosition() {
     if (!ready || restoring || !book || activeIndex < 0) return
     const fraction = progress()
+    window.jianwenReading?.setProgress(fraction * 100)
     const value = { bookId, chapterId: book.chapters[activeIndex].id, chapterTitle: book.chapters[activeIndex].title, fraction, updatedAt: Date.now() }
     const saved = writeStorage(positionKey, value)
     $('save-state').textContent = saved ? '已在此设备保存阅读位置' : '浏览器未允许保存阅读位置'
@@ -111,6 +112,7 @@
   async function openChapter(index, savedPosition) {
     if (!book || index < 0 || index >= book.chapters.length) return
     savePosition()
+    window.jianwenReading?.setTarget(null)
     ready = false
     const version = ++requestVersion
     activeIndex = index
@@ -152,6 +154,7 @@
         })
         $('reader-content').replaceChildren(fragment)
       }
+      if (detail.content?.trim()) window.jianwenReading?.setTarget({ kind: 'classic', content_id: String(chapter.id), book_id: bookId })
       ready = true
       restoring = true
       requestAnimationFrame(() => {
