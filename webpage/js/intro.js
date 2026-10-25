@@ -12,7 +12,7 @@ function playIntro() {
 document.getElementById('intro-replay')?.addEventListener('click', playIntro)
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') location.href = 'index.html?v=20261017-4'
+  if (event.key === 'Escape') location.href = 'index.html?v=20261025-3'
 })
 
 if (!reducedMotion && window.tsParticles) {

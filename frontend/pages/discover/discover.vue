@@ -26,6 +26,7 @@
       </view>
     </view>
 
+    <IssueEntry />
     <view class="section-head first-section">
       <view class="section-copy">
         <text class="section-eyebrow">TOPIC HALL</text>
@@ -123,10 +124,12 @@
 </template>
 
 <script>
+import IssueEntry from '@/components/IssueEntry.vue'
 import { getClassicBooks, getDiscoverContent } from '@/utils/api.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 
 export default {
+  components: { IssueEntry },
   data() {
     return {
       topics: [],

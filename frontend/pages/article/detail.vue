@@ -22,6 +22,7 @@
       </view>
     </view>
 
+    <IssueEntry mode="article" :article="article" />
     <view class="summary-card card">
       <view class="summary-head">
         <text class="block-title">先看这三点</text>
@@ -105,6 +106,7 @@
 </template>
 
 <script>
+import IssueEntry from '@/components/IssueEntry.vue'
 import { readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
 import { deleteRemoteFavorite, getArticleDetail, getRemoteFavorite, saveRemoteFavorite, saveRemoteHistory } from '@/utils/api.js'
 import { addArticleHistory, isArticleFavorite, markArticleRead as markArticleReadRecord, toggleArticleFavorite } from '@/utils/user-data.js'
@@ -121,6 +123,7 @@ const emptyArticle = {
 }
 
 export default {
+  components: { IssueEntry },
   data() {
     return {
       articleId: '',

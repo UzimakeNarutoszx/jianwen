@@ -40,12 +40,27 @@ from app.schemas.content import (
     DailyQuoteResponse,
     DiscoverContentResponse,
     TodayChecklistResponse,
+    BreakingNewsDetailResponse,
+    BreakingNewsListResponse,
 )
 from services.ai import AIClientError, ask as ask_ai, ask_ajin, stream_ask
+from app.services.breaking_news import active_breaking_news
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _breaking_response(item, detail: bool = False):
+    payload = {
+        "id": item.id, "event_key": item.event_key, "title": item.title,
+        "event_type": item.event_type, "summary": item.summary, "image": item.image,
+        "latest_reported_at": item.latest_reported_at, "sources": item.sources or [],
+    }
+    if detail:
+        payload.update({"first_confirmed_at": item.first_confirmed_at, "is_ongoing": item.is_ongoing})
+        return BreakingNewsDetailResponse(**payload)
+    return BreakingNewsListResponse(**payload)
 
 
 def _as_list(value: list | None) -> list:
@@ -70,12 +85,14 @@ def _article_list_response(article: ContentArticle, viewed_article_ids: set[str]
     )
 
 
-def _article_detail_response(article: ContentArticle) -> ContentArticleDetailResponse:
+def _article_detail_response(article: ContentArticle, issue=None, policy_checks=None) -> ContentArticleDetailResponse:
     return ContentArticleDetailResponse(
         **_article_list_response(article).model_dump(),
         summary=_as_list(article.summary),
         sections=_as_list(article.sections),
         references=_as_list(article.references),
+        issue=issue,
+        policy_checks=policy_checks or [],
     )
 
 
@@ -281,7 +298,8 @@ def _save_ai_usage(db: Session, user: User, question: str, answer: str, sources:
     db.commit()
 
 
-def _build_ask_context(db: Session, article_id: str | None = None) -> dict[str, object]:
+def _build_ask_context(db: Session, article_id: str | None = None, issue_key: str | None = None,
+                       policy_key: str | None = None) -> dict[str, object]:
     articles = db.query(ContentArticle).order_by(ContentArticle.sort_order, ContentArticle.id).all()
     linked_article = next((article for article in articles if article.article_id == article_id), None)
     context: dict[str, object] = {
@@ -289,6 +307,16 @@ def _build_ask_context(db: Session, article_id: str | None = None) -> dict[str, 
     }
     if linked_article is not None:
         context["当前关联文章"] = _article_context(linked_article)
+    elif article_id:
+        raise HTTPException(status_code=404, detail="关联文章不存在")
+    from app.services.issue_threads import article_issue, published_context
+    associated = article_issue(db, article_id) if article_id else None
+    selected_issue = issue_key or (associated["issue_key"] if associated else None)
+    if selected_issue:
+        context["关联议题时间线"] = published_context(db, selected_issue)
+    if policy_key:
+        from app.services.policy_checks import policy_ask_context
+        context["关联政策自查"] = policy_ask_context(db, policy_key)
     return context
 
 
@@ -304,6 +332,19 @@ def list_categories(db: Session = Depends(get_db)) -> list[ContentCategory]:
 @router.get("/today", response_model=list[ContentArticleListResponse])
 def list_today_articles(db: Session = Depends(get_db)) -> list[ContentArticleListResponse]:
     return [_article_list_response(article) for article in _today_articles(db)]
+
+
+@router.get("/breaking-news", response_model=list[BreakingNewsListResponse])
+def list_breaking_news(db: Session = Depends(get_db)) -> list[BreakingNewsListResponse]:
+    return [_breaking_response(item) for item in active_breaking_news(db)]
+
+
+@router.get("/breaking-news/{event_key}", response_model=BreakingNewsDetailResponse)
+def get_breaking_news(event_key: str, db: Session = Depends(get_db)) -> BreakingNewsDetailResponse:
+    item = next((candidate for candidate in active_breaking_news(db) if candidate.event_key == event_key), None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="大事报道不存在或已下线")
+    return _breaking_response(item, detail=True)
 
 
 @router.get("/today/personalized", response_model=TodayChecklistResponse)
@@ -347,7 +388,9 @@ def get_article(article_id: str, db: Session = Depends(get_db)) -> ContentArticl
     article = db.query(ContentArticle).filter(ContentArticle.article_id == article_id).first()
     if article is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章不存在")
-    return _article_detail_response(article)
+    from app.services.issue_threads import article_issue
+    from app.services.policy_checks import list_policy_checks
+    return _article_detail_response(article, article_issue(db, article_id), list_policy_checks(db, article_id=article_id))
 
 
 @router.get("/articles/{article_id}/related", response_model=list[ContentArticleListResponse])
@@ -506,7 +549,7 @@ def answer_question(
     _ensure_ai_quota(db, current_user)
 
     try:
-        result = ask_ai(question, context=_build_ask_context(db, payload.article_id))
+        result = ask_ai(question, context=_build_ask_context(db, payload.article_id, payload.issue_key, payload.policy_key))
     except AIClientError as exc:
         logger.warning("Ark AI request failed: %s", exc)
         fallback = _local_answer(db, question)
@@ -575,7 +618,7 @@ def stream_answer_question(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="问题不能为空")
 
     _ensure_ai_quota(db, current_user)
-    context = _build_ask_context(db, payload.article_id)
+    context = _build_ask_context(db, payload.article_id, payload.issue_key, payload.policy_key)
 
     try:
         stream = iter(stream_ask(question, context=context))

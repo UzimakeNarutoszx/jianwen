@@ -133,7 +133,7 @@
     document.title = `${article.title} · 见闻`
     hero.innerHTML = `<div class="article-topline"><span class="article-topic">${escapeHtml(topic)}</span><span class="article-kicker">深度解读报告</span></div><h1>${escapeHtml(article.title || '未命名文章')}</h1><p class="article-deck">${escapeHtml(article.desc || '阅读背景、影响与来源依据。')}</p><div class="article-meta"><span>${escapeHtml(readTime)} · AI 辅助整理</span><span>${escapeHtml(source)}</span></div>`
     body.className = 'article-stack'
-    body.innerHTML = `${renderSummary(article.summary)}${renderInsights(article.relation, article.sections)}${renderSections(article.sections, article.content)}${renderAsk()}${renderReferences(article.references)}<div class="article-actions"><a class="button button-secondary" href="index.html">返回今日</a><a class="button button-primary" href="ask.html?article=${encodeURIComponent(articleId)}">继续追问</a></div>`
+    body.innerHTML = `${window.jianwenIssueLinks ? window.jianwenIssueLinks(article) : ''}${renderSummary(article.summary)}${renderInsights(article.relation, article.sections)}${renderSections(article.sections, article.content)}${renderAsk()}${renderReferences(article.references)}<div class="article-actions"><a class="button button-secondary" href="index.html">返回今日</a><a class="button button-primary" href="ask.html?article=${encodeURIComponent(articleId)}">继续追问</a></div>`
     bindArticleActions()
 
     const related = document.createElement('section')

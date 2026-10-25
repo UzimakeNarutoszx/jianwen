@@ -54,6 +54,7 @@
       </view>
     </view>
 
+    <IssueEntry mode="mine" />
     <view class="section-head">
       <text class="section-title inline-title">功能</text>
       <text class="section-note">常用入口</text>
@@ -112,6 +113,7 @@
 </template>
 
 <script>
+import IssueEntry from '@/components/IssueEntry.vue'
 import {
   buildFileUrl,
   getCategories,
@@ -126,6 +128,7 @@ import { applyTabBarTheme } from '@/utils/theme.js'
 const LOCAL_TOPICS_KEY = 'jianwen_follow_topics'
 
 export default {
+  components: { IssueEntry },
   data() {
     return {
       menus: [

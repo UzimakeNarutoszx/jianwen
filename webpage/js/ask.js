@@ -38,7 +38,7 @@
   if (typeof module !== 'undefined' && module.exports) { module.exports = { markdown, consumeStream }; return }
   const $ = id => document.getElementById(id)
   const form = $('ask-form'), input = $('ask-input'), output = $('ask-output'), state = $('context-state'), submit = $('ask-submit'), stop = $('ask-stop'), status = $('ask-status'), actions = $('answer-actions'), copy = $('answer-copy-button'), retry = $('ask-retry')
-  const params = new URLSearchParams(location.search), articleId = params.get('article') || '', initialQuestion = params.get('q') || ''
+  const params = new URLSearchParams(location.search), articleId = params.get('article') || '', initialQuestion = params.get('q') || '', issueKey = params.get('issue') || '', policyKey = params.get('policy') || ''
   let requestActive = false, answerChanged = Boolean(initialQuestion), controller = null, answer = '', displayedAnswer = '', displayedLength = 0, lastQuestion = '', stopped = false, revealTimer, revealWaiters = [], copyResetTimer
   if (!window.getToken()) {
     let previous = new URL('../index.html', location.href).href
@@ -53,6 +53,7 @@
     return
   }
   if (articleId) { input.placeholder = '围绕这篇文章提出一个问题'; state.textContent = '已带入文章上下文' }
+  if (issueKey || policyKey) state.textContent = issueKey ? '已带入议题公开内容' : '已带入政策公开内容，不包含自查答案'
   if (initialQuestion) input.value = initialQuestion
   function renderAnswer() {
     const visibleAnswer = requestActive ? displayedAnswer : answer
@@ -140,7 +141,7 @@
     const timer = setTimeout(() => { timedOut = true; controller.abort() },120000)
     try {
       const token = window.getToken(); if (!token) throw new Error('登录已失效，请重新登录。')
-      const response = await fetch(`${window.jianwenApi.baseUrl()}/api/v1/content/ask/stream`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ question, article_id:articleId }), signal:controller.signal })
+      const response = await fetch(`${window.jianwenApi.baseUrl()}/api/v1/content/ask/stream`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ question, article_id:articleId, issue_key:issueKey, policy_key:policyKey }), signal:controller.signal })
       if (!response.ok) { if (response.status === 401) window.clearSession(); const data = await response.json().catch(() => ({})); throw new Error(typeof data.detail === 'string' ? data.detail : `请求失败（${response.status}），请稍后重试。`) }
       await consumeStream(response,updateAnswer,controller.signal)
       status.textContent = '回答接收完毕 · 请结合原始资料核对'; saveAnswer()

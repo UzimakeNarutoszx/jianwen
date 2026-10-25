@@ -177,6 +177,7 @@ def build_report(db: Session, user: User, week_start: date | None = None):
         stat["reading_seconds"] = round(stat["reading_seconds"], 3)
         stat["cumulative_seconds"] = round(cumulative, 3)
     first = db.query(ReadingInterval).filter_by(user_id=user.id).order_by(ReadingInterval.started_at).first()
+    from app.services.issue_threads import weekly_issues
     return {"user": {"id": user.id, "nickname": user.nickname}, "timezone": "Asia/Shanghai",
         "week_start": monday.isoformat(), "week_end": (end_day - timedelta(days=1)).isoformat(),
         "current_week_start": current_monday.isoformat(), "is_current": monday == current_monday,
@@ -186,4 +187,4 @@ def build_report(db: Session, user: User, week_start: date | None = None):
             "reading_seconds": round(cumulative, 3),
             "active_days": sum(bool(d["articles"] or d["chapters"] or d["reading_seconds"] or d["ask"] or d["ajin"]) for d in days)},
         "days": days, "topics": topics, "articles": articles, "classics": classics,
-        "questions": questions, "legacy": legacy}
+        "questions": questions, "legacy": legacy, "issues": weekly_issues(db, user.id, start, end)}

@@ -38,6 +38,49 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `POST /api/v1/content/ask/answer`
 - `POST /api/v1/content/ask/stream`：流式问问回答，需要登录并占用每日问题额度。
 
+### 议题追踪与审核发布
+
+- `GET /api/v1/content/issues?limit=20`：已发布可见议题数组，limit 1–50。
+- `GET /api/v1/content/issues/{issue_key}`：按事件日期排序的时间线；携带登录 token 时包含关注与已读发布版本。
+- `GET /api/v1/profile/issues`：已关注的可见议题数组。
+- `GET /api/v1/profile/issues/updates`：未读更新数组，每项为 `{issue, new_events, events}`；`new_events` 统计新增或修订事件。
+- `POST/DELETE /api/v1/profile/issues/{issue_key}/follow`：关注/取消关注；重复调用幂等。
+- `POST /api/v1/profile/issues/{issue_key}/seen`：请求 `{published_version}`，只能标记实际加载的版本，服务端原子取最大值，不吞掉并发新发布。
+
+文章详情新增可空 `issue` 和默认空数组 `policy_checks`。问问普通与流式请求均支持可选 `article_id`、`issue_key`、`policy_key`；指定不存在或未发布的上下文返回 404。议题上下文只含已发布节点。周报新增 `issues` 数组，按北京时间的**发布周**统计，并附当周发布事件快照；历史事件回填也会计入实际发布周。
+
+每日文章提交后只写持久候选任务，单独后台线程每 30 秒领取任务并调用 AI，失败延迟 5 分钟重试，最多 3 次；15 分钟租约允许进程重启恢复。AI 只能产生待审候选，不会公开议题。种子兜底文章不排入任务。启动会运行候选 worker；不要为无副作用验证启动真实服务。
+
+在 `backend/` 目录使用下列 CLI；所有写入生产数据库的命令应由操作者明确执行。`backfill --dry-run` 仅读取，不调用 AI、不写数据库。
+
+```bash
+.venv314/bin/python scripts/issue_threads.py backfill --since 2026-10-01 --dry-run
+.venv314/bin/python scripts/issue_threads.py backfill --since 2026-10-01
+.venv314/bin/python scripts/issue_threads.py work-once
+.venv314/bin/python scripts/issue_threads.py export --output /tmp/issue-review.json
+.venv314/bin/python scripts/issue_threads.py validate --file /tmp/issue-review.json
+.venv314/bin/python scripts/issue_threads.py publish --file /tmp/issue-review.json --reviewer 人工审核人
+.venv314/bin/python scripts/issue_threads.py reject 123 --reviewer 人工审核人
+.venv314/bin/python scripts/issue_threads.py hide ISSUE_KEY --reviewer 人工审核人
+.venv314/bin/python scripts/issue_threads.py merge FROM_KEY INTO_KEY --reviewer 人工审核人
+.venv314/bin/python scripts/issue_threads.py detach ISSUE_KEY ARTICLE_ID --reviewer 人工审核人
+.venv314/bin/python scripts/issue_threads.py revise ISSUE_KEY --file /tmp/issue-correction.json --reviewer 人工审核人
+```
+
+导出的资料是 `{candidate_id, base_version, payload}` 数组。人工核对原文与官方来源后，编辑标题、现状、阶段和摘要；不得替换来源文章或归并目标，低置信度候选需补证后才能通过校验。导出不覆盖已有文件。发布整份文件为一个事务，任何过期基线或无效候选均回滚；同一文件内多个节点加入同一议题受统一基线校验。修订资料格式为 `{published_version, title?, status_line?, stage?, events?: [{article_id, delta_summary}]}`；只允许修订现有事件。发布、修订、隐藏、归并、脱离均记录发布版本、审核人和快照；单篇文章只能有一个主议题，归并会迁移关注关系。归并旧键会解析到当前目标议题；隐藏旧键及不存在的键返回 404。事件的 `historical` 在写入时按 `event_date` 是否早于北京时间发布日持久判定，归并和修订不会重新推断。
+
+新增表由 `create_all` 首次创建；它不会自动迁移既有表字段。测试使用内存 SQLite 和 mock AI，无需访问真实 AI 或业务数据库。
+
+### 匿名政策自查
+
+- `GET /api/v1/content/policy-checks`：当前已发布或暂停的规则目录，可按 `article_id` / `issue_key` 筛选。
+- `GET /api/v1/content/policy-checks/{policy_key}`：公开规则、依据与核验有效期。过期或暂停时保留依据，不返回题目。
+- `POST /api/v1/content/policy-checks/{policy_key}/evaluate`：无需登录，请求 `{version, answers: {question_id: option_value}}`。确定性返回“可能符合 / 暂不符合 / 信息不足”；任何明确不满足优先，缺项和“不确定”都视为信息不足。
+
+自查不调用 AI，不保存答案、不关联账号；公开问问上下文只包含规则条款，不包含答案。版本变化返回 409，过期或暂停返回 410，未知问题/选项返回 422。核验有效期和适用日期按北京时间解释，截止日当天有效。目录、详情和评估响应禁用缓存。
+
+新增 `content_policy_checks` 保存不可改写的规则版本；`current_key` 唯一指向当前公开版本。规则必须有政府 HTTPS 原文、逐题依据、审核记录、适用起始日期和有效核验时间才能显式发布。采编资料与 CLI 用法见 [editorial/README.md](editorial/README.md)。当前杭州补贴文件为**未发布草稿**，不能作为现行资格认定依据。
+
 ### 用户资料与行为
 
 - `GET /api/v1/profile/me`：当前登录用户资料和统计。

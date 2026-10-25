@@ -84,7 +84,8 @@ def ensure_daily_articles(
     if len(articles) >= DAILY_ARTICLE_COUNT and (
         not retry_fallback or all(_stored_article_is_valid(a, selected_date) for a in articles)
     ):
-        return articles[:DAILY_ARTICLE_COUNT]
+        _enqueue_issue_candidates(db, selected_date, articles[:DAILY_ARTICLE_COUNT])
+        return _daily_articles_for_date(db, selected_date)[:DAILY_ARTICLE_COUNT]
     existing_articles = articles
     articles = _generate_ai_articles(db, selected_date)
     if len(articles) < DAILY_ARTICLE_COUNT:
@@ -98,7 +99,19 @@ def ensure_daily_articles(
     for position, article in enumerate(articles[:DAILY_ARTICLE_COUNT], start=1):
         db.add(DailyArticleSet(content_date=selected_date, article_id=article.article_id, position=position))
     db.commit()
+    _enqueue_issue_candidates(db, selected_date, articles[:DAILY_ARTICLE_COUNT])
     return _daily_articles_for_date(db, selected_date)
+
+
+def _enqueue_issue_candidates(db: Session, content_date: date, articles: list[ContentArticle]) -> None:
+    # Only persist a small job here. The separate worker owns all external AI latency.
+    try:
+        from app.services.issue_candidates import enqueue_daily
+        if enqueue_daily(db, content_date, articles):
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Could not enqueue issue candidates for %s; daily articles remain committed", content_date)
 
 
 def scheduled_daily_article_refresh() -> bool:
@@ -125,31 +138,23 @@ def stop_daily_article_scheduler() -> None:
 
 
 def _daily_article_scheduler_loop() -> None:
-    # Polling also recovers from reloads, sleep/wake, and a missed exact 06:00
-    # wake-up. A failed refresh remains eligible on the next poll.
     processed_date: date | None = None
     while not _scheduler_stop_event.is_set():
         current_date = get_content_date()
         if current_date != processed_date:
             try:
-                complete = scheduled_daily_article_refresh()
+                if scheduled_daily_article_refresh():
+                    processed_date = current_date
             except Exception:
                 logger.exception("Scheduled daily article refresh failed for %s", current_date)
-                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS):
-                    break
-                continue
-            if not complete:
-                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS * 5):
-                    break
-                continue
-            processed_date = current_date
-            continue
-
-        wait_seconds = min(
-            SCHEDULER_POLL_SECONDS,
-            max(1, (_next_rollover_datetime() - get_content_datetime()).total_seconds()),
-        )
-        if _scheduler_stop_event.wait(wait_seconds):
+        # The durable daily claim avoids duplicate work after reloads. Its retries
+        # are independent of AI daily-article success and happen on the same clock.
+        try:
+            from app.services.breaking_news import scheduled_refresh
+            scheduled_refresh(current_date)
+        except Exception:
+            logger.exception("Scheduled breaking-news refresh failed for %s", current_date)
+        if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS):
             break
 
 

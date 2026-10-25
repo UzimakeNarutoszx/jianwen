@@ -21,7 +21,7 @@ async page => {
     localStorage.setItem('jianwen_login_expires_at',String(Date.now()+86400000))
   })
   await page.setViewportSize({width:1440,height:1050})
-  await page.goto('http://127.0.0.1:8765/jianwen/weekly.html?v=20261017-4')
+  await page.goto('http://127.0.0.1:8765/jianwen/weekly.html?v=20261025-3')
   await page.getByRole('button',{name:'下载完整长图'}).waitFor({state:'visible'})
   await page.waitForFunction(()=>!document.querySelector('#download-report').disabled)
   if(await page.locator('[data-chart] canvas').count()!==4) throw new Error('Missing charts')

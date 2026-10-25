@@ -1,5 +1,6 @@
 {
   "pages": [
+    { "path": "pages/breaking/detail", "style": { "navigationBarTitleText": "大事报道" } },
     {
       "path": "pages/index/index",
       "style": {
@@ -7,6 +8,10 @@
         "navigationStyle": "custom"
       }
     },
+    { "path": "pages/issues/index", "style": { "navigationBarTitleText": "议题追踪", "navigationStyle": "custom" } },
+    { "path": "pages/issues/detail", "style": { "navigationBarTitleText": "议题进展", "navigationStyle": "custom" } },
+    { "path": "pages/policy/index", "style": { "navigationBarTitleText": "政策自查", "navigationStyle": "custom" } },
+    { "path": "pages/policy/detail", "style": { "navigationBarTitleText": "匿名政策自查", "navigationStyle": "custom" } },
     {
       "path": "pages/today/today",
       "style": {

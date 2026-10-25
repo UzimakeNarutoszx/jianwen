@@ -40,6 +40,12 @@
         </view>
       </view>
 
+      <view v-if="breakingNews.length" class="breaking-card" @click="openBreaking(breakingNews[0])">
+        <image class="breaking-image" :src="breakingNews[0].image" mode="aspectFill" />
+        <view class="breaking-copy"><text class="breaking-label">大事报道 · 已确认</text><text class="breaking-title">{{ breakingNews[0].title }}</text><text class="breaking-desc">{{ breakingNews[0].desc }}</text></view>
+        <text class="breaking-arrow">↗</text>
+      </view>
+
       <swiper v-if="bannerItems.length" class="banner-swiper" indicator-dots circular autoplay interval="4200" duration="420">
         <swiper-item v-for="item in bannerItems" :key="item.id">
           <view class="banner-card" @click="openBanner(item)">
@@ -58,6 +64,7 @@
       </swiper>
     </view>
 
+    <IssueEntry ref="issueEntry" mode="today" />
     <view class="briefing-panel">
       <view v-if="dailyQuote" class="quote-card card">
         <view class="quote-accent"></view>
@@ -148,12 +155,14 @@
 </template>
 
 <script>
-import { getDailyQuote, getRemoteTodayChecklist, getTodayContent } from '@/utils/api.js'
+import IssueEntry from '@/components/IssueEntry.vue'
+import { getBreakingNews, getDailyQuote, getRemoteTodayChecklist, getTodayContent } from '@/utils/api.js'
 import { formatToday } from '@/utils/date.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { getReadArticleIds } from '@/utils/user-data.js'
 
 export default {
+  components: { IssueEntry },
   data() {
     return {
       todayText: '',
@@ -161,6 +170,7 @@ export default {
       fontSize: 'standard',
       articles: [],
       banners: [],
+      breakingNews: [],
       dailyQuote: null
     }
   },
@@ -204,10 +214,12 @@ export default {
     }
   },
   onShow() {
+    this.$nextTick(() => this.$refs.issueEntry?.refresh())
     this.todayText = formatToday()
     this.darkMode = !!uni.getStorageSync('jianwen_dark_mode')
     this.fontSize = uni.getStorageSync('jianwen_font_size') || 'standard'
     this.loadContent()
+    getBreakingNews().then(items => { this.breakingNews = items }).catch(() => { this.breakingNews = [] })
     applyTabBarTheme(this.darkMode)
   },
   methods: {
@@ -246,6 +258,9 @@ export default {
     openBanner(item) {
       if (item.type === 'article') this.openArticle(item.articleId)
     },
+    openBreaking(item) {
+      uni.navigateTo({ url: `/pages/breaking/detail?key=${encodeURIComponent(item.eventKey)}` })
+    },
     articleRank(index) {
       return String(index + 1).padStart(2, '0')
     },
@@ -257,6 +272,13 @@ export default {
 </script>
 
 <style scoped>
+.breaking-card { display:flex; align-items:center; gap:20rpx; margin:0 0 8rpx; padding:20rpx; border:1rpx solid rgba(212,170,78,.42); border-radius:20rpx; background:rgba(255,252,240,.92); }
+.breaking-image { width:120rpx; height:100rpx; border-radius:14rpx; flex:0 0 auto; }
+.breaking-copy { display:flex; flex:1; min-width:0; flex-direction:column; gap:6rpx; }
+.breaking-label { color:#876112; font-size:20rpx; font-weight:700; }
+.breaking-title { color:#213c48; font-size:29rpx; font-weight:700; line-height:1.35; }
+.breaking-desc { color:#6f7c82; font-size:21rpx; line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.breaking-arrow { width:54rpx; height:54rpx; line-height:54rpx; border-radius:50%; background:#193e4c; color:#fff; text-align:center; font-size:28rpx; }
 .today-page {
   position: relative;
   overflow: hidden;
