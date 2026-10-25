@@ -32,3 +32,4 @@
 .weekly-export .weekly-chart{height:320px}.weekly-export .weekly-chart img{width:100%;height:320px;object-fit:contain}.weekly-export .weekly-table-wrap{overflow:visible}
 .weekly-page ::selection{background:#cddfd3;color:#152c31}
 @media(max-width:760px){.weekly-heading{align-items:flex-start;flex-direction:column;padding-top:32px}.weekly-controls{gap:10px}.weekly-controls>span{width:100%;margin:0}.weekly-paper{padding:20px}.weekly-cover h2{font-size:24px}.weekly-stats{grid-template-columns:repeat(2,1fr);gap:24px}.weekly-stats dd{font-size:25px}.weekly-charts{grid-template-columns:1fr;gap:30px}.weekly-chart{height:300px}.weekly-table{min-width:440px}}
+.weekly-data-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease}.weekly-data[open] .weekly-data-panel{grid-template-rows:1fr}.weekly-data-inner{min-height:0;overflow:hidden}.weekly-data[open] .weekly-data-inner{padding-top:12px}

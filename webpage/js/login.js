@@ -6,6 +6,7 @@
   const smsButton = $('#sms-button')
   const switchButton = $('#switch-button')
   const params = new URLSearchParams(location.search)
+  const cancelLink = $('#auth-cancel')
   let mode = ['login', 'register', 'forgot'].includes(params.get('mode')) ? params.get('mode') : 'login'
   let countdownTimer = null
 
@@ -94,6 +95,14 @@
     } catch {
       return new URL('../index.html', location.href).href
     }
+  }
+
+  try {
+    const cancel = new URL(params.get('cancel') || '../index.html', location.href)
+    const fallback = new URL('../index.html', location.href)
+    cancelLink.href = cancel.origin === location.origin && !cancel.pathname.endsWith('/login.html') ? cancel.href : fallback.href
+  } catch {
+    cancelLink.href = new URL('../index.html', location.href).href
   }
 
   document.querySelectorAll('.auth-tab').forEach(tab => tab.addEventListener('click', () => setMode(tab.dataset.mode)))

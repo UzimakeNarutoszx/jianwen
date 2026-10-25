@@ -34,7 +34,7 @@ async function main() {
   ui.submit(); ui.submit()
   assert.equal(requests,1,'Duplicate submits are ignored')
   resolveRequest(new Response('**真实回答**'))
-  await flush(); await flush()
+  await flush(); await flush(); await new Promise(resolve => setTimeout(resolve,320))
   assert.match(ui.el('ask-output').innerHTML, /<strong>真实回答<\/strong>/)
   assert.equal(ui.el('ask-input').value,'测试问题')
   assert.equal(ui.el('ask-submit').disabled,false)

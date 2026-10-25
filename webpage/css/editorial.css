@@ -10,7 +10,7 @@ body{background:var(--paper);color:var(--ink)}
 .work-card:hover,.feature-card:hover,.classic-card:hover,.search-result:hover{box-shadow:var(--shadow);transform:translateY(-3px)}
 .button{border-radius:999px}.button-primary{background:var(--blue-dark)}.button-primary:hover{background:var(--blue)}
 .site-footer{margin-top:72px;padding:30px 0;border-top:1px solid var(--line);color:var(--muted)}
-:focus-visible{outline:3px solid #387d74;outline-offset:4px}button:disabled{cursor:wait;opacity:.6}
+button:disabled{cursor:wait;background:var(--surface-raised);color:var(--muted);border-color:var(--line)}
 .skip-link{position:fixed;top:10px;left:20px;transform:translateY(-160%);z-index:1000;padding:12px 20px;background:var(--blue-dark);color:white;border-radius:8px}.skip-link:focus{transform:none}
 .editorial-hero{position:relative;display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:center;padding:76px 0 66px;border-bottom:1px solid var(--line)}
 .editorial-hero h1{font-size:clamp(48px,5.5vw,78px);line-height:1.15;font-weight:600;letter-spacing:-.06em;margin:22px 0}.editorial-hero h1 em{font-style:normal;color:var(--blue)}
@@ -76,6 +76,27 @@ body{background:var(--paper);color:var(--ink)}
 
 .editorial-hero h1{font-size:clamp(28px,3.35vw,49px);line-height:1.45}.home-subtitle{font-size:clamp(18px,1.7vw,24px);color:var(--blue);margin:18px 0}
 
+/* Shared interaction and reading-quality refinements. */
+:root{--ink:#183238;--muted:#637477;--blue:#28645e;--blue-dark:#193e3a;--gold:#c8a86d;--paper:#f4f5f1;--mist:#e9efea;--line:#dae1dc;--glass:#fff;--surface-raised:#f8faf7;--surface-page:#f4f5f1;--surface-card:#f7f8f4;--surface-float:#fafbf8;--surface-overlay:#fcfcfa;--focus-ring:rgba(40,100,94,.16);--focus-halo:rgba(40,100,94,.06);--shadow:0 10px 28px rgba(23,60,52,.07);--radius:18px;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;--text-inverse:#f7faf6;--surface-quote:#f4f1e8;--surface-code:#edf1f1;--surface-pre:#eaf0f1;--surface-answer-hover:#e8f0f2;--border-busy:#c0d5dc}
+html{scroll-padding-top:24px}
+html,body{overflow-x:clip}
+body{text-wrap:pretty}
+:is(h1,h2,h3,.section-heading){text-wrap:balance}
+:is(button,input,textarea,select,[contenteditable="true"]){transition:background-color .14s,border-color .14s,color .14s}
+:is(input,textarea,select,[contenteditable="true"]):focus,:is(input,textarea,select,[contenteditable="true"]):focus-visible{outline:0;border-color:transparent;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo)}
+:is(button,a,[role="button"],[tabindex]):focus-visible{outline:0;box-shadow:0 0 0 2px var(--paper),0 0 0 4px color-mix(in srgb,var(--blue) 58%,transparent);transition:none}
+:is(.button,.back-button,.filter-button,.auth-tab,.method-button){min-height:42px}
+:is(.button,.back-button,.filter-button,.auth-tab,.method-button):active{transform:translateY(1px)}
+:is(.hero,.editorial-hero,.page-intro,.article-hero,.reader-paper,.answer-copy) :is(p,li,blockquote){text-wrap:pretty}
+:is(.briefing-number,.briefing-stat strong,.ajin-metrics strong,.read-progress,[data-count]){font-variant-numeric:tabular-nums}
+:is(.icon,[class$="-icon"],[class*="-icon-"]){vertical-align:-.125em}
+:is(.topic-grid,.feature-grid,.link-groups,.work-grid,.discover-columns,.related-grid)>*{min-width:0}
+:is(.site-nav,.footer-links,.hero-actions,.filter-row){min-width:0}
+img,video{height:auto}
+@media(prefers-color-scheme:dark){:root{--ink:#e4ece7;--muted:#afbeb9;--blue:#88b7a5;--blue-dark:#b7d2c3;--paper:#182421;--mist:#202f2a;--line:rgba(225,239,231,.1);--glass:#202d29;--surface-raised:#26342f;--surface-page:#182421;--surface-card:#1b2824;--surface-float:#1e2b26;--surface-overlay:#202e29;--shadow:0 10px 28px rgba(0,0,0,.12);--focus-ring:rgba(136,183,165,.22)}body{background:linear-gradient(180deg,#1d2924,#182421 480px);color:var(--ink)}:is(.site-header,.site-footer,.site-nav,.header-top){border-color:var(--line)}:is(.auth-head,.auth-panel,.link-toolbar,.link-group,.topic-card,.discover-feature,.update-card,.profile-section,.reader-sidebar,.reader-paper,.classic-card,.profile-card,.about-main,.info-list,.identity-directions article,.product-contact aside,.settings-fields input){background:var(--glass);border-color:var(--line);color:var(--ink)}:is(.reader-paper,.auth-field input,.settings-fields input){background:var(--surface-card);color:var(--ink)}:is(.feature-summary,.profile-summary,.discover-status,.ask-status-card,.about-note,.ajin-statement,.daily-progress,.summary-item){background:var(--mist);color:var(--ink)}:is(.article-content,.answer-copy,.reader-content){color:var(--ink)}.reader-page{background:var(--paper)}.site-header .site-nav a{color:var(--muted)}.header-top .nav-account{background:var(--glass);color:var(--blue-dark)}.button-secondary,.back-button{color:var(--blue-dark);border-color:var(--line)}.auth-field input{border-color:var(--line)}.hero-art{background:#263b35}.hero-art::after{background:linear-gradient(transparent 35%,rgba(9,25,20,.88))}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal-in{animation:none!important}}
+@media(max-width:760px){.site-header .site-nav .nav-group{min-width:0}.site-header .site-nav a{white-space:normal}.page-shell{overflow-wrap:anywhere}}
+
 /* Section navigation stays consistent across long-form pages. */
 .discover-anchor-nav,.ajin-anchor-nav{position:sticky;top:0;z-index:6;display:flex;gap:8px;overflow:auto;padding:12px 0;margin-bottom:8px;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);scrollbar-width:none}
 .discover-anchor-nav::-webkit-scrollbar,.ajin-anchor-nav::-webkit-scrollbar{display:none}
@@ -87,3 +108,7 @@ body{background:var(--paper);color:var(--ink)}
 .site-header .site-nav .nav-group+.nav-group{border-left:0}
 .site-header .site-nav{gap:24px}
 .site-header .site-nav .nav-group{padding:0;gap:24px}
+
+/* Keyboard focus is a fast shadow response across page-specific styles. */
+body :is(input,textarea,select,[contenteditable="true"]):focus-visible{outline:0;border-color:transparent;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:none}
+body :is(button,a,[role="button"],[tabindex]):focus-visible{outline:0;box-shadow:0 0 0 2px var(--paper),0 0 0 4px color-mix(in srgb,var(--blue) 58%,transparent);transition:none}

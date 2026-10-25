@@ -888,4 +888,96 @@ button.back-button::after {
 .font-large .block-body {
   font-size: 34rpx !important;
 }
+
+/* Shared mobile design tokens and cross-page interaction polish. */
+:root {
+  --jw-ink: #183238;
+  --jw-muted: #637477;
+  --jw-blue: #28645e;
+  --jw-blue-dark: #193e3a;
+  --jw-gold: #c8a86d;
+  --jw-paper: #f4f5f1;
+  --jw-mist: #e9efea;
+  --jw-line: #dae1dc;
+  --jw-focus: rgba(40, 100, 94, .18);
+  --jw-focus-strong: rgba(40, 100, 94, .2);
+  --jw-focus-halo: rgba(40, 100, 94, .08);
+  --jw-surface-page: #f4f5f1;
+  --jw-surface-card: #f7f8f4;
+  --jw-surface-float: #fafbf8;
+  --jw-surface-overlay: #fcfcfa;
+}
+
+page {
+  text-wrap: pretty;
+  font-variant-numeric: tabular-nums;
+  overflow-x: clip;
+}
+
+.page,
+.card,
+.topbar,
+.page-head,
+.settings-head,
+.category-head,
+.auth-head {
+  min-width: 0;
+}
+
+.page {
+  overflow-wrap: anywhere;
+}
+
+:is(.page-title, .section-title, .content-title, .content-heading, .option-title, .preview-title, .account-title, .feature-title, .update-title, .block-title, .mini-title, .answer-title) {
+  text-wrap: balance;
+}
+
+:is(input, textarea, .composer-input, .ask-input, .search-box):focus,
+:is(input, textarea, .composer-input, .ask-input, .search-box):focus-visible {
+  outline: 0;
+  border-color: transparent;
+  box-shadow: 0 0 0 2rpx var(--jw-focus), 0 0 0 8rpx var(--jw-focus-halo);
+  transition: background-color .14s ease;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2rpx var(--jw-focus-strong), 0 0 0 8rpx var(--jw-focus-halo);
+}
+
+:is(.icon, [class$="-icon"], [class*="-icon-"]) { vertical-align: -.125em; }
+
+.dark-mode {
+  --jw-surface-page: #182421;
+  --jw-surface-card: #1b2824;
+  --jw-surface-float: #1e2b26;
+  --jw-surface-overlay: #202e29;
+}
+
+.dark-mode :is(.brand-title, .page-title, .section-title, .content-title, .content-heading, .option-title, .preview-title, .account-title, .function-label, .menu-label, .feature-title, .update-title, .followup-title, .block-title, .mini-title, .section-heading, .answer-title, .article-title, .archive-title) {
+  font-weight: 360;
+}
+
+.dark-mode :is(strong, b, .metric-value, .read-state, .favorite-text, .message-label, .option-value) {
+  font-weight: 360;
+}
+
+.dark-mode {
+  font-weight: 240;
+}
+
+.dark-mode :is(.card, .search-box, .prompt-card, .followup-card, .composer, .composer-input, .summary-card, .answer-box, .ask-input-row) {
+  border-color: rgba(219, 239, 241, .07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
 </style>

@@ -39,11 +39,68 @@
   const $ = id => document.getElementById(id)
   const form = $('ask-form'), input = $('ask-input'), output = $('ask-output'), state = $('context-state'), submit = $('ask-submit'), stop = $('ask-stop'), status = $('ask-status'), actions = $('answer-actions'), copy = $('answer-copy-button'), retry = $('ask-retry')
   const params = new URLSearchParams(location.search), articleId = params.get('article') || '', initialQuestion = params.get('q') || ''
-  let requestActive = false, answerChanged = Boolean(initialQuestion), controller = null, answer = '', lastQuestion = '', stopped = false, renderTimer
-  if (!window.getToken()) { window.location.replace(`login.html?return=${encodeURIComponent(location.pathname + location.search)}`); return }
+  let requestActive = false, answerChanged = Boolean(initialQuestion), controller = null, answer = '', displayedAnswer = '', displayedLength = 0, lastQuestion = '', stopped = false, revealTimer, revealWaiters = [], copyResetTimer
+  if (!window.getToken()) {
+    let previous = new URL('../index.html', location.href).href
+    try {
+      const referrer = new URL(document.referrer)
+      if (referrer.origin === location.origin && !referrer.pathname.endsWith('/login.html')) previous = referrer.href
+    } catch {}
+    const login = new URL('login.html', location.href)
+    login.searchParams.set('return', location.pathname + location.search)
+    login.searchParams.set('cancel', previous)
+    window.location.replace(login.href)
+    return
+  }
   if (articleId) { input.placeholder = '围绕这篇文章提出一个问题'; state.textContent = '已带入文章上下文' }
   if (initialQuestion) input.value = initialQuestion
-  function renderAnswer() { renderTimer = null; output.innerHTML = `<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy">${markdown(answer)}</div></article>` }
+  function renderAnswer() {
+    const visibleAnswer = requestActive ? displayedAnswer : answer
+    if (!output.querySelector) {
+      output.innerHTML = `<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy">${markdown(visibleAnswer)}</div></article>`
+      return
+    }
+    let copy = output.querySelector('.answer-copy')
+    if (!copy) {
+      output.innerHTML = '<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy"></div></article>'
+      copy = output.querySelector('.answer-copy')
+    }
+    const parsed = document.createElement('div')
+    parsed.innerHTML = markdown(visibleAnswer)
+    const previous = [...copy.children]
+    const next = [...parsed.children]
+    next.forEach((element, index) => {
+      const old = previous[index]
+      const unchanged = old && old.outerHTML === element.outerHTML
+      if (!unchanged) {
+        const replacement = element.cloneNode(true)
+        if (old && old.tagName === replacement.tagName) old.replaceChildren(...replacement.childNodes)
+        else if (old) old.replaceWith(replacement)
+        else copy.appendChild(replacement)
+      }
+    })
+    previous.slice(next.length).forEach(element => element.remove())
+  }
+  function resolveRevealWaiters() {
+    revealWaiters.splice(0).forEach(resolve => resolve())
+  }
+  function revealNextCharacter() {
+    if (displayedLength >= answer.length) {
+      revealTimer = null
+      resolveRevealWaiters()
+      return
+    }
+    const character = Array.from(answer.slice(displayedLength))[0]
+    displayedAnswer += character
+    displayedLength += character.length
+    renderAnswer()
+    revealTimer = setTimeout(revealNextCharacter, 12)
+  }
+  function finishReveal() {
+    if (displayedLength >= answer.length) return Promise.resolve()
+    if (!revealTimer) revealTimer = setTimeout(revealNextCharacter, 0)
+    return new Promise(resolve => revealWaiters.push(resolve))
+  }
   function restoreAnswer() {
     if (initialQuestion) return
     if (typeof localStorage === 'undefined') return
@@ -58,7 +115,11 @@
     if (typeof localStorage === 'undefined') return
     if (lastQuestion && answer) localStorage.setItem('jianwen_web_ask_last', JSON.stringify({ question: lastQuestion, answer, savedAt: Date.now() }))
   }
-  function updateAnswer(text) { answer = text; status.textContent = '正在生成回答…'; if (!renderTimer) renderTimer = setTimeout(renderAnswer,80) }
+  function updateAnswer(text) {
+    answer = text
+    status.textContent = '正在生成回答…'
+    if (!revealTimer) revealTimer = setTimeout(revealNextCharacter, 0)
+  }
   document.querySelector('.prompt-grid').addEventListener('click', event => { const b = event.target.closest('.prompt-chip'); if (!b || requestActive) return; input.value = b.dataset.question || b.textContent.trim(); input.focus() })
   async function loadPrompts() {
     try {
@@ -71,8 +132,8 @@
     if (requestActive) return
     if (!question) { status.textContent = '请先输入一个问题。'; input.focus(); return }
     if (question.length > 4000) { status.textContent = '请将问题控制在 4000 字以内。'; input.focus(); return }
-    requestActive = true; answerChanged = true; lastQuestion = question; answer = ''; stopped = false; controller = new AbortController()
-    submit.disabled = true; input.readOnly = true; stop.hidden = false; actions.hidden = true; retry.hidden = true; copy.disabled = true; copy.textContent = '复制回答'
+    requestActive = true; answerChanged = true; lastQuestion = question; answer = ''; displayedAnswer = ''; displayedLength = 0; stopped = false; controller = new AbortController()
+    submit.disabled = true; input.readOnly = true; stop.hidden = false; actions.hidden = true; retry.hidden = true; copy.disabled = true; resetCopyButton()
     status.textContent = '正在连接 AI 服务…'; output.setAttribute('aria-busy','true')
     output.innerHTML = '<div class="answer-placeholder answer-loading"><span class="loading-spinner" aria-hidden="true"></span><strong>正在思考…</strong><p>回答会逐步显示，你可以随时停止。</p></div>'
     let timedOut = false
@@ -88,14 +149,28 @@
       status.textContent = message; retry.hidden = false
       if (!answer) output.innerHTML = `<div class="answer-placeholder"><strong>${stopped ? '已停止生成' : '暂时无法回答'}</strong><p>${escapeHtml(message)}</p>${window.getToken() ? '' : `<a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname + location.search)}">重新登录</a>`}</div>`
     } finally {
-      clearTimeout(timer); clearTimeout(renderTimer); renderTimer = null; if (answer) renderAnswer(); saveAnswer()
-      requestActive = false; output.removeAttribute('aria-busy'); submit.disabled = false; input.readOnly = false; stop.hidden = true; actions.hidden = false; copy.disabled = !answer
+      clearTimeout(timer); await finishReveal(); requestActive = false; if (answer) renderAnswer(); saveAnswer()
+      output.removeAttribute('aria-busy'); submit.disabled = false; input.readOnly = false; stop.hidden = true; actions.hidden = false; copy.disabled = !answer
     }
   }
   form.addEventListener('submit', event => { event.preventDefault(); ask(input.value.trim()) })
   stop.addEventListener('click', () => { if (requestActive) { stopped = true; controller.abort() } })
   retry.addEventListener('click', () => { input.value = lastQuestion; ask(lastQuestion) })
-  copy.addEventListener('click', async () => { if (!answer) return; try { await navigator.clipboard.writeText(answer); copy.textContent = '已复制' } catch { status.textContent = '浏览器未允许访问剪贴板，请选中回答后复制。' } })
-  window.addEventListener('pagehide', () => controller?.abort())
+  function resetCopyButton() {
+    clearTimeout(copyResetTimer)
+    copy.setAttribute('data-state', 'idle')
+    copy.textContent = '复制回答'
+  }
+  copy.addEventListener('click', async () => {
+    if (!answer) return
+    try {
+      await navigator.clipboard.writeText(answer)
+      clearTimeout(copyResetTimer)
+      copy.setAttribute('data-state', 'copied')
+      copy.textContent = '✓ 已复制'
+      copyResetTimer = setTimeout(resetCopyButton, 2500)
+    } catch { status.textContent = '浏览器未允许访问剪贴板，请选中回答后复制。' }
+  })
+  window.addEventListener('pagehide', () => { controller?.abort(); clearTimeout(copyResetTimer) })
   restoreAnswer(); loadPrompts()
 })()

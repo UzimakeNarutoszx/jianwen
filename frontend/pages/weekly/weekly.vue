@@ -235,7 +235,7 @@ export default {
 .secondary { padding:16rpx 24rpx; background:#E8F0F3; color:#1F5F7A; font-size:26rpx; line-height:1.6; margin:0; }
 .return-latest { margin:24rpx 0; }
 button[disabled] { opacity:.45; }
-button:focus-visible { outline:2px solid #1F5F7A; outline-offset:3px; }
+button:focus-visible { outline:0; box-shadow:0 0 0 2rpx rgba(40,100,94,.2), 0 0 0 8rpx rgba(40,100,94,.08); }
 .font-large .description,.font-large .reference-row,.font-large .chapter-row,.font-large .archive-title { font-size:31rpx; }
 .font-small .description,.font-small .reference-row,.font-small .chapter-row,.font-small .archive-title { font-size:25rpx; }
 .dark-mode .tabs { background:#20313E; }
