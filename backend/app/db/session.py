@@ -5,8 +5,6 @@ from app.core.config import settings
 from app.db.base import Base
 from app.models import AiAnswerRule, AiPrompt, ClassicBook, ClassicBookChapter, ContentArticle, ContentCategory, ContentFeature, ContentPage, DailyArticleSet, DailyQuote, User  # noqa: F401
 from app.models import UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic  # noqa: F401
-from app.models.issue import ContentIssue, ContentIssueEvent, IssueCandidate, IssueCandidateJob, IssueRevision, UserIssueFollow  # noqa: F401
-from app.models.breaking_news import BreakingNews  # noqa: F401
 from app.services.seed_content import seed_content
 
 

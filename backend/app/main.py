@@ -9,7 +9,6 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import init_database
 from app.services.daily_articles import scheduled_daily_article_refresh, start_daily_article_scheduler, stop_daily_article_scheduler
-from app.services.issue_candidates import start_issue_worker, stop_issue_worker
 
 
 app = FastAPI(title=settings.PROJECT_NAME, docs_url=None, redoc_url=None)
@@ -47,13 +46,11 @@ app.add_middleware(
 def on_startup() -> None:
     init_database()
     start_daily_article_scheduler()
-    start_issue_worker()
 
 
 @app.on_event("shutdown")
 def on_shutdown() -> None:
     stop_daily_article_scheduler()
-    stop_issue_worker()
 
 
 @app.get("/health")

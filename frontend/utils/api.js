@@ -8,15 +8,7 @@ export function getApiBaseUrl() {
 }
 
 export function getAuthToken() {
-  const token = uni.getStorageSync('jianwen_auth_token') || ''
-  const expiresAt = Number(uni.getStorageSync('jianwen_login_expires_at') || 0)
-  if (token.startsWith('local-') || (expiresAt && expiresAt <= Date.now())) {
-    uni.removeStorageSync('jianwen_auth_token')
-    uni.removeStorageSync('jianwen_auth_user')
-    uni.removeStorageSync('jianwen_login_expires_at')
-    return ''
-  }
-  return token
+  return uni.getStorageSync('jianwen_auth_token') || ''
 }
 
 export function buildFileUrl(path) {
@@ -49,11 +41,6 @@ export function apiRequest({ url, method = 'GET', data = {}, token = '' }) {
         }
         const error = new Error(normalizeApiError(response.data && response.data.detail))
         error.status = statusCode
-        if (statusCode === 401 && token && token === getAuthToken()) {
-          uni.removeStorageSync('jianwen_auth_token')
-          uni.removeStorageSync('jianwen_auth_user')
-          uni.removeStorageSync('jianwen_login_expires_at')
-        }
         reject(error)
       },
       fail(error) {
@@ -83,9 +70,7 @@ function fromContentArticle(record = {}) {
     viewed: !!record.viewed,
     summary: Array.isArray(record.summary) ? record.summary : [],
     sections: Array.isArray(record.sections) ? record.sections : [],
-    references: Array.isArray(record.references) ? record.references : [],
-    issue: record.issue || null,
-    policy_checks: record.policy_checks || []
+    references: Array.isArray(record.references) ? record.references : []
   }
 }
 
@@ -288,20 +273,6 @@ export function getDailyQuote(date) {
   return apiRequest({ url: `/api/v1/content/daily-quote${suffix}` }).then(fromDailyQuote)
 }
 
-export function getBreakingNews() {
-  return apiRequest({ url: '/api/v1/content/breaking-news' }).then(records => (records || []).map(item => ({
-    id: item.id,
-    eventKey: item.event_key,
-    title: item.title || '',
-    desc: item.summary || '',
-    image: buildFileUrl(item.image || '/static/images/共产党.png')
-  })))
-}
-
-export function getBreakingNewsDetail(eventKey) {
-  return apiRequest({ url: `/api/v1/content/breaking-news/${encodeURIComponent(eventKey)}` })
-}
-
 export function getArticleDetail(id) {
   return apiRequest({ url: `/api/v1/content/articles/${encodeURIComponent(id)}` }).then(fromContentArticle)
 }
@@ -360,9 +331,7 @@ export function askQuestion(question, options = {}) {
     method: 'POST',
     data: {
       question,
-      article_id: options.articleId || '',
-      issue_key: options.issueKey || '',
-      policy_key: options.policyKey || ''
+      article_id: options.articleId || ''
     }
   })
 }
@@ -380,9 +349,7 @@ export async function askQuestionStream(question, options = {}, onDelta = () => 
     },
     body: JSON.stringify({
       question,
-      article_id: options.articleId || '',
-      issue_key: options.issueKey || '',
-      policy_key: options.policyKey || ''
+      article_id: options.articleId || ''
     })
   })
 
@@ -468,16 +435,6 @@ export function saveRemoteFollowTopics(topics) {
 export function getWeeklyReport(week = '') {
   return authRequest({ url: `/api/v1/profile/weekly-report${week ? `?week_start=${encodeURIComponent(week)}` : ''}` })
 }
-
-export const getIssues = () => apiRequest({ url: '/api/v1/content/issues', token: getAuthToken() })
-export const getIssue = key => apiRequest({ url: `/api/v1/content/issues/${encodeURIComponent(key)}`, token: getAuthToken() })
-export const getFollowedIssues = () => authRequest({ url: '/api/v1/profile/issues' })
-export const getIssueUpdates = () => authRequest({ url: '/api/v1/profile/issues/updates' })
-export const followIssue = (key, following) => authRequest({ url: `/api/v1/profile/issues/${encodeURIComponent(key)}/follow`, method: following ? 'POST' : 'DELETE' })
-export const markIssueSeen = (key, revision) => authRequest({ url: `/api/v1/profile/issues/${encodeURIComponent(key)}/seen`, method: 'POST', data: { published_version: revision } })
-export const getPolicyChecks = () => apiRequest({ url: '/api/v1/content/policy-checks' })
-export const getPolicyCheck = key => apiRequest({ url: `/api/v1/content/policy-checks/${encodeURIComponent(key)}` })
-export const evaluatePolicyCheck = (key, version, answers) => apiRequest({ url: `/api/v1/content/policy-checks/${encodeURIComponent(key)}/evaluate`, method: 'POST', data: { version, answers } })
 
 export function postReadingActivity(data, token = getAuthToken()) {
   return apiRequest({ url: '/api/v1/profile/reading-activity', method: 'POST', data, token })

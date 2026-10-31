@@ -149,7 +149,7 @@
 </template>
 
 <script>
-import { askQuestion, askQuestionStream, getAskBootstrap, getAuthToken } from '@/utils/api.js'
+import { askQuestion, askQuestionStream, getAskBootstrap } from '@/utils/api.js'
 import { markdownToHtml } from '@/utils/markdown.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { addAskRecord, getAskSession, saveAskSession } from '@/utils/user-data.js'
@@ -221,7 +221,7 @@ export default {
   },
   methods: {
     ensureLoggedIn() {
-      if (getAuthToken()) return true
+      if (uni.getStorageSync('jianwen_auth_token')) return true
       uni.showToast({ title: '请先登录后使用 AI 问问', icon: 'none' })
       setTimeout(() => {
         uni.navigateTo({ url: '/pages/auth/login' })
@@ -265,14 +265,12 @@ export default {
     },
     consumePendingAskContext() {
       const pending = uni.getStorageSync('jianwen_pending_ask_context')
-      if (!pending || (!pending.articleId && !pending.issueKey && !pending.policyKey && !pending.fromRecord)) return
+      if (!pending || (!pending.articleId && !pending.fromRecord)) return
 
       uni.removeStorageSync('jianwen_pending_ask_context')
-      this.linkedArticle = (pending.articleId || pending.issueKey || pending.policyKey)
+      this.linkedArticle = pending.articleId
         ? {
             articleId: pending.articleId,
-            issueKey: pending.issueKey || '',
-            policyKey: pending.policyKey || '',
             title: pending.title || '',
             topic: pending.topic || '',
             sources: pending.sources || ''
@@ -283,7 +281,7 @@ export default {
         role: 'context',
         text: pending.articleId
           ? `来自文章页：正在围绕《${this.linkedArticle.title || '当前文章'}》继续问问${this.linkedArticle.topic ? ` · ${this.linkedArticle.topic}` : ''}`
-          : pending.issueKey || pending.policyKey ? `正在围绕「${pending.title}」问问，仅带入公开内容。` : `来自问问记录：正在围绕「${pending.title || '历史问题'}」继续追问`,
+          : `来自问问记录：正在围绕「${pending.title || '历史问题'}」继续追问`,
         sources: pending.sources || ''
       })
       saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
@@ -326,7 +324,7 @@ export default {
         const articleId = this.linkedArticle && this.linkedArticle.articleId
         try {
           let streamedText = ''
-          await askQuestionStream(text, { articleId, issueKey: this.linkedArticle?.issueKey, policyKey: this.linkedArticle?.policyKey }, chunk => {
+          await askQuestionStream(text, { articleId }, chunk => {
             streamedText += chunk
             this.queueAssistantText(pendingId, streamedText)
             this.scheduleBottomScroll()
@@ -335,7 +333,7 @@ export default {
           answer = streamedText
         } catch (streamError) {
           this.flushAssistantText()
-          const result = await askQuestion(text, { articleId, issueKey: this.linkedArticle?.issueKey, policyKey: this.linkedArticle?.policyKey })
+          const result = await askQuestion(text, { articleId })
           answer = result.answer || ''
           responseSources = result.sources || ''
           await this.typeAssistantMessage(pendingId, answer)

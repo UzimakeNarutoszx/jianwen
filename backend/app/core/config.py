@@ -43,9 +43,6 @@ class Settings:
     SMS_PROVIDER: str = os.getenv("SMS_PROVIDER", "aliyun")
     SMS_DEV_CODE: str = os.getenv("SMS_DEV_CODE", "123456")
     AI_DAILY_QUESTION_LIMIT: int = int(os.getenv("AI_DAILY_QUESTION_LIMIT", "20"))
-    BREAKING_NEWS_TIMEOUT_SECONDS: int = int(os.getenv("BREAKING_NEWS_TIMEOUT_SECONDS", "10"))
-    BREAKING_NEWS_RETENTION_HOURS: int = int(os.getenv("BREAKING_NEWS_RETENTION_HOURS", "72"))
-    BREAKING_NEWS_SOURCES: str = os.getenv("BREAKING_NEWS_SOURCES", "中国政府网,新华社,人民日报")
 
     def __post_init__(self) -> None:
         origins = os.getenv("CORS_ORIGINS", "*")

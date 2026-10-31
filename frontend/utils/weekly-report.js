@@ -10,7 +10,6 @@ export const CHARTS = [
 export function reportModel(report) {
   const s = report.summary || {}
   const sections = [
-    { title: '本周关注议题的进展', empty: '本周关注的议题暂无已发布进展。', items: (report.issues || []).flatMap(group => (group.events || []).map(event => ({ kind: 'issue', source: group.issue, title: `${group.issue.title} · ${event.event_date}`, meta: `${event.position || ''} ${event.delta_summary || ''}` }))) },
     { title: `这一周，看过的文章 · ${s.articles || 0} 篇`, empty: '这一周还没有文章阅读记录。', items: (report.articles || []).map(i => ({ kind: 'article', source: i, title: i.title, meta: `${i.topic || '其他'} · ${(i.dates || []).join('、')} · ${i.seconds > 0 ? `已记录停留 ${minutes(i.seconds)} 分钟` : '未采集阅读时长'}` })) },
     ...['ask', 'ajin'].map(channel => ({ title: `${channel === 'ask' ? 'AI 问问' : '阿烬提问'} · ${s[channel] || 0} 次`, empty: '这一周还没有提问记录。', items: (report.questions || []).filter(q => q.channel === channel).map(q => ({ title: q.question, meta: String(q.created_at || '').slice(0, 16).replace('T', ' ') })) })),
     { title: `这一周，读过的名著 · ${s.books || 0} 本`, empty: '还没有累计停留满 30 秒的名著章节。', items: (report.classics || []).map(i => ({ kind: 'classic', source: i, title: `${i.book_title} · ${i.title}`, meta: `${(i.dates || []).join('、')} · 章内最近进度 ${i.scroll_progress || 0}% · 有效停留 ${minutes(i.seconds)} 分钟` })) }

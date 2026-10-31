@@ -18,14 +18,7 @@ test('export includes all sections, captions, daily data, questions and legacy',
   for (const value of ['测试读者', '本周文章标题', '怎样理解这项变化？', '继续追问', '测试名著', '旧的阅读位置', '2026-10-18', '历史文章计入篇数']) assert.ok(text.includes(value), value)
   for (const chart of CHARTS) { assert.ok(text.includes(chart.title)); assert.ok(text.includes(chart.caption)) }
   assert.ok(scene.ops.filter(op => op.type === 'text').every(op => op.y < scene.height))
-  assert.equal(reportModel(report).sections.length, 6)
-})
-test('issue progress appears in both screen model and the complete export', () => {
-  const value = { ...report, issues: [{ issue: { issue_key: 'housing', title: '住房保障进展' }, events: [{ event_date: '2026-10-17', position: '地方细则', delta_summary: '新增申请材料核验说明' }] }] }
-  const section = reportModel(value).sections.find(s => s.title === '本周关注议题的进展')
-  assert.equal(section.items[0].source.issue_key, 'housing')
-  const text = exportScene(value).ops.filter(op => op.type === 'text').map(op => op.value).join('')
-  for (const expected of ['住房保障进展', '2026-10-17', '新增申请材料核验说明']) assert.ok(text.includes(expected))
+  assert.equal(reportModel(report).sections.length, 5)
 })
 test('empty charts have finite coordinates and readable empty text', () => {
   for (const chart of CHARTS) for (const op of chartScene(chart.key, { days: [], topics: [] }, 280)) {

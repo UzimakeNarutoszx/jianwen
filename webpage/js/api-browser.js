@@ -161,21 +161,10 @@
   window.getReadArticleIds = getReadArticleIds
   window.markArticleRead = markArticleRead
   window.jianwenApi = {
-    issues: () => request('/api/v1/content/issues', { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} }, false),
-    issue: key => request(`/api/v1/content/issues/${encodeURIComponent(key)}`, { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} }, false),
-    followedIssues: () => authRequest('/api/v1/profile/issues'),
-    issueUpdates: () => authRequest('/api/v1/profile/issues/updates'),
-    followIssue: (key, following) => authRequest(`/api/v1/profile/issues/${encodeURIComponent(key)}/follow`, { method: following ? 'POST' : 'DELETE' }),
-    markIssueSeen: (key, revision) => authRequest(`/api/v1/profile/issues/${encodeURIComponent(key)}/seen`, { method: 'POST', body: JSON.stringify({ published_version: revision }) }),
-    policyChecks: () => publicRequest('/api/v1/content/policy-checks'),
-    policyCheck: key => publicRequest(`/api/v1/content/policy-checks/${encodeURIComponent(key)}`),
-    evaluatePolicyCheck: (key, version, answers) => publicRequest(`/api/v1/content/policy-checks/${encodeURIComponent(key)}/evaluate`, { method: 'POST', body: JSON.stringify({ version, answers }) }),
     baseUrl,
     weeklyReport: week => authRequest(`/api/v1/profile/weekly-report${week ? `?week_start=${encodeURIComponent(week)}` : ''}`, { cache: 'no-store' }),
     readingActivity: data => authRequest('/api/v1/profile/reading-activity', { method: 'POST', body: JSON.stringify(data), keepalive: true }),
     today: () => publicRequest('/api/v1/content/today'),
-    breakingNews: () => publicRequest('/api/v1/content/breaking-news'),
-    breakingNewsDetail: key => publicRequest(`/api/v1/content/breaking-news/${encodeURIComponent(key)}`),
     personalizedToday: () => authRequest('/api/v1/content/today/personalized'),
     dailyQuote: date => publicRequest(`/api/v1/content/daily-quote${date ? `?date=${encodeURIComponent(date)}` : ''}`),
     categories: () => publicRequest('/api/v1/content/categories'),
@@ -190,15 +179,15 @@
     classicChapter: (bookId, chapterId) => publicRequest(`/api/v1/content/classic-books/${encodeURIComponent(bookId)}/chapters/${encodeURIComponent(chapterId)}`),
     contentPage: key => publicRequest(`/api/v1/content/pages/${encodeURIComponent(key)}`),
     askBootstrap: () => publicRequest('/api/v1/content/ask/bootstrap'),
-    ask: (question, articleId, context = {}) => authRequest('/api/v1/content/ask', {
+    ask: (question, articleId) => authRequest('/api/v1/content/ask', {
       method: 'POST',
-      body: JSON.stringify({ question, article_id: articleId || '', issue_key: context.issueKey || '', policy_key: context.policyKey || '' })
+      body: JSON.stringify({ question, article_id: articleId || '' })
     }),
     ajinChat: (question, history) => authRequest('/api/v1/content/ajin/chat', {
       method: 'POST',
       body: JSON.stringify({ question, history: Array.isArray(history) ? history.slice(-20) : [] })
     }),
-    askStream: (question, articleId, context = {}) => streamRequest('/api/v1/content/ask/stream', { question, article_id: articleId || '', issue_key: context.issueKey || '', policy_key: context.policyKey || '' }),
+    askStream: (question, articleId) => streamRequest('/api/v1/content/ask/stream', { question, article_id: articleId || '' }),
     profile: () => authRequest('/api/v1/profile/me'),
     updateProfile: data => authRequest('/api/v1/profile/me', { method: 'PATCH', body: JSON.stringify(data) }),
     uploadAvatar: file => {

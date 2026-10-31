@@ -27,7 +27,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261025-3'
+const SITE_VERSION = '20261017-4'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -80,8 +80,8 @@ function readAuthUser() {
 }
 
 function isJianwenCurrent(key, current) {
-  if (key === 'today') return ['index.html', 'article.html', 'breaking-news.html'].includes(current)
-  if (key === 'discover') return ['discover.html', 'reader.html', 'issues.html', 'issue.html', 'policy-checks.html', 'policy-check.html'].includes(current)
+  if (key === 'today') return ['index.html', 'article.html'].includes(current)
+  if (key === 'discover') return ['discover.html', 'reader.html'].includes(current)
   if (key === 'weekly') return current === 'weekly.html'
   if (key === 'ask') return current === 'ask.html'
   if (key === 'account') return ['login.html', 'profile.html'].includes(current)
@@ -162,10 +162,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261025-3'
+  apiScript.src = 'js/api-browser.js?v=20261017-4'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261025-3'
+    chatScript.src = 'js/ajin-chat.js?v=20261017-4'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

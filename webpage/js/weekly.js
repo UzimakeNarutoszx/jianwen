@@ -36,7 +36,6 @@
         ${[['daily','每天的阅读与追问','每天同一文章、章节各计一次；提问按次数统计。'],['topics','阅读主题占比','按本周读过的不同文章统计，包含已有浏览记录。'],['trend','阅读时间的积累','仅累计实际采集到的前台停留，不补算历史时长。'],['radar','我的主题阅读分布','沿用网站主题顺序，数值为文章篇数，不代表能力评分。']].map(([key,title,caption]) => `<figure class="weekly-figure"><h3>${title}</h3><div class="weekly-chart" data-chart="${key}" role="img" aria-label="${title}，数据见下方明细"></div><figcaption>${caption}</figcaption></figure>`).join('')}
       </section>
       <details class="weekly-data"><summary>查看图表数据</summary><div class="weekly-data-panel"><div class="weekly-data-inner"><div class="weekly-table-wrap"><table class="weekly-table"><caption>本周每日使用记录</caption><thead><tr><th scope="col">日期</th><th scope="col">文章</th><th scope="col">章节</th><th scope="col">问问</th><th scope="col">阿烬</th><th scope="col">停留分钟</th></tr></thead><tbody>${data.days.map(d => `<tr><th scope="row">${d.date}</th><td>${d.articles}</td><td>${d.chapters}</td><td>${d.ask}</td><td>${d.ajin}</td><td>${minutes(d.reading_seconds)}</td></tr>`).join('')}</tbody></table></div><p>${data.topics.map(t => `${esc(t.name)} ${t.count} 篇`).join(' · ')}</p></div></div></details>
-      <section class="weekly-data"><h3>本周关注议题的进展</h3>${list(data.issues || [], group => `<a href="issue.html?key=${encodeURIComponent(group.issue.issue_key)}"><strong>${esc(group.issue.title)}</strong></a>${(group.events || []).map(event => `<small>${esc(event.event_date)} · ${esc(event.position)} · ${esc(event.delta_summary)}</small>`).join('')}`, '本周关注的议题暂无已发布进展。')}</section>
       <section class="weekly-data"><h3>这一周，看过的文章 · ${s.articles} 篇</h3>${list(data.articles, i => `<a href="${articleLink(i)}"><strong>${esc(i.title)}</strong></a><small>${esc(i.topic)} · ${esc(i.dates.join('、'))} · ${i.seconds > 0 ? `已记录停留 ${minutes(i.seconds)} 分钟` : '未采集阅读时长'}</small>`, '这一周还没有文章阅读记录。')}</section>
       <section class="weekly-data"><h3>这一周，问过的问题</h3><h4>AI 问问 · ${s.ask} 次</h4>${questionList('ask')}<h4>阿烬 · ${s.ajin} 次</h4>${questionList('ajin')}</section>
       <section class="weekly-data"><h3>这一周，读过的名著 · ${s.books} 本</h3>${list(data.classics, i => `<a href="${classicLink(i)}"><strong>${esc(i.book_title)} · ${esc(i.title)}</strong></a><small>${esc(i.dates.join('、'))} · 章内最近进度 ${i.scroll_progress}% · 有效停留 ${minutes(i.seconds)} 分钟</small>`, '还没有累计停留满 30 秒的名著章节。')}</section>
@@ -80,7 +79,7 @@
       $('previous-week').disabled = selected <= '2000-01-03'
       download.disabled = false
       status.textContent = data.summary.active_days ? '你的个人记录已更新，可下载完整长图。' : '这一周还没有使用记录，开始阅读或提问后会在这里显示。'
-      history.replaceState(null, '', `${location.pathname}?week_start=${selected}&v=20261025-3`)
+      history.replaceState(null, '', `${location.pathname}?week_start=${selected}&v=20261017-4`)
     } catch (error) {
       if (request !== generation || expected !== window.getToken()) return
       status.textContent = `周报加载失败：${error.message}`

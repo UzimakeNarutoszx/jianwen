@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Any, Literal
-from app.schemas.issue import IssueBriefResponse
 
 from pydantic import BaseModel, Field
 
@@ -31,8 +30,6 @@ class ContentArticleListResponse(BaseModel):
 
 
 class ContentArticleDetailResponse(ContentArticleListResponse):
-    issue: IssueBriefResponse | None = None
-    policy_checks: list[dict] = Field(default_factory=list)
     summary: list[str] = Field(default_factory=list)
     sections: list[dict[str, Any]] = Field(default_factory=list)
     references: list[dict[str, Any]] = Field(default_factory=list)
@@ -91,8 +88,6 @@ class AiPromptResponse(BaseModel):
 class AiAnswerRequest(BaseModel):
     question: str = Field(..., min_length=1)
     article_id: str | None = None
-    issue_key: str | None = None
-    policy_key: str | None = None
 
 
 class AiAnswerResponse(BaseModel):
@@ -147,29 +142,3 @@ class TodayChecklistResponse(BaseModel):
     total_count: int = 0
     read_count: int = 0
     is_complete: bool = False
-
-
-class BreakingNewsSourceResponse(BaseModel):
-    name: str
-    title: str
-    url: str
-    summary: str
-    published_at: datetime | None = None
-
-
-class BreakingNewsListResponse(BaseModel):
-    id: int
-    event_key: str
-    title: str
-    event_type: str
-    summary: str
-    image: str
-    latest_reported_at: datetime
-    sources: list[BreakingNewsSourceResponse] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
-
-
-class BreakingNewsDetailResponse(BreakingNewsListResponse):
-    first_confirmed_at: datetime
-    is_ongoing: bool = False

@@ -90,7 +90,6 @@ export default {
       })
     },
     openItem(item) {
-      if (item.kind === 'issue') { uni.navigateTo({ url: `/pages/issues/detail?key=${encodeURIComponent(item.source.issue_key)}` }); return }
       if (item.kind === 'article') this.$emit('open-article', item.source)
       if (item.kind === 'classic') this.$emit('open-classic', item.source)
     },

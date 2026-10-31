@@ -1,6 +1,6 @@
 # 见闻项目交接文档
 
-更新时间：2026-10-25（Asia/Shanghai）。最新进度看第 11 节「工作日志」末尾。项目根目录：`/Users/ens/Thomas的文件/编程/见闻`。早期日志中的服务、Git 状态和测试数量仅代表当时状态。
+更新时间：2026-10-11 23:00（Asia/Shanghai）。最新进度看第 11 节「工作日志」。项目根目录：`/Users/ens/Thomas的文件/编程/见闻`。
 
 这份文档用于把项目整体交给 Claude 或其他开发者。项目包含 FastAPI 后端、Uni App/H5 前端、独立横屏网站、产品文档、测试和 Git/GitHub 配置。真实密钥不写入本文档。
 
@@ -58,7 +58,7 @@ API 前缀是 `/api/v1`。基础接口有 `/health`、`/`、`/docs`、`/redoc`�
 
 入口为 `webpage/index.html`，见闻阅读页在 `webpage/jianwen/`，阿烬页是 `webpage/avatar.html`，更新日志是 `webpage/changelog.html`。关键脚本是 `webpage/js/api-browser.js`（API、token、问问、收藏和阅读进度）、`ajin-chat.js`、`article.js`、`reader.js`。从项目根目录运行 `python -m http.server 8765 --bind 127.0.0.1 --directory webpage`，访问 `http://127.0.0.1:8765/index.html`。网站默认请求同一主机的 `8000` 后端。视觉和验收历史见 `webpage/UPGRADE-20260919.md`。
 
-网站发布约定：`js/site.js` 的 `SITE_VERSION`（当前 `20261025-1`）、各 html 里写死的 `?v=`、`tests/site-pages.mjs` 要一起改；新增页面要同时改测试里的页面数（当前 17）和 `expected` 列表，否则 `site-pages.mjs` 会失败。
+网站发布约定：`js/site.js` 的 `SITE_VERSION`（当前 `20261011-1`）、各 html 里写死的 `?v=`、`tests/site-pages.mjs` 第 39 行要一起改；新增页面要同时改测试里的页面数（当前 11）和 `expected` 列表，否则 `site-pages.mjs` 会失败。
 
 ## 5. DeepSeek/AI 调用
 
@@ -157,14 +157,3 @@ AI 配置变量：`AI_API_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`AI_TIMEOUT_SE
 2. 用 `lsof -nP -iTCP:8000,8765,5173 -sTCP:LISTEN` 查服务。没在跑就按第 6 节启动，再访问 `/health`。
 3. 跑测试：`backend` 下 `.venv314/bin/python -m pytest -q`；项目根目录下 `node webpage/tests/site-pages.mjs` 等 5 个脚本。
 4. 从上面"没做完 / 待确认"里接着做。
-
-### 2026-10-25：追踪与自查
-
-- 本次直接在 `main` 工作，未创建分支、提交或部署；保留原有修改。
-- **追踪**：新增议题目录、时间线、关注及按发布版本计算的未读更新；接入文章、问问和周报。每日文章生成后只排入候选任务，AI 无权发布。编辑通过 `backend/scripts/issue_threads.py` 导出、校验并审核发布，可回填、修订、隐藏、归并和解除文章关联。旧归并 key 可读取目标，已读写入必须使用目标 canonical key，防止旧页面误清提醒。
-- **自查**：网页及 Uni App 均提供匿名问答、确定性规则判断、逐项官方依据和办理链接。答案只留在页面内存，不关联账号、不入库；规则版本不可原地改写，过期或暂停后禁止继续评估，规则变化返回 409。相关接口正常及校验错误响应均禁止缓存。
-- 入口名为「追踪」「自查」。后端接口与编辑命令见 `backend/README.md`；资料审核要求见 `backend/editorial/README.md`。
-- **内容启用限制**：`backend/editorial/policies/hangzhou-graduate-first.json` 是根据 2024-05-13 官方指南整理的六条件草稿，尚未核实现行效力，不可直接发布。需要编辑核验当前官方条款并填写审核人与有效日期。没有将合成测试议题或政策写入业务数据库，也没有执行真实 AI 回填或采编发布。
-- 后端隔离测试 77 项通过；政策草稿 validate 与 import --dry-run 通过，未连接数据库。网页使用独立内存 SQLite API 完成「议题 → 关联政策 → 回答 → 结果」真实 HTTP 联调。合成数据仅用于测试，不能作为真实政策展示。
-- 最终检查：17 页导航及资源检查、网页与 H5 浏览器回归、H5 构建，以及问问／阅读器／阅读计时／周报单元测试均通过；四事件时间线实际折叠与展开通过。CRLF-aware whitespace 检查通过（原有 CRLF 文件会让普通 `git diff --check` 报新增行的回车）。Astra 审查发现的合并已读、取消关注合并竞态、暂停版本及旧版本重发指针问题均已修复并回归验证。
-- 尚未覆盖真实 MySQL 并发、真实 AI 归并质量和原生手机端打包；H5 与网页最终验收见本次交付说明。修改后需按项目既有启动流程重启后端，当前运行中的旧服务不代表已加载新代码。
