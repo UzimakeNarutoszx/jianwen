@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>主题分类 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20261031-1">
+  <style id="category-inline">
+  /* 顶部操作条：返回按钮与篇数分开，和下方标题留出间距。 */
+  .category-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin-top:28px}
+  .category-nav .back-button{display:inline-flex;align-items:center;gap:6px;min-height:40px}
+  .category-nav-status{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .category-heading{padding:40px 0 28px}
+  .category-heading .eyebrow{margin:0 0 12px}
+  .category-heading h1{margin:0 0 14px;text-wrap:balance}
+  .category-heading p:not(.eyebrow){margin:0;color:var(--muted);text-wrap:pretty}
+  /* 文章卡：带配图的网格，列数按容器宽度自适应（minmax 280px，间距 24px）。 */
+  .category-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px}
+  .category-list .empty-state{grid-column:1/-1}
+  /* 卡片内边距 16px，图与文字间距 12px；分类/标题/摘要之间 6px。 */
+  .category-card{position:relative;display:flex;height:100%;min-width:0;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface-card);box-shadow:0 12px 28px rgba(31,47,58,.06);transition:transform .16s,box-shadow .16s,border-color .16s}
+  .category-list .category-card:hover{border-color:rgba(31,95,122,.18);box-shadow:0 20px 40px rgba(31,47,58,.12)}
+  .category-card-link{display:flex;flex:1 1 auto;flex-direction:column;gap:12px;min-width:0;padding:0}
+  .category-card .category-cover{display:block;flex:0 0 auto;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:var(--mist)}
+  .category-card .category-card-body{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-width:0}
+  .category-card-link .eyebrow{margin:0}
+  .category-card-link h2{display:-webkit-box;overflow:hidden;margin:0;font-size:19px;line-height:1.4;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .category-card-link p:not(.eyebrow){display:-webkit-box;overflow:hidden;margin:0;color:var(--muted);font-size:13px;line-height:1.7;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .category-card-meta{margin-top:auto;padding-top:10px;overflow:hidden;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+  .category-page :is(input,textarea,select,[contenteditable="true"]):focus-visible{border-color:transparent}
+  .category-empty-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 18px}
+  @media(hover:hover){.category-list .category-card:hover{transform:translateY(-2px)}}
+  /* 暗底字重按 60% 收：600→360。 */
+  @media(prefers-color-scheme:dark){.category-card-link h2{font-weight:360}}
+  @media(max-width:620px){.category-nav{margin-top:20px}.category-nav-status{max-width:40vw}.category-heading{padding:28px 0 22px}.category-heading h1{font-size:36px}.category-card-link h2{font-size:18px}}
+  @media(prefers-reduced-motion:reduce){.category-list .category-card{transition:none}.category-list .category-card:hover{transform:none}}
+  </style>
+  <link rel="stylesheet" href="../css/editorial.css?v=20261031-1">
+  <link rel="icon" href="../assets/agents.png?v=agents-1" type="image/png">
+</head>
+<body data-page="jianwen-category">
+  <header data-site-header></header>
+  <main class="page-shell category-page">
+    <nav class="category-nav" aria-label="主题分类操作">
+      <a class="back-button" href="discover.html?v=20261031-1">← 返回发现</a>
+      <span class="category-nav-status" id="category-status">正在加载主题…</span>
+    </nav>
+    <section class="category-heading">
+      <p class="eyebrow">JIANWEN / CATEGORY</p>
+      <h1 id="category-title">主题文章</h1>
+      <p id="category-deck">按主题整理的一组文章，按最近更新排列。</p>
+    </section>
+    <section id="category-list" class="category-list" aria-live="polite" aria-busy="true">
+      <div class="empty-state"><strong>加载中…</strong><p>正在向见闻服务请求这个主题下的文章。</p></div>
+    </section>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20261031-1"></script>
+  <script src="../js/api-browser.js?v=20261031-1"></script>
+  <script>
+    (async function () {
+      const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]))
+      const params = new URLSearchParams(location.search)
+      const name = (params.get('name') || '').trim()
+      const title = document.querySelector('#category-title')
+      const deck = document.querySelector('#category-deck')
+      const status = document.querySelector('#category-status')
+      const list = document.querySelector('#category-list')
+
+      function showEmpty(strong, text) {
+        list.innerHTML = `<div class="empty-state"><strong>${esc(strong)}</strong><p>${esc(text)}</p></div>`
+      }
+
+      function showError(message) {
+        list.innerHTML = `<div class="empty-state"><strong>主题内容加载失败</strong><p>${esc(message)}</p><p class="category-empty-actions"><button class="button button-primary" type="button" data-retry>重试</button><a class="text-link" href="discover.html?v=20261031-1">返回发现页重新选择 →</a></p></div>`
+        status.textContent = '加载失败'
+        list.setAttribute('aria-busy', 'false')
+      }
+
+      const localImageNames = new Set('AI技术,党和国家,公共生活,共产党,就业,科技产业,绿色发展,社会民生,消费补贴,医保社保,政策解读,住房'.split(','))
+
+      // 与首页/发现页保持同一套本地图片映射：API 返回 /static/images/xxx.jpg，网页端只带了同名 png。
+      function imageUrl(value) {
+        if (!value) return ''
+        try {
+          if (!String(value).startsWith('/static/images/')) return ''
+          let filename = decodeURIComponent(String(value).split('/').pop() || '')
+          if (filename.endsWith('.jpg') && localImageNames.has(filename.slice(0, -4))) {
+            filename = `${filename.slice(0, -4)}.png`
+          }
+          return filename ? `../asset/images/${encodeURIComponent(filename)}` : ''
+        } catch { return '' }
+      }
+
+      if (!name) {
+        title.textContent = '未指定主题'
+        deck.textContent = '从发现页选择一个主题再进入这里。'
+        status.textContent = '缺少主题参数'
+        showEmpty('缺少主题参数', '请从发现页的「主题频道」或「专题简报」进入，或直接回到发现页。')
+        list.setAttribute('aria-busy', 'false')
+        return
+      }
+
+      document.title = `${name} · 见闻`
+      title.textContent = name
+      deck.textContent = `「${name}」主题下的文章，按最近更新排列。`
+
+      async function load() {
+        list.setAttribute('aria-busy', 'true')
+        status.textContent = '正在加载文章…'
+        list.innerHTML = '<div class="empty-state"><strong>加载中…</strong><p>正在向见闻服务请求这个主题下的文章。</p></div>'
+        try {
+          const items = await jianwenApi.articles({ category: name })
+          list.setAttribute('aria-busy', 'false')
+          if (!Array.isArray(items) || !items.length) {
+            status.textContent = '暂无文章'
+            showEmpty('这个主题还没有文章', '内容准备好后会出现在这里，也可以先回发现页看看别的主题。')
+            return
+          }
+          status.textContent = `${items.length} 篇`
+          list.innerHTML = items.map(item => {
+            const id = item.article_id || item.id
+            const topic = item.topic || item.category || name
+            const description = item.desc || '打开文章查看完整内容与来源依据。'
+            const meta = item.sources || item.source
+            const cover = imageUrl(item.image)
+            const coverHtml = cover
+              ? `<img class="category-cover" src="${esc(cover)}" alt="" loading="lazy" decoding="async" width="640" height="360">`
+              : '<span class="category-cover" aria-hidden="true"></span>'
+            return `<article class="category-card"><a class="category-card-link" href="article.html?id=${encodeURIComponent(id)}&from=category&name=${encodeURIComponent(name)}&v=20261031-1">${coverHtml}<div class="category-card-body"><span class="eyebrow">${esc(topic)}</span><h2>${esc(item.title || '未命名文章')}</h2><p>${esc(description)}</p>${meta ? `<span class="category-card-meta">${esc(meta)}</span>` : ''}</div></a></article>`
+          }).join('')
+        } catch (error) {
+          showError(error.message)
+        }
+      }
+
+      list.addEventListener('click', event => {
+        if (event.target.closest('[data-retry]')) load()
+      })
+
+      await load()
+    })()
+  </script>
+</body>
+</html>

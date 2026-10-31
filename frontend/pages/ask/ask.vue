@@ -4,7 +4,7 @@
       <view class="topbar ask-topbar">
         <view>
           <text class="page-title">问问见闻</text>
-          <text class="subtle">政策研究助理工作台</text>
+          <text class="subtle">政策研究助理工作台 · {{ quotaLabel }}</text>
         </view>
         <view class="top-status">
           <text class="status-dot"></text>
@@ -60,46 +60,19 @@
             <text class="chat-eyebrow">CONVERSATION</text>
             <text class="chat-title">研究对话</text>
           </view>
-          <text class="chat-state">{{ messages.length }} 条</text>
+          <text class="chat-state">最近 {{ chatNavItems.length }} 轮</text>
         </view>
-        <view
-          v-for="message in messages"
-          :id="`message-${message.id}`"
+        <view v-if="hiddenRoundCount" class="chat-earlier" @click="openAskRecords">
+          <text>更早的 {{ hiddenRoundCount }} 轮已收起，在“问问记录”中查看</text>
+        </view>
+        <AskMessage
+          v-for="message in visibleMessages"
           :key="message.id"
-          :class="['message', message.role]"
-        >
-          <view class="message-meta">
-            <view class="message-avatar">
-              <image
-                v-if="message.role === 'assistant'"
-                class="message-avatar-icon"
-                src="/static/icons/tab-ask-active.png"
-                mode="aspectFit"
-              />
-              <text v-else>{{ message.role === 'user' ? '你' : '文' }}</text>
-            </view>
-            <text class="message-label">{{ message.role === 'user' ? '你' : message.role === 'context' ? '文章上下文' : '见闻助理' }}</text>
-          </view>
-          <view class="message-bubble">
-            <rich-text
-              v-if="message.role === 'assistant'"
-              class="message-text markdown-message"
-              :nodes="renderMarkdown(message.text)"
-            />
-            <text v-else class="message-text">{{ message.text }}</text>
-            <view v-if="message.role === 'assistant' && message.thinkingLabel" class="thinking-bar">
-              <text class="thinking-pulse"></text>
-              <text class="message-thinking">{{ message.thinkingLabel }}</text>
-            </view>
-            <view v-if="message.sources && showSources" class="message-source">
-              <view class="source-head">
-                <image class="source-icon" src="/static/icons/icon-search.png" mode="aspectFit" />
-                <text>来源入口</text>
-              </view>
-              <text class="source-text">{{ message.sources }}</text>
-            </view>
-          </view>
-        </view>
+          :message="message"
+          :show-sources="showSources"
+          :dark-mode="darkMode"
+          :font-size="fontSize"
+        />
       </view>
 
       <view v-if="hasAsked && followups.length" class="followup-card">
@@ -107,7 +80,7 @@
         <scroll-view class="followup-scroll" scroll-x>
           <view class="followup-row">
             <button v-for="item in followups" :key="item" class="followup-chip" @click="askPrompt(item)">
-              {{ item }}
+              <text class="followup-chip-text">{{ item }}</text>
             </button>
           </view>
         </scroll-view>
@@ -131,41 +104,85 @@
         v-for="item in chatNavItems"
         :key="item.id"
         :class="['chat-nav-mark', activeNavId === item.id ? 'active' : '']"
+        hover-class="none"
+        :aria-label="'跳到：' + item.title"
         @click="scrollToMessage(item.id)"
       />
     </view>
 
-    <view class="composer">
-      <button class="tool-button" @click="showSoon">
-        <image class="tool-icon" src="/static/icons/icon-add.png" mode="aspectFit" />
-      </button>
-      <input v-model="draft" class="composer-input" placeholder="问点什么" confirm-type="send" @confirm="sendMessage" />
-      <button class="send-button" @click="sendMessage">
-        <image class="send-icon" src="/static/icons/icon-send.png" mode="aspectFit" />
-        <text class="send-text">发送</text>
-      </button>
-    </view>
+    <AskComposer v-model="draft" :sending="sending" :dark-mode="darkMode" :quota-label="quotaLabel" @send="sendMessage" @tool="showSoon" />
   </view>
 </template>
 
 <script>
-import { askQuestion, askQuestionStream, getAskBootstrap } from '@/utils/api.js'
+import { askQuestion, askQuestionStream, getAiQuota, getAskBootstrap } from '@/utils/api.js'
 import { markdownToHtml } from '@/utils/markdown.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { addAskRecord, getAskSession, saveAskSession } from '@/utils/user-data.js'
+import AskComposer from '@/components/AskComposer.vue'
+import AskMessage from '@/components/AskMessage.vue'
 
 let messageId = 3
+// 对话区只显示最近 7 轮问答。
+const VISIBLE_ROUNDS = 7
+
+// 新消息 id 必须大于已有消息（包括从本地恢复的会话），否则会和旧消息撞号：
+// 回答写进旧气泡，新气泡永远停在“正在思考… 已思考 0 秒”。
+function syncMessageId(messages) {
+  const maxId = (messages || []).reduce((max, item) => Math.max(max, Number(item && item.id) || 0), 0)
+  if (messageId <= maxId) messageId = maxId + 1
+}
+
+// 上次离开时还在生成的回答，恢复后不会再有数据进来，直接标记为已中断。
+function settleStaleMessages(messages) {
+  return (messages || []).map(item => {
+    if (!item || item.role !== 'assistant') return item
+    const pending = item.streaming || item.text === '正在思考…'
+    if (!pending) return item
+    const text = item.text && item.text !== '正在思考…' ? item.text : '上次回答在生成中被中断，可以重新提问。'
+    return { ...item, text, streaming: false, liveBlock: '', thinkingLabel: '已中断' }
+  })
+}
+
+// 旧会话可能有撞号 bug 留下的重复 id，恢复时按顺序重编号。
+function renumberIfDuplicated(messages) {
+  const ids = messages.map(item => item && item.id)
+  if (new Set(ids).size === ids.length) return messages
+  return messages.map((item, index) => ({ ...item, id: index + 1 }))
+}
+
+// 半流式节奏与网页 webpage/js/ask.js 保持一致：
+// 每 16ms 至少显示 2 个字，落后时按积压量提速，始终匀速追平。
+// 网络分块再大，画面也按固定节奏推进，不会整段跳出。
+const REVEAL_TICK_MS = 16
+const REVEAL_CHARS_PER_TICK = 2
+// 积压按约 90 帧（约 1.5 秒）均匀消化；模型出字比显示快时也不会越积越多。
+const REVEAL_BACKLOG_TICKS = 90
+// 已完成块（以空行分隔）的 HTML 缓存，避免整篇 markdown 反复重解析。
+function splitBlocks(text) {
+  return String(text || '').split(/\n{2,}/)
+}
+
+// 小程序端可能没有 AbortController；没有就退化为无法中断（不影响功能）。
+function createAbortController() {
+  if (typeof AbortController === 'function') return new AbortController()
+  return null
+}
 
 export default {
+  components: { AskComposer, AskMessage },
   data() {
     return {
       draft: '',
+      sending: false,
       darkMode: false,
       fontSize: 'standard',
       showSources: true,
       hasAsked: false,
       prompts: [],
       followups: [],
+      quotaRemaining: null,
+      quotaLimit: 20,
       messages: [],
       linkedArticle: null,
       thinkingTimer: null,
@@ -174,16 +191,48 @@ export default {
       streamRenderTimer: null,
       streamRenderMessageId: null,
       streamRenderText: '',
+      revealMessageId: null,
+      revealTarget: '',
+      revealShown: 0,
+      revealEnded: false,
+      revealWaiters: [],
+      streamAbort: null,
+      typeTimer: null,
+      typeResolve: null,
       bottomScrollTimer: null,
-      activeNavId: null
+      activeNavId: null,
+      navLockUntil: 0,
+      navScrollTimer: null
     }
   },
   computed: {
+    quotaLabel() {
+      const remaining = this.quotaRemaining === null ? 0 : Math.max(0, this.quotaRemaining)
+      return remaining === 0 ? `今日额度已耗尽 0/${this.quotaLimit}` : `今日剩余次数 ${remaining}/${this.quotaLimit}`
+    },
+    // 界面只保留最近 7 轮（一问一答为一轮），更早的仍保存在本地和“问问记录”里。
+    visibleStartIndex() {
+      const userIndexes = []
+      this.messages.forEach((message, index) => {
+        if (message.role === 'user') userIndexes.push(index)
+      })
+      if (userIndexes.length <= VISIBLE_ROUNDS) return 0
+      return userIndexes[userIndexes.length - VISIBLE_ROUNDS]
+    },
+    visibleMessages() {
+      return this.messages.slice(this.visibleStartIndex)
+    },
+    hiddenRoundCount() {
+      return this.messages.slice(0, this.visibleStartIndex).filter(message => message.role === 'user').length
+    },
     chatNavItems() {
-      return this.messages
-        .filter(message => message.role === 'user')
-        .map(message => {
-          const assistant = this.messages.find(item => item.role === 'assistant' && item.id > message.id)
+      const list = this.visibleMessages
+      return list
+        .map((message, index) => ({ message, index }))
+        .filter(({ message }) => message.role === 'user')
+        .map(({ message, index }) => {
+          // 按位置找紧跟在这条提问后面的回答（回答的 id 比提问小，不能按 id 比较）。
+          const assistant = list.slice(index + 1).find(item => item.role === 'assistant')
           return {
             id: message.id,
             title: this.navText(message.text, 20),
@@ -196,30 +245,56 @@ export default {
     saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     this.stopThinkingTimer()
     this.clearStreamRenderTimer()
+    this.clearTypeTimer()
     this.clearBottomScrollTimer()
   },
   onUnload() {
     saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     this.stopThinkingTimer()
     this.clearStreamRenderTimer()
+    this.clearTypeTimer()
     this.clearBottomScrollTimer()
+    this.abortStream()
+    clearTimeout(this.navScrollTimer)
+    this.navScrollTimer = null
+  },
+  onPageScroll() {
+    if (this.navScrollTimer) return
+    this.navScrollTimer = setTimeout(() => {
+      this.navScrollTimer = null
+      this.updateActiveNav()
+    }, 120)
   },
   onShow() {
     if (!this.messages.length) {
       const session = getAskSession()
-      this.messages = Array.isArray(session.messages) ? session.messages : []
+      this.messages = renumberIfDuplicated(settleStaleMessages(Array.isArray(session.messages) ? session.messages : []))
       this.linkedArticle = session.linkedArticle || null
       this.hasAsked = this.messages.some(message => message.role === 'user')
       const lastUser = [...this.messages].reverse().find(message => message.role === 'user')
       if (lastUser) this.activeNavId = lastUser.id
     }
+    syncMessageId(this.messages)
     this.loadSettings()
-    this.loadContent()
+    this.loadQuota()
+    // 进入问问默认停在最底部；提示词卡片和图片加载会把内容撑高，加载完再对齐一次。
+    this.scrollToBottom({ duration: 0 })
+    this.loadContent().then(() => this.scrollToBottom({ duration: 0 }))
+    setTimeout(() => this.scrollToBottom({ duration: 0 }), 300)
     this.consumePendingAskContext()
     this.ensureLoggedIn()
     applyTabBarTheme(this.darkMode)
   },
   methods: {
+    async loadQuota() {
+      try {
+        const quota = await getAiQuota()
+        this.quotaLimit = Number(quota.limit) || 20
+        this.quotaRemaining = Number(quota.remaining)
+      } catch (error) {
+        this.quotaRemaining = 0
+      }
+    },
     ensureLoggedIn() {
       if (uni.getStorageSync('jianwen_auth_token')) return true
       uni.showToast({ title: '请先登录后使用 AI 问问', icon: 'none' })
@@ -246,9 +321,6 @@ export default {
     askPrompt(prompt) {
       this.draft = prompt
       this.sendMessage()
-    },
-    renderMarkdown(text) {
-      return markdownToHtml(text)
     },
     navText(text, maxLength) {
       const normalized = String(text || '')
@@ -300,8 +372,10 @@ export default {
       }
       this.stopThinkingTimer()
       this.clearStreamRenderTimer()
+      this.clearTypeTimer()
       this.clearBottomScrollTimer()
       this.thinkingStartedAt = Date.now()
+      syncMessageId(this.messages)
       const pendingId = messageId++
       const userId = messageId++
       this.messages.push({ id: userId, role: 'user', text })
@@ -318,47 +392,88 @@ export default {
       this.scrollToBottom({ duration: 120 })
       this.thinkingMessageId = pendingId
       this.startThinkingTimer()
+      this.sending = true
       try {
         let answer = ''
         let responseSources = ''
         const articleId = this.linkedArticle && this.linkedArticle.articleId
         try {
           let streamedText = ''
-          await askQuestionStream(text, { articleId }, chunk => {
+          const controller = createAbortController()
+          this.streamAbort = controller ? controller.abort.bind(controller) : null
+          await askQuestionStream(text, { articleId, signal: controller && controller.signal }, chunk => {
             streamedText += chunk
             this.queueAssistantText(pendingId, streamedText)
             this.scheduleBottomScroll()
           })
-          this.flushAssistantText()
+          // 接收完毕后先把剩余内容按节奏追平，再定稿成完整 markdown。
+          await this.finishReveal()
+          this.clearStreamRenderTimer()
           answer = streamedText
         } catch (streamError) {
           this.flushAssistantText()
+          this.clearStreamRenderTimer()
+          // 用户离开页面主动 abort 时不再回退到普通请求。
+          if (streamError && streamError.name === 'AbortError') throw streamError
           const result = await askQuestion(text, { articleId })
           answer = result.answer || ''
           responseSources = result.sources || ''
-          await this.typeAssistantMessage(pendingId, answer)
+          // 非流式兜底也走同一套半流式节奏：一次拿到全文，按“接收结束”的追平速度显示。
+          this.queueAssistantText(pendingId, answer)
+          await this.finishReveal()
+          this.clearStreamRenderTimer()
+        } finally {
+          this.streamAbort = null
         }
         const displaySources = responseSources || (this.linkedArticle && this.linkedArticle.sources) || ''
         const thinkingSeconds = Math.max(1, Math.round((Date.now() - this.thinkingStartedAt) / 1000))
         this.replaceAssistantMessage(pendingId, {
           text: answer,
           sources: displaySources,
-          thinkingLabel: `已思考 ${thinkingSeconds} 秒`
+          thinkingLabel: `已思考 ${thinkingSeconds} 秒`,
+          streaming: false,
+          renderBlocks: '',
+          liveBlock: ''
         })
         this.clearBottomScrollTimer()
         this.scrollToBottom({ duration: 160 })
         addAskRecord(text, answer, displaySources)
       } catch (error) {
+        if (error && error.name === 'AbortError') {
+          // 离开页面中断：把已收到的内容定稿，避免留下 streaming 状态的半截消息。
+          this.stopThinkingTimer()
+          this.sending = false
+          const index = this.messages.findIndex(item => item.id === pendingId)
+          if (index !== -1) {
+            const partial = this.messages[index]
+            this.messages.splice(index, 1, {
+              ...partial,
+              text: partial.text === '正在思考…' ? '已停止生成，可以重新提问。' : partial.text,
+              thinkingLabel: '',
+              streaming: false,
+              renderBlocks: '',
+              liveBlock: ''
+            })
+          }
+          saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
+          this.loadQuota()
+          return
+        }
         this.replaceAssistantMessage(pendingId, {
           text: error.message || '回答生成失败',
           sources: '',
-          thinkingLabel: `已思考 ${Math.max(1, Math.round((Date.now() - this.thinkingStartedAt) / 1000))} 秒`
+          thinkingLabel: `已思考 ${Math.max(1, Math.round((Date.now() - this.thinkingStartedAt) / 1000))} 秒`,
+          streaming: false,
+          renderBlocks: '',
+          liveBlock: ''
         })
         this.clearBottomScrollTimer()
         this.scrollToBottom({ duration: 160 })
       }
       this.stopThinkingTimer()
+      this.sending = false
       this.hasAsked = true
+      this.loadQuota()
       this.scrollToBottom({ duration: 120 })
     },
     startThinkingTimer() {
@@ -374,8 +489,9 @@ export default {
         clearInterval(this.thinkingTimer)
         this.thinkingTimer = null
       }
-      this.thinkingStartedAt = 0
+      // 停止计时后清掉占位消息的关联，避免定时器空转；文本由各路径负责替换。
       this.thinkingMessageId = null
+      this.thinkingStartedAt = 0
     },
     replaceAssistantMessage(id, patch) {
       const index = this.messages.findIndex(item => item.id === id)
@@ -386,23 +502,90 @@ export default {
       })
       saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
     },
+    // 收到新分块：只更新目标文本，由 revealStep 按固定节奏推进显示。
     queueAssistantText(id, text) {
+      // 新的一条回答才从头显示；切后台暂停后回来，接着已显示的位置继续。
+      if (this.revealMessageId !== id) {
+        this.revealMessageId = id
+        this.revealShown = 0
+        this.revealEnded = false
+      }
       this.streamRenderMessageId = id
-      this.streamRenderText = text
-      if (this.streamRenderTimer) return
-      this.streamRenderTimer = setTimeout(() => {
-        this.flushAssistantText()
-      }, 80)
+      this.revealTarget = text
+      this.startReveal()
     },
+    startReveal() {
+      if (this.streamRenderTimer) return
+      this.streamRenderTimer = setTimeout(() => this.revealStep(), REVEAL_TICK_MS)
+    },
+    revealStep() {
+      this.streamRenderTimer = null
+      const chars = Array.from(this.revealTarget || '')
+      const rest = chars.length - this.revealShown
+      if (rest <= 0) {
+        this.resolveRevealWaiters()
+        return
+      }
+      // 与网页一致：按积压自适应，接收中和结束后用同一速度，结尾不再整块倒出。
+      const size = Math.max(REVEAL_CHARS_PER_TICK, Math.ceil(rest / REVEAL_BACKLOG_TICKS))
+      this.revealShown = Math.min(chars.length, this.revealShown + size)
+      this.streamRenderText = chars.slice(0, this.revealShown).join('')
+      this.renderAssistantText()
+      if (this.revealShown < chars.length) this.startReveal()
+      else this.resolveRevealWaiters()
+    },
+    // 接收结束：剩余内容按同一节奏追平，追平后再定稿。
+    finishReveal() {
+      this.revealEnded = true
+      if (!this.streamRenderMessageId || this.revealShown >= Array.from(this.revealTarget || '').length) {
+        return Promise.resolve()
+      }
+      this.startReveal()
+      return new Promise(resolve => this.revealWaiters.push(resolve))
+    },
+    resolveRevealWaiters() {
+      this.revealWaiters.splice(0).forEach(resolve => resolve())
+    },
+    // 立即把已显示部分落到消息上（中断、出错时使用）。
     flushAssistantText() {
       if (this.streamRenderTimer) {
         clearTimeout(this.streamRenderTimer)
         this.streamRenderTimer = null
       }
-      if (!this.streamRenderMessageId) return
-      this.replaceAssistantMessage(this.streamRenderMessageId, { text: this.streamRenderText })
-      this.streamRenderMessageId = null
-      this.streamRenderText = ''
+      this.renderAssistantText()
+      this.resolveRevealWaiters()
+    },
+    renderAssistantText() {
+      const id = this.streamRenderMessageId
+      if (!id) return
+      const text = this.streamRenderText
+      const index = this.messages.findIndex(item => item.id === id)
+      if (index === -1) {
+        this.streamRenderMessageId = null
+        this.streamRenderText = ''
+        return
+      }
+      // 按空行分块，已完成块只解析一次并缓存 HTML，只重解析最后一块。
+      const blocks = splitBlocks(text)
+      const doneBlocks = blocks.slice(0, -1)
+      const tail = blocks.length > 1 ? blocks[blocks.length - 1] : blocks[0] || ''
+      const previous = this.messages[index]
+      const cachedBlocks = Array.isArray(previous.blockCache) ? previous.blockCache : []
+      const cachedHtml = Array.isArray(previous.blockHtml) ? previous.blockHtml : []
+      const rendered = doneBlocks.map((block, blockIndex) => (
+        cachedBlocks[blockIndex] === block && cachedHtml[blockIndex]
+          ? cachedHtml[blockIndex]
+          : markdownToHtml(block)
+      ))
+      this.messages.splice(index, 1, {
+        ...previous,
+        text,
+        streaming: true,
+        renderBlocks: rendered.filter(Boolean).join(''),
+        blockCache: doneBlocks,
+        blockHtml: rendered,
+        liveBlock: tail
+      })
     },
     clearStreamRenderTimer() {
       if (this.streamRenderTimer) {
@@ -411,24 +594,46 @@ export default {
       }
       this.streamRenderMessageId = null
       this.streamRenderText = ''
+      this.resolveRevealWaiters()
+    },
+    clearTypeTimer() {
+      if (this.typeTimer) {
+        clearTimeout(this.typeTimer)
+        this.typeTimer = null
+      }
+      const resolve = this.typeResolve
+      this.typeResolve = null
+      if (resolve) resolve()
     },
     typeAssistantMessage(id, text) {
       return new Promise(resolve => {
+        this.clearTypeTimer()
         const chars = Array.from(text || '')
         let index = 0
         const step = () => {
+          this.typeTimer = null
           index += 8
           this.replaceAssistantMessage(id, { text: chars.slice(0, index).join('') })
           this.scheduleBottomScroll()
           if (index >= chars.length) {
             this.scrollToBottom({ duration: 120 })
+            this.typeResolve = null
             resolve()
             return
           }
-          setTimeout(step, 36)
+          this.typeTimer = setTimeout(step, 36)
         }
+        this.typeResolve = resolve
         step()
       })
+    },
+    abortStream() {
+      // 用户离开页面时中断流式请求；fetch 的 AbortController 只在 H5/App 可用。
+      if (this.streamAbort) {
+        try { this.streamAbort() } catch (error) {}
+        this.streamAbort = null
+      }
+      this.clearStreamRenderTimer()
     },
     scheduleBottomScroll() {
       if (this.bottomScrollTimer) return
@@ -449,8 +654,28 @@ export default {
         uni.pageScrollTo({ scrollTop: 999999, duration })
       })
     },
+    // 滚动时把高亮跟到视口上方 1/3 处所在的那一轮。
+    updateActiveNav() {
+      if (Date.now() < this.navLockUntil) return
+      const ids = this.chatNavItems.map(item => item.id)
+      if (ids.length < 2) return
+      const query = uni.createSelectorQuery().in(this)
+      ids.forEach(id => query.select(`#message-${id}`).boundingClientRect())
+      query.exec(rects => {
+        this.pickActiveNav(ids, rects || [])
+      })
+    },
+    pickActiveNav(ids, rects) {
+      const line = (uni.getSystemInfoSync().windowHeight || 800) / 3
+      let current = ids[0]
+      rects.forEach((rect, index) => {
+        if (rect && rect.top <= line) current = ids[index]
+      })
+      if (current !== this.activeNavId) this.activeNavId = current
+    },
     scrollToMessage(id) {
       this.activeNavId = id
+      this.navLockUntil = Date.now() + 600
       this.$nextTick(() => {
         uni.pageScrollTo({
           selector: `#message-${id}`,
@@ -458,6 +683,9 @@ export default {
           fail: () => uni.pageScrollTo({ scrollTop: 0, duration: 220 })
         })
       })
+    },
+    openAskRecords() {
+      uni.navigateTo({ url: '/pages/profile/ask-records' })
     },
     showSoon() {
       uni.showToast({ title: '链接和语音功能预留中', icon: 'none' })
@@ -608,6 +836,9 @@ export default {
 }
 
 .followup-chip {
+  display: flex;
+  align-items: center;
+  position: relative;
   flex: 0 0 auto;
   min-height: 58rpx;
   max-width: 280rpx;
@@ -620,134 +851,45 @@ export default {
   font-size: 24rpx;
   font-weight: 800;
   line-height: 58rpx;
+  white-space: nowrap;
+}
+
+/* Ellipsis moves to the inner text so the chip itself can grow its tap pad. */
+.followup-chip-text {
+  display: block;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 58rpx pill keeps its look; the transparent pad lifts the tap target to 90rpx. */
+.followup-chip::before {
+  content: '';
+  position: absolute;
+  top: -16rpx;
+  right: 0;
+  bottom: -16rpx;
+  left: 0;
 }
 
 .followup-chip::after {
   border: 0;
 }
 
-.message {
-  max-width: 88%;
-  margin-bottom: 42rpx;
+/* 消息气泡已拆到 components/AskMessage.vue，输入区拆到 components/AskComposer.vue。 */
+.chat-nav-item {
+  position: relative;
 }
 
-.message.user {
-  margin-left: auto;
-  text-align: right;
-}
-
-.message.context {
-  max-width: 100%;
-  margin-right: 0;
-  text-align: left;
-}
-
-.message-label {
-  display: block;
-  margin-bottom: 16rpx;
-  color: #8A949E;
-  font-size: 22rpx;
-}
-
-.message-text {
-  display: inline-block;
-  padding: 34rpx 36rpx;
-  border-radius: 24rpx;
-  background: rgba(247,250,252,0.88);
-  color: #14212B;
-  font-size: 30rpx;
-  line-height: 1.65;
-  text-align: left;
-}
-
-.message.assistant .message-text {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.message-thinking {
-  display: block;
-  margin-top: 12rpx;
-  color: #8A949E;
-  font-size: 22rpx;
-  line-height: 1.4;
-}
-
-.message.user .message-text {
-  background: linear-gradient(135deg, #1F5F7A, #143E52);
-  color: #FFFFFF;
-}
-
-.message.context .message-label {
-  display: none;
-}
-
-.message.context .message-text {
-  display: block;
-  border: 1rpx solid #DCE5EA;
-  background: #E6F0F4;
-  color: #1F5F7A;
-  font-size: 25rpx;
-  font-weight: 800;
-}
-
-.message-source {
-  margin-top: 22rpx;
-  color: #8A949E;
-  font-size: 23rpx;
-  line-height: 1.45;
-}
-
-.composer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 124rpx;
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  padding: 22rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
-  border-top: 1rpx solid rgba(255,255,255,0.72);
-  background: rgba(255,255,255,0.92);
-  box-shadow: 0 -18rpx 50rpx rgba(20, 33, 43, 0.1);
-}
-
-.tool-button {
-  flex: 0 0 78rpx;
-  height: 78rpx;
-  border-radius: 22rpx;
-  background: rgba(31,95,122,0.1);
-}
-
-.tool-icon {
-  width: 30rpx;
-  height: 30rpx;
-}
-
-.composer-input {
-  flex: 1;
-  min-height: 78rpx;
-  padding: 0 24rpx;
-  border: 1rpx solid rgba(31,95,122,0.12);
-  border-radius: 22rpx;
-  background: rgba(247,250,252,0.92);
-  color: #14212B;
-  font-size: 26rpx;
-}
-
-.send-button {
-  flex: 0 0 112rpx;
-  min-height: 78rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, #1F5F7A, #143E52);
-  color: #FFFFFF;
-  font-size: 25rpx;
-  font-weight: 800;
-  white-space: nowrap;
+/* 74rpx 的导航项，透明命中区补到 106rpx。 */
+.chat-nav-item::before {
+  content: '';
+  position: absolute;
+  top: -16rpx;
+  right: -16rpx;
+  bottom: -16rpx;
+  left: -16rpx;
 }
 
 .dark-mode.ask-page {
@@ -761,11 +903,6 @@ export default {
   background:
     linear-gradient(135deg, rgba(31,95,122,0.86), rgba(16,39,55,0.94)),
     linear-gradient(135deg, rgba(212,170,78,0.14), transparent) !important;
-}
-
-.dark-mode .composer {
-  border-top-color: rgba(126,184,209,0.16) !important;
-  background: rgba(23,35,49,0.94) !important;
 }
 
 .chat-nav-panel {
@@ -838,8 +975,8 @@ export default {
   display: none;
   flex-direction: column;
   align-items: flex-end;
-  gap: 22rpx;
-  padding: 14rpx 6rpx;
+  gap: 0;
+  padding: 6rpx 4rpx;
   border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.42);
   transform: translateY(-50%);
@@ -847,22 +984,35 @@ export default {
 }
 
 .chat-nav-mark {
-  width: 12rpx;
-  height: 5rpx;
-  min-height: 5rpx;
-  line-height: 5rpx;
+  position: relative;
+  width: 44rpx;
+  height: 44rpx;
+  min-height: 44rpx;
+  line-height: 44rpx;
   margin: 0;
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* 按钮是 44rpx 透明点击区，竖条画在 ::after 上，点不偏也不会残留按压色。 */
+.chat-nav-mark::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 6rpx;
+  left: auto;
+  width: 12rpx;
+  height: 5rpx;
+  border: 0;
   border-radius: 999rpx;
   background: #BAC7CF;
+  transform: translateY(-50%);
 }
 
-.chat-nav-mark::after {
-  border: 0;
-}
-
-.chat-nav-mark.active {
-  width: 18rpx;
+.chat-nav-mark.active::after {
+  width: 20rpx;
   background: #1F5F7A;
 }
 
@@ -1090,9 +1240,7 @@ export default {
 }
 
 .prompt-card:active,
-.followup-chip:active,
-.tool-button:active,
-.send-button:active {
+.followup-chip:active {
   transform: scale(0.98);
   opacity: 0.9;
 }
@@ -1102,10 +1250,21 @@ export default {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 64rpx;
   height: 64rpx;
   border-radius: 999rpx;
   background: rgba(31,95,122,0.1);
+}
+
+/* 提示卡整卡可点；图标区补一层透明命中区，避免小尺寸卡片难点。 */
+.prompt-icon-wrap::before {
+  content: '';
+  position: absolute;
+  top: -12rpx;
+  right: -12rpx;
+  bottom: -12rpx;
+  left: -12rpx;
 }
 
 .prompt-index {
@@ -1131,6 +1290,21 @@ export default {
   margin-top: 42rpx;
 }
 
+.chat-earlier {
+  margin: 4rpx 0 24rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 999rpx;
+  background: rgba(31, 95, 122, 0.06);
+  color: #5D6B73;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.dark-mode .chat-earlier {
+  background: rgba(255, 255, 255, 0.06);
+  color: #A9B6BE;
+}
+
 .chat-card-head {
   display: flex;
   align-items: flex-start;
@@ -1139,6 +1313,10 @@ export default {
   padding-bottom: 30rpx;
   margin-bottom: 34rpx;
   border-bottom: 1rpx solid rgba(31,95,122,0.1);
+}
+
+.dark-mode .chat-card-head {
+  border-bottom-color: rgba(126,184,209,0.14);
 }
 
 .chat-title {
@@ -1159,186 +1337,6 @@ export default {
   font-size: 22rpx;
   line-height: 1.25;
   font-weight: 900;
-}
-
-.message {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
-  flex-direction: column;
-  gap: 12rpx;
-  margin-bottom: 36rpx;
-}
-
-.message:last-child {
-  margin-bottom: 0;
-}
-
-.message.user {
-  align-items: flex-end;
-}
-
-.message.context {
-  align-items: stretch;
-}
-
-.message-meta {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.message.user .message-meta {
-  flex-direction: row-reverse;
-}
-
-.message.context .message-meta {
-  display: none;
-}
-
-.message-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46rpx;
-  height: 46rpx;
-  border-radius: 16rpx;
-  background: rgba(31,95,122,0.1);
-  color: #1F5F7A;
-  font-size: 22rpx;
-  line-height: 1;
-  font-weight: 900;
-}
-
-.message.user .message-avatar {
-  background: #1F5F7A;
-  color: #FFFFFF;
-}
-
-.message-avatar-icon {
-  width: 28rpx;
-  height: 28rpx;
-}
-
-.message-label {
-  margin: 0;
-  color: #7C8790;
-  font-size: 22rpx;
-}
-
-.message-bubble {
-  max-width: 92%;
-  padding: 30rpx 32rpx;
-  border: 1rpx solid rgba(31,95,122,0.1);
-  border-radius: 26rpx;
-  background: rgba(255,255,255,0.82);
-  box-shadow: 0 18rpx 42rpx rgba(20, 33, 43, 0.07);
-}
-
-.message.assistant .message-bubble {
-  width: 100%;
-  max-width: 100%;
-}
-
-.message.user .message-bubble {
-  border-color: rgba(31,95,122,0.08);
-  border-bottom-right-radius: 10rpx;
-  background: linear-gradient(135deg, #1F5F7A, #143E52);
-}
-
-.message.assistant .message-bubble {
-  border-bottom-left-radius: 10rpx;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.94), rgba(247,250,252,0.86)),
-    rgba(255,255,255,0.86);
-}
-
-.message.context .message-bubble {
-  max-width: 100%;
-  border-color: rgba(212,170,78,0.2);
-  border-radius: 20rpx;
-  background: rgba(212,170,78,0.1);
-  box-shadow: none;
-}
-
-.message-text {
-  display: block;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #14212B;
-  font-size: 29rpx;
-  line-height: 1.7;
-}
-
-.message.assistant .message-text {
-  width: 100%;
-}
-
-.message.user .message-text {
-  background: transparent;
-  color: #FFFFFF;
-}
-
-.message.context .message-text {
-  border: 0;
-  background: transparent;
-  color: #725516;
-  font-size: 25rpx;
-}
-
-.thinking-bar {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  min-height: 52rpx;
-  padding: 0 18rpx;
-  margin-top: 22rpx;
-  border-radius: 999rpx;
-  background: rgba(31,95,122,0.08);
-}
-
-.thinking-pulse {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 999rpx;
-  background: #D4AA4E;
-  box-shadow: 0 0 18rpx rgba(212,170,78,0.62);
-}
-
-.message-thinking {
-  margin: 0;
-  color: #66737B;
-  font-size: 22rpx;
-}
-
-.message-source {
-  margin-top: 24rpx;
-  padding-top: 22rpx;
-  border-top: 1rpx solid rgba(31,95,122,0.1);
-}
-
-.source-head {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  margin-bottom: 10rpx;
-  color: #1F5F7A;
-  font-size: 22rpx;
-  line-height: 1.3;
-  font-weight: 900;
-}
-
-.source-icon {
-  width: 24rpx;
-  height: 24rpx;
-}
-
-.source-text {
-  display: block;
-  color: #7C8790;
-  font-size: 23rpx;
-  line-height: 1.5;
 }
 
 .followup-card {
@@ -1367,70 +1365,8 @@ export default {
   line-height: 60rpx;
 }
 
-.composer {
-  left: 22rpx;
-  right: 22rpx;
-  bottom: calc(124rpx + env(safe-area-inset-bottom));
-  gap: 16rpx;
-  padding: 18rpx;
-  border: 1rpx solid rgba(255,255,255,0.86);
-  border-radius: 34rpx;
-  background: rgba(255,255,255,0.92);
-  box-shadow: 0 -14rpx 44rpx rgba(20, 33, 43, 0.12);
-}
-
-.tool-button,
-.send-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tool-button {
-  flex-basis: 76rpx;
-  height: 76rpx;
-  border-radius: 24rpx;
-}
-
-.composer-input {
-  min-height: 76rpx;
-  border-color: rgba(31,95,122,0.12);
-  border-radius: 24rpx;
-  background: rgba(247,250,252,0.92);
-}
-
-.send-button {
-  flex: 0 0 128rpx;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  gap: 8rpx;
-  width: 128rpx;
-  min-height: 76rpx;
-  border-radius: 24rpx;
-  white-space: nowrap;
-}
-
-.send-icon {
-  flex: 0 0 30rpx;
-  width: 30rpx;
-  height: 30rpx;
-}
-
-.send-text {
-  flex: 0 0 auto;
-  color: #FFFFFF;
-  font-size: 24rpx;
-  line-height: 1;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
 .font-large .hero-title {
   font-size: 46rpx;
-}
-
-.font-large .message-text {
-  font-size: 32rpx;
 }
 
 .font-large .prompt-text {
@@ -1439,10 +1375,6 @@ export default {
 
 .font-small .hero-title {
   font-size: 38rpx;
-}
-
-.font-small .message-text {
-  font-size: 27rpx;
 }
 
 .font-small .prompt-text {
@@ -1465,17 +1397,13 @@ export default {
 .dark-mode .metric-chip,
 .dark-mode .top-status,
 .dark-mode .prompt-card,
-.dark-mode .message-bubble,
-.dark-mode .followup-card,
-.dark-mode .composer,
-.dark-mode .composer-input {
+.dark-mode .followup-card {
   border-color: rgba(126,184,209,0.16) !important;
   background: rgba(23,35,49,0.86) !important;
 }
 
-.dark-mode .metric-chip.primary,
-.dark-mode .message.user .message-bubble,
-.dark-mode .send-button {
+/* 消息气泡 / 输入区已抽成组件，暗色统一由组件内的 CSS 变量切换。 */
+.dark-mode .metric-chip.primary {
   background: linear-gradient(135deg, rgba(31,95,122,0.9), rgba(16,39,55,0.94)) !important;
 }
 
@@ -1484,15 +1412,11 @@ export default {
 .dark-mode .section-title,
 .dark-mode .chat-title,
 .dark-mode .followup-title,
-.dark-mode .message-text,
 .dark-mode .metric-value {
   color: #F4F7FA !important;
 }
 
 .dark-mode .hero-copy,
-.dark-mode .message-label,
-.dark-mode .message-thinking,
-.dark-mode .source-text,
 .dark-mode .metric-label {
   color: #B6C2CC !important;
 }
@@ -1506,29 +1430,13 @@ export default {
 
 .dark-mode .prompt-text,
 .dark-mode .prompt-index,
-.dark-mode .chat-state,
-.dark-mode .source-head {
+.dark-mode .chat-state {
   color: #7EB8D1 !important;
 }
 
 .dark-mode .prompt-icon-wrap,
-.dark-mode .thinking-bar,
-.dark-mode .followup-chip,
-.dark-mode .tool-button {
+.dark-mode .followup-chip {
   background: rgba(126,184,209,0.12) !important;
-}
-
-.dark-mode .message.context .message-bubble {
-  background: rgba(212,170,78,0.12) !important;
-}
-
-.dark-mode .message.context .message-text {
-  color: #D4AA4E !important;
-}
-
-.dark-mode .chat-card-head,
-.dark-mode .message-source {
-  border-color: rgba(126,184,209,0.14) !important;
 }
 
 @media screen and (max-width: 900px) {

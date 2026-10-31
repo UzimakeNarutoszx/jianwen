@@ -33,9 +33,9 @@ python3 scripts/publish.py 2026-W42 --video ../output/weekly-video/2026-W42/epis
 
 ## 下一期
 
-1. 复制 `episodes/2026-W42/episode.json` 到新期号目录，修改期号、日期、文章、来源、旁白和画面文案。保持五个章节名称：片头导读、本周重点文章、本周见闻更新、大事总结、片尾来源。
+1. 复制 `episodes/2026-W42/episode.json` 到新期号目录，修改期号、日期、文章、来源、旁白和画面文案。保持五个章节名称：片头导读、本周重点文章、本周见闻更新、大事总结、片尾来源。需要短于默认 3–5 分钟时，加上可选的 `"durationTarget": {"min": 50, "max": 70}`。
 2. 保存核验来源与站内文章快照。新闻按发布日期核对，开发中的功能不算公开更新。
-3. `npm run prepare -- 2026-W43`，生成音轨、逐句字幕和带时间的脚本快照。时长必须为 180–300 秒。
+3. `npm run prepare -- 2026-W43`，生成音轨、逐句字幕和带时间的脚本快照。时长默认必须为 180–300 秒；每期可在 `episode.json` 用可选的 `durationTarget`（`{"min":秒,"max":秒}`）按期设置，校验和发布都按该区间执行。自 W43 起每期约 1 分钟（50–70 秒）。
 4. `node scripts/select-episode.mjs 2026-W43`，切换 Studio 模板。既有期的内容、字幕和媒体均保留。
 5. 导出封面、检查 Studio、导出视频，再执行发布命令。若需要先展示制作中的预告，仅修改公开清单的 `upcoming`，不把草稿加入 `episodes`。
 
@@ -53,7 +53,7 @@ uv pip install --python ~/.local/share/qwen3-tts/venv/bin/python -r qwen-require
 npm run prepare -- 2026-W42 --tempo 1.25
 ```
 
-可通过 `QWEN_RUNTIME_PYTHON` 指定别处的 Python 环境。模型只加载一次，逐段生成，已完成片段按文本与音色缓存，调整节奏无需重新推理。时长不在 3–5 分钟时保留现有预览。字幕时间来自每个实际语音片段的时长，非按全文平均分配。
+可通过 `QWEN_RUNTIME_PYTHON` 指定别处的 Python 环境。模型只加载一次，逐段生成，已完成片段按文本与音色缓存，调整节奏无需重新推理。时长默认 3–5 分钟，可用 `durationTarget` 按期设置；自 W43 起每期约 1 分钟（50–70 秒）。时长不在本期区间时保留现有预览。字幕时间来自每个实际语音片段的时长，非按全文平均分配。
 
 用户已在本任务中明确确认《憩》《柱》《雨》《岚》《终》均为自己的原创，可以用于配乐，清单保存在 `music-library.json`。首期使用《雨》，文件标签作者为昔日烬，交接记录（2026-10-11）也记载其原创归属。原文件保留，单独快照在本期 `music/` 中。Caravan 记为用户推荐的可用候选，实际使用前核对具体版本的词曲、编曲和录音授权，不将免费收听等同于公共领域。来源与 SHA-256 记录在本期 `provenance.json`，片尾显示配乐署名。
 
@@ -89,4 +89,4 @@ ffmpeg -y -i public/identity/frame-0072.png -frames:v 1 -update 1 public/identit
 
 ## 验证
 
-从仓库根目录运行 `node webpage/tests/site-pages.mjs` 和 `node --test webpage/tests/weekly-video.test.mjs`。覆盖导航、北京时间跨周、置顶、草稿过滤、往期链接和字幕连续性。浏览器另检查桌面/手机、登录前后内容一致、章节跳转、前进后退和媒体失败。
+从仓库根目录运行 `node webpage/tests/site-pages.mjs` 和 `node --test webpage/tests/weekly-video.test.mjs`。覆盖导航、北京时间跨周、置顶、草稿过滤、往期链接、字幕连续性和每期时长是否落在各自 `durationTarget` 内。浏览器另检查桌面/手机、登录前后内容一致、章节跳转、前进后退和媒体失败。

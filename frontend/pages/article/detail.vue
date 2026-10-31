@@ -362,7 +362,7 @@ export default {
 .mini-title {
   display: block;
   margin-bottom: 36rpx;
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 32rpx;
   font-weight: 800;
 }
@@ -473,7 +473,7 @@ export default {
 .section-heading {
   display: block;
   margin-bottom: 24rpx;
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 31rpx;
   font-weight: 800;
 }
@@ -545,7 +545,7 @@ export default {
 .source-title {
   display: block;
   margin-bottom: 16rpx;
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 27rpx;
   line-height: 1.45;
   font-weight: 700;
@@ -598,13 +598,41 @@ export default {
   justify-content: center;
 }
 
+/* 44–56rpx visual controls keep their size; a transparent ring lifts the tap
+   target to >=88rpx (a11y baseline). */
+.article-favorite-button,
+.question-chip,
+.send-button {
+  position: relative;
+}
+
+.article-favorite-button::before,
+.send-button::before {
+  content: '';
+  position: absolute;
+  top: -16rpx;
+  right: -16rpx;
+  bottom: -16rpx;
+  left: -16rpx;
+}
+
+/* 提问 chip 最矮 54rpx，需要 18rpx 的环才能凑到 88rpx。 */
+.question-chip::before {
+  content: '';
+  position: absolute;
+  top: -18rpx;
+  right: -18rpx;
+  bottom: -18rpx;
+  left: -18rpx;
+}
+
 .article-back-button {
   position: static;
   z-index: 2;
 }
 
 .article-favorite-button {
-  position: static;
+  position: relative;
   z-index: 1;
   flex: 0 0 auto;
   margin: 0 0 0 auto;
@@ -675,7 +703,7 @@ export default {
 }
 
 .article-hero .title {
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 46rpx;
   line-height: 1.28;
   font-weight: 900;
@@ -950,7 +978,7 @@ export default {
 .dark-mode .mini-title,
 .dark-mode .section-heading,
 .dark-mode .source-title {
-  color: #000000;
+  color: #F4F7FA;
 }
 
 .dark-mode .summary-text {

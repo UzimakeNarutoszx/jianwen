@@ -56,6 +56,7 @@ def prepare():
         parser.error('episode must be YYYY-Www')
     source = ROOT / 'episodes' / args.episode
     episode = json.loads((source / 'episode.json').read_text())
+    duration_target = {'min': 180, 'max': 300, **(episode.get('durationTarget') or {})}
     public = ROOT / 'public' / 'episodes' / args.episode
     public.mkdir(parents=True, exist_ok=True)
     fingerprint = hashlib.sha256(f'{args.engine}|{args.model}|{args.voice}|{args.rate}|{args.tts_command}'.encode()).hexdigest()[:12]
@@ -92,8 +93,8 @@ def prepare():
                 frame += frames
         slides.append({**slide, 'start': start / 30, 'end': frame / 30})
         print(f'{slide_index + 1}/{len(episode["slides"])}: {slide["title"]} · {frame / 30:.2f}s', flush=True)
-    if not 180 <= frame / 30 <= 300:
-        raise SystemExit(f'Duration {frame / 30:.2f}s outside 3–5 minutes. Adjust --tempo or narration. Existing preview was preserved; generated voice clips are cached.')
+    if not duration_target['min'] <= frame / 30 <= duration_target['max']:
+        raise SystemExit(f'Duration {frame / 30:.2f}s outside {duration_target["min"]}–{duration_target["max"]}s. Adjust --tempo or narration. Existing preview was preserved; generated voice clips are cached.')
     # Only our generated filenames enter the concat manifest.
     concat = work / 'audio.txt'
     concat.write_text('\n'.join(f"file '{p.name}'" for p in pieces))
@@ -103,7 +104,7 @@ def prepare():
         if not chapters or chapters[-1]['title'] != slide['chapter']:
             chapters.append({'title': slide['chapter'], 'seconds': slide['start']})
     prepared = {**episode, 'slides': slides, 'cues': cues, 'chapters': chapters, 'durationSeconds': frame / 30,
-                'durationInFrames': frame, 'voice': {'engine': 'Qwen3-TTS / MLX' if synthesize else 'external' if args.tts_command else 'macOS say', 'name': args.voice, 'model': args.model if synthesize else None, 'rate': args.rate if not synthesize else None, 'tempo': args.tempo}}
+                'durationInFrames': frame, 'durationTarget': duration_target, 'voice': {'engine': 'Qwen3-TTS / MLX' if synthesize else 'external' if args.tts_command else 'macOS say', 'name': args.voice, 'model': args.model if synthesize else None, 'rate': args.rate if not synthesize else None, 'tempo': args.tempo}}
     (public / 'timeline.json').write_text(json.dumps(prepared, ensure_ascii=False, indent=2) + '\n')
     (source / 'timeline.json').write_text(json.dumps(prepared, ensure_ascii=False, indent=2) + '\n')
     for extension, separator in [('vtt', '.'), ('srt', ',')]:
@@ -112,8 +113,8 @@ def prepare():
             entries.append(f"{index}\n{stamp(cue['start'], separator)} --> {stamp(cue['end'], separator)}\n{cue['text']}\n")
         (public / f'captions.{extension}').write_text('\n'.join(entries))
     print(f"{args.episode}: {frame / 30:.2f}s, {len(cues)} captions; {prepared['voice']}")
-    if not 180 <= frame / 30 <= 300:
-        raise SystemExit('Duration outside 3–5 minutes. Adjust narration/rate and prepare again before publishing.')
+    if not duration_target['min'] <= frame / 30 <= duration_target['max']:
+        raise SystemExit(f'Duration {frame / 30:.2f}s outside {duration_target["min"]}–{duration_target["max"]}s. Adjust narration/rate and prepare again before publishing.')
 
 if __name__ == '__main__':
     prepare()

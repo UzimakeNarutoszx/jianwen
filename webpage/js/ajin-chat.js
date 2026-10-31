@@ -5,7 +5,7 @@
   section.className = 'ajin-chat'
   section.id = 'ajin-chat'
   section.setAttribute('aria-labelledby', 'ajin-chat-title')
-  section.innerHTML = '<div class="ajin-chat-heading"><div><p class="eyebrow">AJIN / CHAT</p><h2 id="ajin-chat-title">和阿烬聊聊</h2><p>像“问问”一样直接输入问题，阿烬会用自己的兴趣和思考方式接住话题。</p></div><div class="ajin-chat-status"><span class="status-dot" aria-hidden="true"></span><span>阿烬已就绪</span></div></div><div id="ajin-chat-log" class="ajin-chat-log" aria-live="polite"></div><form id="ajin-chat-form" class="ajin-chat-form" novalidate><input id="ajin-chat-input" required maxlength="4000" autocomplete="off" placeholder="例如：给我一个适合架子鼓练习的游戏 BGM…"><button class="button button-primary" type="submit">发送 <span aria-hidden="true">→</span></button></form><p id="ajin-chat-hint" class="ajin-chat-hint">需要登录后使用，对话会遵循阿烬的角色提示词。</p>'
+  section.innerHTML = '<div class="ajin-chat-heading"><div><p class="eyebrow">AJIN / CHAT</p><h2 id="ajin-chat-title">和阿烬聊聊</h2><p>像“问问”一样直接输入问题，阿烬会用自己的兴趣和思考方式接住话题。</p><p id="ajin-chat-quota" class="ajin-chat-quota" role="status">今日剩余额度：加载中</p></div><div class="ajin-chat-status"><span class="status-dot" aria-hidden="true"></span><span>阿烬已就绪</span></div></div><div id="ajin-chat-log" class="ajin-chat-log" aria-live="polite"></div><form id="ajin-chat-form" class="ajin-chat-form" novalidate><input id="ajin-chat-input" required maxlength="4000" autocomplete="off" placeholder="例如：给我一个适合架子鼓练习的游戏 BGM…"><button class="button button-primary" type="submit">发送 <span aria-hidden="true">→</span></button></form><p id="ajin-chat-hint" class="ajin-chat-hint">需要登录后使用，对话会遵循阿烬的角色提示词。</p>'
   if (note.id === 'ajin-chat-host') note.replaceWith(section)
   else note.parentNode.insertBefore(section, note)
 
@@ -13,6 +13,17 @@
   const input = section.querySelector('#ajin-chat-input')
   const log = section.querySelector('#ajin-chat-log')
   const hint = section.querySelector('#ajin-chat-hint')
+  const quotaLabel = section.querySelector('#ajin-chat-quota')
+  const refreshQuota = async () => {
+    try {
+      const quota = await window.jianwenApi.aiQuota()
+      const remaining = Math.max(0, Number(quota.remaining) || 0)
+      const limit = Number(quota.limit) || 20
+      quotaLabel.textContent = remaining === 0 ? `今日额度已耗尽 0/${limit}` : `今日剩余次数 ${remaining}/${limit}`
+    } catch { quotaLabel.textContent = '今日额度已耗尽 0/20' }
+  }
+  if (window.getToken()) refreshQuota()
+  else quotaLabel.textContent = '登录后查看今日额度'
   let history = []
   try {
     const saved = JSON.parse(localStorage.getItem('jianwen_web_ajin_history') || '[]')
@@ -50,7 +61,7 @@
       addMessage(error.message || '暂时无法连接阿烬。', 'assistant')
       history.pop()
       hint.textContent = '请求失败，请稍后再试。'
-    } finally { submit.disabled = false; input.focus() }
+    } finally { refreshQuota(); submit.disabled = false; input.focus() }
     localStorage.setItem('jianwen_web_ajin_history', JSON.stringify(history.slice(-20)))
   })
 })()

@@ -1,8 +1,7 @@
 import unittest
-import asyncio
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
 
@@ -83,11 +82,14 @@ class ProfileRouteTests(unittest.TestCase):
     def test_avatar_rejects_empty_and_oversized_files_with_bounded_read(self) -> None:
         with TemporaryDirectory() as upload_dir, patch.object(profile, "settings", SimpleNamespace(UPLOAD_DIR=upload_dir)):
             for data in (b"", b"x" * (2 * 1024 * 1024 + 1)):
-                upload = SimpleNamespace(filename="avatar.png", content_type="image/png", read=AsyncMock(return_value=data))
+                # The route is a sync def (FastAPI runs it in the thread pool),
+                # so the upload file is read synchronously.
+                read = Mock(return_value=data)
+                upload = SimpleNamespace(filename="avatar.png", content_type="image/png", file=SimpleNamespace(read=read))
                 with self.assertRaises(HTTPException) as raised:
-                    asyncio.run(profile.upload_avatar(upload, current_user=SimpleNamespace(id=1), db=None))
+                    profile.upload_avatar(upload, current_user=SimpleNamespace(id=1), db=None)
                 self.assertEqual(raised.exception.status_code, 400)
-                upload.read.assert_awaited_once_with(2 * 1024 * 1024 + 1)
+                read.assert_called_once_with(2 * 1024 * 1024 + 1)
 
     def test_profile_response_counts_user_records(self) -> None:
         with self.Session() as db:

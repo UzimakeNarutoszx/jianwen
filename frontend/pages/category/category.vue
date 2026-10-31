@@ -44,9 +44,17 @@
     </scroll-view>
 
     <view class="article-list">
+      <StateView
+        v-if="loadState !== 'ready' || !articles.length"
+        :state="loadState === 'ready' ? 'empty' : loadState"
+        :message="stateMessage"
+        :dark-mode="darkMode"
+        @retry="loadContent()"
+      />
+
       <view v-for="(item, index) in articles" :key="item.id" class="article-card card" @click="openArticle(item.articleId)">
         <view class="article-media">
-          <image class="article-image" :src="item.image" mode="aspectFill" />
+          <image class="article-image" :src="item.image" mode="aspectFill" lazy-load />
           <view class="article-image-overlay"></view>
           <view class="article-index">
             <text>{{ articleRank(index) }}</text>
@@ -65,12 +73,6 @@
           </view>
         </view>
       </view>
-
-      <view v-if="!articles.length" class="empty-card card">
-        <image class="empty-icon" src="/static/icons/func-topic.png" mode="aspectFit" />
-        <text class="empty-title">这个主题还在整理</text>
-        <text class="empty-desc">可以先切换到其他主题继续浏览。</text>
-      </view>
     </view>
 
     <text class="page-end">已到底，继续换个主题看看</text>
@@ -80,18 +82,28 @@
 <script>
 import { getArticleList, getCategories } from '@/utils/api.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
+import StateView from '@/components/StateView.vue'
 
 export default {
+  components: { StateView },
   data() {
     return {
       darkMode: false,
       fontSize: 'standard',
       selectedCategory: '',
       categories: [],
-      articles: []
+      articles: [],
+      loadState: 'loading',
+      loadError: '',
+      loadVersion: 0
     }
   },
   computed: {
+    stateMessage() {
+      if (this.loadState === 'loading') return '正在加载这个主题的内容'
+      if (this.loadState === 'error') return this.loadError || '主题内容暂时加载失败，请稍后重试'
+      return '这个主题还在整理，可以先切换到其他主题继续浏览'
+    },
     channelDesc() {
       const descriptions = {
         '党和国家': '从会议、文件、部门分工和地方落实看懂国家治理线索。',
@@ -116,26 +128,48 @@ export default {
     this.loadContent()
     applyTabBarTheme(this.darkMode)
   },
+  onPullDownRefresh() {
+    this.loadContent({ silent: true }).finally(() => uni.stopPullDownRefresh())
+  },
   methods: {
-    async loadContent() {
+    async loadContent(options = {}) {
+      const version = ++this.loadVersion
+      // 切主题要显示 loading；下拉刷新走 silent，保留旧列表不闪。
+      if (!options.silent) {
+        this.loadState = 'loading'
+        this.loadError = ''
+      }
       try {
         const categories = await getCategories()
+        if (version !== this.loadVersion) return
         this.categories = categories.map(item => item.name)
         if (!this.categories.includes(this.selectedCategory)) {
           const matched = this.categories.find(item => this.selectedCategory && (this.selectedCategory.includes(item) || item.includes(this.selectedCategory)))
           this.selectedCategory = matched || this.categories[0] || ''
         }
-        this.articles = this.selectedCategory ? await getArticleList({ category: this.selectedCategory }) : []
+        const articles = this.selectedCategory ? await getArticleList({ category: this.selectedCategory }) : []
+        if (version !== this.loadVersion) return
+        this.articles = articles
+        this.loadState = 'ready'
       } catch (error) {
-        uni.showToast({ title: error.message || '主题内容加载失败', icon: 'none' })
+        if (version !== this.loadVersion) return
+        if (options.silent && this.articles.length) {
+          uni.showToast({ title: error.message || '刷新失败，稍后再试', icon: 'none' })
+          return
+        }
+        this.loadState = 'error'
+        this.loadError = error.message || '主题内容加载失败，请稍后重试'
       }
     },
     selectCategory(category) {
+      if (this.selectedCategory === category) return
       this.selectedCategory = category
+      // 换主题时先清空，避免新主题加载中混着上一个主题的列表。
+      this.articles = []
       this.loadContent()
     },
     openArticle(id) {
-      uni.navigateTo({ url: `/pages/article/detail?id=${id}` })
+      uni.navigateTo({ url: `/pages/article/detail?id=${encodeURIComponent(id)}` })
     },
     articleRank(index) {
       return String(index + 1).padStart(2, '0')
@@ -469,37 +503,6 @@ export default {
   opacity: 0.5;
 }
 
-.empty-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 58rpx 40rpx;
-  text-align: center;
-}
-
-.empty-icon {
-  width: 70rpx;
-  height: 70rpx;
-  padding: 18rpx;
-  border-radius: 24rpx;
-  background: rgba(31,95,122,0.1);
-}
-
-.empty-title {
-  margin-top: 24rpx;
-  color: #14212B;
-  font-size: 30rpx;
-  line-height: 1.35;
-  font-weight: 900;
-}
-
-.empty-desc {
-  margin-top: 12rpx;
-  color: #66737B;
-  font-size: 25rpx;
-  line-height: 1.55;
-}
-
 .page-end {
   display: block;
   margin-top: 54rpx;
@@ -547,15 +550,13 @@ export default {
 }
 
 .dark-mode .hero-title,
-.dark-mode .article-title,
-.dark-mode .empty-title {
+.dark-mode .article-title {
   color: #F4F7FA !important;
 }
 
 .dark-mode .hero-desc,
 .dark-mode .hero-foot-item,
 .dark-mode .article-desc,
-.dark-mode .empty-desc,
 .dark-mode .read-time,
 .dark-mode .source-line {
   color: #B6C2CC !important;
@@ -572,9 +573,5 @@ export default {
 .dark-mode .category-chip.active {
   background: #1F5F7A;
   color: #FFFFFF;
-}
-
-.dark-mode .empty-icon {
-  background: rgba(126,184,209,0.12);
 }
 </style>

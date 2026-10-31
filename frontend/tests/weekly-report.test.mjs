@@ -13,12 +13,14 @@ const report = {
   questions: [{ channel: 'ask', question: '怎样理解这项变化？', created_at: '2026-10-12T10:00:00+08:00' }, { channel: 'ajin', question: '继续追问', created_at: '2026-10-12T11:00:00+08:00' }],
   legacy: [{ book_id: 'b', content_id: '2', title: '旧的阅读位置', date: '2026-10-12T09:00:00+08:00', scroll_progress: 20 }]
 }
-test('export includes all sections, captions, daily data, questions and legacy', () => {
+test('export includes summary and charts without activity details', () => {
   const scene = exportScene(report), text = scene.ops.filter(op => op.type === 'text').map(op => op.value).join('')
-  for (const value of ['测试读者', '本周文章标题', '怎样理解这项变化？', '继续追问', '测试名著', '旧的阅读位置', '2026-10-18', '历史文章计入篇数']) assert.ok(text.includes(value), value)
+  for (const value of ['测试读者', '2026-10-12 — 2026-10-18', '文章阅读', '有效停留']) assert.ok(text.includes(value), value)
+  for (const value of ['本周文章标题', '怎样理解这项变化？', '继续追问', '测试名著', '旧的阅读位置', '每日图表数据', '2026-10-18：']) assert.ok(!text.includes(value), value)
   for (const chart of CHARTS) { assert.ok(text.includes(chart.title)); assert.ok(text.includes(chart.caption)) }
+  assert.ok(scene.ops.some(op => op.type === 'rect' || op.type === 'slice' || op.type === 'path'), 'chart drawing operations present')
   assert.ok(scene.ops.filter(op => op.type === 'text').every(op => op.y < scene.height))
-  assert.equal(reportModel(report).sections.length, 5)
+  assert.equal(reportModel(report).sections, undefined)
 })
 test('empty charts have finite coordinates and readable empty text', () => {
   for (const chart of CHARTS) for (const op of chartScene(chart.key, { days: [], topics: [] }, 280)) {
@@ -30,6 +32,6 @@ test('empty charts have finite coordinates and readable empty text', () => {
 test('long text wraps without losing characters; oversized report is rejected', () => {
   const value = '甲乙丙丁'.repeat(40)
   assert.equal(wrapText(value, 100, 20).join(''), value)
-  const large = { ...report, questions: Array.from({ length: 3000 }, () => ({ channel: 'ask', question: value })) }
+  const large = { ...report, topics: Array.from({ length: 3000 }, (_, i) => ({ name: `主题${i}`, count: 1 })) }
   assert.throws(() => exportScene(large), /单张长图容量/)
 })

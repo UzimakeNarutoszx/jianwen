@@ -1,6 +1,7 @@
-﻿from sqlalchemy.orm import Session
+﻿import logging
 
 from sqlalchemy import text as sql_text
+from sqlalchemy.orm import Session
 
 from app.models.content import (
     AiAnswerRule,
@@ -16,16 +17,19 @@ from app.models.content import (
 from app.services.classic_fulltext import has_complete_qstheory_full_text, import_classic_full_texts
 
 
+logger = logging.getLogger(__name__)
+
+
 CATEGORIES = [
-    ("党和国家", "/static/images/党和国家.png", True),
-    ("共产党", "/static/images/共产党.png", True),
-    ("时政大事", "/static/images/政策解读.png", True),
-    ("就业", "/static/images/就业.png", False),
-    ("住房", "/static/images/住房.png", False),
-    ("科技", "/static/images/科技产业.png", False),
-    ("医保", "/static/images/医保社保.png", False),
-    ("消费", "/static/images/消费补贴.png", False),
-    ("城市生活", "/static/images/社会民生.png", False),
+    ("党和国家", "/static/images/党和国家.jpg", True),
+    ("共产党", "/static/images/共产党.jpg", True),
+    ("时政大事", "/static/images/政策解读.jpg", True),
+    ("就业", "/static/images/就业.jpg", False),
+    ("住房", "/static/images/住房.jpg", False),
+    ("科技", "/static/images/科技产业.jpg", False),
+    ("医保", "/static/images/医保社保.jpg", False),
+    ("消费", "/static/images/消费补贴.jpg", False),
+    ("城市生活", "/static/images/社会民生.jpg", False),
 ]
 
 
@@ -38,7 +42,7 @@ ARTICLES = [
         "desc": "把会议部署、部门分工、地方落实和公开信息放在一条线中看。",
         "sources": "中国政府网 / 新华网",
         "read_time": "5分钟",
-        "image": "/static/images/党和国家.png",
+        "image": "/static/images/党和国家.jpg",
         "relation": "普通公民 / 办事群众 / 政策关注者",
         "summary": ["会议部署", "部门分工", "地方落实"],
         "sections": [
@@ -63,7 +67,7 @@ ARTICLES = [
         "desc": "从组织体系、会议文件和基层治理三个入口建立基本框架。",
         "sources": "共产党员网 / 人民网",
         "read_time": "5分钟",
-        "image": "/static/images/共产党.png",
+        "image": "/static/images/共产党.jpg",
         "relation": "基层党员 / 社区居民 / 公共事务关注者",
         "summary": ["组织体系", "会议文件", "基层治理"],
         "sections": [
@@ -88,7 +92,7 @@ ARTICLES = [
         "desc": "先看发布机构、会议层级、任务对象和后续执行入口。",
         "sources": "中国政府网 / 新华网 / 人民网",
         "read_time": "4分钟",
-        "image": "/static/images/政策解读.png",
+        "image": "/static/images/政策解读.jpg",
         "relation": "新闻关注者 / 办事群众 / 公共议题学习者",
         "summary": ["发布机构", "任务对象", "后续入口"],
         "sections": [
@@ -113,7 +117,7 @@ ARTICLES = [
         "desc": "补贴、见习岗位和基层就业服务，是这一类信息里最值得先看的部分。",
         "sources": "人社部 / 中国政府网",
         "read_time": "3分钟",
-        "image": "/static/images/就业.png",
+        "image": "/static/images/就业.jpg",
         "relation": "毕业生 / 求职者 / 职场新人",
         "summary": ["就业补贴", "见习岗位", "申请入口"],
         "sections": [
@@ -138,7 +142,7 @@ ARTICLES = [
         "desc": "公积金、保障性住房和租房补贴都值得留意，但一定要看本地细则。",
         "sources": "住建部 / 地方政府官网",
         "read_time": "4分钟",
-        "image": "/static/images/住房.png",
+        "image": "/static/images/住房.jpg",
         "relation": "租房人 / 新市民 / 公积金用户",
         "summary": ["租房补贴", "公积金", "保障住房"],
         "sections": [
@@ -162,7 +166,7 @@ ARTICLES = [
         "desc": "不只看大模型，也看产业应用、数据能力和真实岗位里的新技能。",
         "sources": "工信部 / 教育部",
         "read_time": "3分钟",
-        "image": "/static/images/AI技术.png",
+        "image": "/static/images/AI技术.jpg",
         "relation": "学生 / 转行者 / 科技从业者",
         "summary": ["产业应用", "技能训练", "岗位能力"],
         "sections": [
@@ -187,7 +191,7 @@ ARTICLES = [
         "desc": "先分清基金支付、报销规则和异地就医入口，不要只看一个标题。",
         "sources": "国家医保局",
         "read_time": "4分钟",
-        "image": "/static/images/医保社保.png",
+        "image": "/static/images/医保社保.jpg",
         "relation": "本地居民 / 异地就医 / 家庭照护",
         "summary": ["基金支付", "报销规则", "异地就医"],
         "sections": [
@@ -211,7 +215,7 @@ ARTICLES = [
         "desc": "交通、社区、教育、医疗等变化，重点看服务对象和本地入口。",
         "sources": "地方政府官网 / 政务服务平台",
         "read_time": "3分钟",
-        "image": "/static/images/社会民生.png",
+        "image": "/static/images/社会民生.jpg",
         "relation": "本地居民 / 新市民 / 社区用户",
         "summary": ["服务对象", "办理入口", "执行时间"],
         "sections": [
@@ -231,10 +235,10 @@ ARTICLES = [
 
 
 FEATURES = [
-    ("党和国家大事观察", "从会议、文件、部门分工看懂国家治理线索。", "会议部署 / 部门分工 / 地方落实", "/static/images/党和国家.png", 8, "党和国家"),
-    ("经典文献入门", "党章、团章、共产党宣言、毛选、邓论等基础文本。", "党章 / 团章 / 宣言 / 毛选 / 邓论", "/static/images/共产党.png", 5, "共产党"),
-    ("青年政策雷达", "找工作、见习、补贴和基层岗位。", "就业补贴 / 见习岗位 / 落户 / 租房", "/static/images/就业.png", 6, "就业"),
-    ("AI和未来工作", "从产业政策看到新岗位和新技能。", "技能培训 / 行业应用 / 专业选择", "/static/images/AI技术.png", 5, "科技"),
+    ("党和国家大事观察", "从会议、文件、部门分工看懂国家治理线索。", "会议部署 / 部门分工 / 地方落实", "/static/images/党和国家.jpg", 8, "党和国家"),
+    ("经典文献入门", "党章、团章、共产党宣言、毛选、邓论等基础文本。", "党章 / 团章 / 宣言 / 毛选 / 邓论", "/static/images/共产党.jpg", 5, "共产党"),
+    ("青年政策雷达", "找工作、见习、补贴和基层岗位。", "就业补贴 / 见习岗位 / 落户 / 租房", "/static/images/就业.jpg", 6, "就业"),
+    ("AI和未来工作", "从产业政策看到新岗位和新技能。", "技能培训 / 行业应用 / 专业选择", "/static/images/AI技术.jpg", 5, "科技"),
 ]
 
 
@@ -271,7 +275,7 @@ CLASSIC_BOOKS = [
         "author": "中国共产党",
         "category": "党章团章",
         "description": "中国共产党的根本法规，集中规定党的性质、指导思想、组织制度、党员权利义务等基本内容。",
-        "cover_image": "/static/images/共产党.png",
+        "cover_image": "/static/images/共产党.jpg",
         "source_org": "共产党员网",
         "external_url": "https://www.12371.cn/special/zggcdzc/zggcdzcqw/",
         "is_featured": True,
@@ -289,7 +293,7 @@ CLASSIC_BOOKS = [
         "author": "中国共产主义青年团",
         "category": "党章团章",
         "description": "共青团的基本章程，适合了解团的性质、组织制度、团员要求和青年工作基础。",
-        "cover_image": "/static/images/公共生活.png",
+        "cover_image": "/static/images/公共生活.jpg",
         "source_org": "中国共青团网",
         "external_url": "https://www.gqt.org.cn/ccylmaterial/regulation/",
         "is_featured": True,
@@ -307,7 +311,7 @@ CLASSIC_BOOKS = [
         "author": "马克思、恩格斯",
         "category": "马克思主义经典",
         "description": "马克思主义经典文本之一，适合作为理解科学社会主义和共产党人理论源流的入门读物。",
-        "cover_image": "/static/images/政策解读.png",
+        "cover_image": "/static/images/政策解读.jpg",
         "source_org": "共产党员网",
         "external_url": "https://www.12371.cn/special/gcdxy/",
         "is_featured": True,
@@ -325,7 +329,7 @@ CLASSIC_BOOKS = [
         "author": "毛泽东",
         "category": "中国化时代化马克思主义",
         "description": "收录毛泽东同志在中国革命各时期的重要著作，适合按历史阶段和问题意识阅读。",
-        "cover_image": "/static/images/共产党.png",
+        "cover_image": "/static/images/共产党.jpg",
         "source_org": "共产党员网",
         "external_url": "https://www.12371.cn/special/mzdxj/dyj/",
         "is_featured": True,
@@ -343,7 +347,7 @@ CLASSIC_BOOKS = [
         "author": "邓小平",
         "category": "中国化时代化马克思主义",
         "description": "理解邓小平理论的重要文本入口，适合结合改革开放和社会主义现代化建设历史阅读。",
-        "cover_image": "/static/images/党和国家.png",
+        "cover_image": "/static/images/党和国家.jpg",
         "source_org": "共产党员网",
         "external_url": "https://www.12371.cn/special/dxpwx/d3j/",
         "is_featured": True,
@@ -417,7 +421,10 @@ def seed_content(db: Session) -> None:
     article_ids = [article["article_id"] for article in ARTICLES]
     db.query(ContentCategory).filter(~ContentCategory.name.in_(category_names)).delete(synchronize_session=False)
     db.query(ContentFeature).filter(~ContentFeature.title.in_(feature_titles)).delete(synchronize_session=False)
-    db.query(ContentArticle).filter(~ContentArticle.article_id.in_(article_ids)).update(
+    db.query(ContentArticle).filter(
+        ~ContentArticle.article_id.in_(article_ids),
+        ~ContentArticle.article_id.startswith("ai-daily-"),
+    ).update(
         {"is_today": False, "is_latest": False},
         synchronize_session=False,
     )
@@ -540,5 +547,11 @@ def seed_content(db: Session) -> None:
         else:
             db.add(DailyQuote(**data))
     db.commit()
-    import_classic_full_texts(db)
+    # Full-text scraping depends on remote sites; a failure here must not stop
+    # the service from booting.
+    try:
+        import_classic_full_texts(db)
+    except Exception:
+        db.rollback()
+        logger.warning("Classic full-text import failed; keeping seeded metadata", exc_info=True)
 

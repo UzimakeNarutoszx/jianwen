@@ -18,7 +18,7 @@ body.ajin-page .aj-film{width:100%;aspect-ratio:16/11;min-height:360px;backgroun
 .aj-orbit{position:absolute;right:30px;bottom:45px;width:135px;height:135px;border:1px solid #c9dec04d;border-radius:50%;display:grid;place-items:center}.aj-orbit i{position:absolute;inset:12px;border:1px dashed #c9dec080;border-radius:50%;animation:aj-orbit 30s linear infinite}.aj-orbit i:after{content:'';position:absolute;width:8px;height:8px;top:0;left:24px;border-radius:50%;background:#d8deb1}.aj-orbit b{font-size:34px;font-weight:400;color:#cedcba}
 body.ajin-page :is(.ajin-section,.growth-section){padding:48px 0;border-top:1px solid var(--line)}
 body.ajin-page :is(.section-heading h2,.growth-section-heading h2){font-size:30px;font-weight:500;line-height:1.4;letter-spacing:-.03em}
-body.ajin-page :is(.ajin-card,.design-step,.memory-card,.topic-card,.feature-item){border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:none;padding:28px}
+body.ajin-page :is(.ajin-card,.design-step,.memory-card,.topic-card,.feature-item){border-radius:16px;background:var(--surface-card);border:1px solid var(--line);box-shadow:none;padding:28px}
 body.ajin-page :is(.ajin-card,.design-step,.memory-card,.topic-card,.feature-item):hover{animation:none;transform:none;border-color:#afc4b5}
 body.ajin-page .ajin-index,body.ajin-page .design-step>strong{font-size:11px;letter-spacing:.08em;font-weight:500;color:var(--blue)}
 body.ajin-page :is(.ajin-card h2,.design-step h3,.memory-card h3,.topic-card h3,.feature-item h2){font-weight:550;font-size:22px}
@@ -36,14 +36,14 @@ body.ajin-page .ajin-statement p{font-size:28px;line-height:1.6;font-weight:400;
 body.ajin-page .feature-map{padding-top:40px;border-top:1px solid var(--line);grid-template-columns:1.12fr 1fr;gap:24px}
 body.ajin-page .capability-cover,body.ajin-page .feature-summary{padding:34px;border-radius:18px}
 body.ajin-page .capability-cover h2{font-size:36px;margin:22px 0;font-weight:500}
-body.ajin-page .feature-summary{background:#e7eddf}
+body.ajin-page .feature-summary{background:var(--mist)}
 body.ajin-page .feature-list{gap:24px}.ajin-page .feature-icon{border-radius:50%}
-body.ajin-page .ajin-chat{padding:34px;background:white;border:1px solid var(--line);border-radius:20px;scroll-margin-top:24px}
+body.ajin-page .ajin-chat{padding:34px;background:var(--surface-card);border:1px solid var(--line);border-radius:20px;scroll-margin-top:24px}
 body.ajin-page .ajin-chat-message{background:var(--mist);color:var(--ink);line-height:1.85}.ajin-page .ajin-chat-message.user{background:var(--blue-dark);color:white}
-body.ajin-page .ajin-chat-form{padding:12px;background:var(--paper)}.ajin-page .ajin-chat-form:focus-within{outline:2px solid var(--blue)}
+body.ajin-page .ajin-chat-form{padding:12px;background:var(--paper)}.ajin-page .ajin-chat-form:focus-within{outline:0;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:box-shadow .14s}
 body.ajin-page .design-grid{gap:18px}.ajin-page .design-step>strong{display:block;padding-bottom:18px;border-bottom:1px solid var(--line)}
 body.ajin-page .growth-board-side{background:var(--blue-dark);color:white}.ajin-page .growth-board-side :is(p,li,.eyebrow){color:#c7d9ca}
-body.ajin-page .growth-boundary{background:#e7eddf;padding:40px}
+body.ajin-page .growth-boundary{background:var(--mist);padding:40px}
 @keyframes aj-wave{0%,100%{transform:scaleY(.7)}50%{transform:scaleY(1.25)}}
 @keyframes aj-orbit{to{transform:rotate(360deg)}}
 @media(max-width:1000px){body.ajin-page :is(.ajin-hero,.growth-hero,.aj-page-hero){gap:28px}.aj-film-copy{padding:28px}.aj-orbit{width:100px;height:100px;right:22px;bottom:35px}}
@@ -58,7 +58,7 @@ body.ajin-page .ajin-chat{scroll-margin-top:28px}
 body.ajin-page .design-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
 body.ajin-page .growth-board{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:20px}
 body.ajin-page .growth-board-main,body.ajin-page .growth-board-side{min-width:0;padding:30px;border-radius:18px}
-body.ajin-page .growth-board-main{background:#fff;border:1px solid var(--line)}
+body.ajin-page .growth-board-main{background:var(--surface-card);border:1px solid var(--line)}
 body.ajin-page .growth-board-side{border:0}
 body.ajin-page .memory-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
 body.ajin-page .memory-card{min-width:0}
@@ -76,13 +76,14 @@ body.ajin-page .ajin-chat-fab:hover{background:var(--blue)}
 body.ajin-page .ajin-chat-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:22px}
 body.ajin-page .ajin-chat-heading h2{margin:0 0 8px;font-size:28px;font-weight:550}
 body.ajin-page .ajin-chat-heading p{margin:0;color:var(--muted);font-size:14px;line-height:1.8}
+body.ajin-page .ajin-chat-heading .ajin-chat-quota{margin-top:8px;color:var(--blue);font-size:12px;font-variant-numeric:tabular-nums}
 body.ajin-page .ajin-chat-status{display:flex;align-items:center;gap:8px;flex:none;color:var(--muted);font-size:12px}
 body.ajin-page .ajin-chat-log{display:grid;gap:10px;max-height:360px;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
 body.ajin-page .ajin-chat-message{max-width:min(78%,620px);padding:11px 14px;border-radius:14px;background:var(--mist);font-size:14px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
 body.ajin-page .ajin-chat-message.user{justify-self:end;background:var(--blue-dark);color:#fff}
 body.ajin-page .ajin-chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:14px;padding:0;background:transparent}
-body.ajin-page .ajin-chat-form input{min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);outline:0}
-body.ajin-page .ajin-chat-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,95,122,.12)}
+body.ajin-page .ajin-chat-form input{min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-card);color:var(--ink);outline:0}
+body.ajin-page .ajin-chat-form input:focus{border-color:transparent;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:box-shadow .14s}
 body.ajin-page .ajin-chat-hint{margin:12px 0 0;color:var(--muted);font-size:12px}
 body.ajin-page #ajin-chat{margin-top:0}
 @media(max-width:900px){body.ajin-page .design-grid{grid-template-columns:repeat(2,minmax(0,1fr))}body.ajin-page .growth-board{grid-template-columns:1fr}body.ajin-page .memory-grid{grid-template-columns:1fr 1fr}}

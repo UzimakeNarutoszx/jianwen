@@ -6,7 +6,8 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const id = process.argv[2]
 if (!/^\d{4}-W\d{2}$/.test(id || '')) throw new Error('Usage: node scripts/select-episode.mjs YYYY-Www')
 const timeline = JSON.parse(await readFile(resolve(root, 'episodes', id, 'timeline.json'), 'utf8'))
-if (timeline.id !== id || timeline.durationSeconds < 180 || timeline.durationSeconds > 300) throw new Error('Prepare and validate this episode first')
+const {min = 180, max = 300} = timeline.durationTarget || {}
+if (timeline.id !== id || timeline.durationSeconds < min || timeline.durationSeconds > max) throw new Error('Prepare and validate this episode first')
 await mkdir(resolve(root, 'public/episodes', id), { recursive: true })
 await copyFile(resolve(root, 'episodes', id, 'timeline.json'), resolve(root, 'public/episodes', id, 'timeline.json'))
 await writeFile(resolve(root, 'src/current-episode.ts'), `// Change with: node scripts/select-episode.mjs YYYY-Www\nexport {default} from '../episodes/${id}/timeline.json';\n`)

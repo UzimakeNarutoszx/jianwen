@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -46,6 +46,26 @@ class UserAiUsageRecord(Base):
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     sources: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class UserAiDailyUsage(Base):
+    """Per-user per-day AI question counter.
+
+    The daily quota is charged against this table instead of counting rows in
+    ``user_ai_usage_records``: deleting chat history must not refund quota, and
+    the atomic ``count = count + 1 WHERE count < limit`` update keeps concurrent
+    requests from exceeding the limit.
+    """
+
+    __tablename__ = "user_ai_daily_usage"
+    __table_args__ = (UniqueConstraint("user_id", "usage_date", name="uq_user_ai_daily_usage"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    usage_date: Mapped[date] = mapped_column(Date, nullable=False)
+    count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class UserFollowTopic(Base):

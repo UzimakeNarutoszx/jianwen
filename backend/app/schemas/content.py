@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ContentCategoryResponse(BaseModel):
@@ -27,6 +27,7 @@ class ContentArticleListResponse(BaseModel):
     image: str | None = None
     relation: str | None = None
     viewed: bool = False
+    published_date: date | None = None
 
 
 class ContentArticleDetailResponse(ContentArticleListResponse):
@@ -86,7 +87,7 @@ class AiPromptResponse(BaseModel):
 
 
 class AiAnswerRequest(BaseModel):
-    question: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1, max_length=2000)
     article_id: str | None = None
 
 
@@ -98,6 +99,22 @@ class AiAnswerResponse(BaseModel):
 class AjinChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=4000)
     history: list[dict[str, str]] = Field(default_factory=list, max_length=20)
+
+    @field_validator("history")
+    @classmethod
+    def cap_history_item_length(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Trim over-long history messages instead of rejecting the request.
+
+        Chat history is best-effort context; a very long past message should
+        not make the whole turn fail with a 422.
+        """
+        return [
+            {
+                key: (str(item_value)[:4000] if item_value is not None else "")
+                for key, item_value in item.items()
+            }
+            for item in value
+        ]
 
 
 class ClassicBookChapterResponse(BaseModel):
@@ -142,3 +159,21 @@ class TodayChecklistResponse(BaseModel):
     total_count: int = 0
     read_count: int = 0
     is_complete: bool = False
+
+
+class BreakingNewsResponse(BaseModel):
+    """置顶的重大会议卡片：字段只包含已核实的会议事实与官方原文链接。"""
+
+    id: int
+    event_name: str
+    event_type: str
+    start_date: date
+    end_date: date | None = None
+    status: str
+    title: str
+    summary: str | None = None
+    source_name: str
+    source_url: str | None = None
+    image: str | None = None
+
+    model_config = {"from_attributes": True}

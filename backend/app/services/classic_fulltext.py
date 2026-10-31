@@ -3,16 +3,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import unescape
+import http.client
+import logging
 from typing import Iterable
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
-import ssl
 import re
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.content import ClassicBook, ClassicBookChapter
+
+
+logger = logging.getLogger(__name__)
+
+# Scraping is best-effort: DNS failures, timeouts, TLS errors and malformed
+# HTTP responses must all degrade to "no full text yet" instead of a boot crash.
+SCRAPE_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 
 @dataclass(frozen=True)
@@ -67,7 +75,7 @@ STATIC_BOOKS: tuple[BookSpec, ...] = (
         author="中国共产党",
         category="党章团章",
         description="中国共产党的根本法规，集中规定党的性质、指导思想、组织制度、党员权利义务等基本内容。",
-        cover_image="/static/images/共产党.png",
+        cover_image="/static/images/共产党.jpg",
         source_org="共产党员网",
         external_url=PARTY_URL,
         sort_order=1,
@@ -92,7 +100,7 @@ STATIC_BOOKS: tuple[BookSpec, ...] = (
         author="中国共产主义青年团",
         category="党章团章",
         description="共青团的基本章程，适合了解团的性质、组织制度、团员要求和青年工作基础。",
-        cover_image="/static/images/公共生活.png",
+        cover_image="/static/images/公共生活.jpg",
         source_org="中国共青团网",
         external_url=LEAGUE_URL,
         sort_order=2,
@@ -116,7 +124,7 @@ STATIC_BOOKS: tuple[BookSpec, ...] = (
         author="马克思、恩格斯",
         category="马克思主义经典",
         description="马克思主义经典文本之一，适合作为理解科学社会主义和共产党人理论源流的入门读物。",
-        cover_image="/static/images/政策解读.png",
+        cover_image="/static/images/政策解读.jpg",
         source_org="共产党员网",
         external_url=MANIFESTO_URL,
         sort_order=3,
@@ -133,7 +141,7 @@ STATIC_BOOKS: tuple[BookSpec, ...] = (
         author="毛泽东",
         category="中国化时代化马克思主义",
         description="收录毛泽东同志在中国革命各时期的重要著作，适合按历史阶段和问题意识阅读。",
-        cover_image="/static/images/共产党.png",
+        cover_image="/static/images/共产党.jpg",
         source_org="共产党员网",
         external_url="https://www.12371.cn/special/mzdxj/dyj/",
         sort_order=4,
@@ -145,7 +153,7 @@ STATIC_BOOKS: tuple[BookSpec, ...] = (
         author="邓小平",
         category="中国化时代化马克思主义",
         description="理解邓小平理论的重要文本入口，适合结合改革开放和社会主义现代化建设历史阅读。",
-        cover_image="/static/images/党和国家.png",
+        cover_image="/static/images/党和国家.jpg",
         source_org="共产党员网",
         external_url="https://www.12371.cn/special/dxpwx/d3j/",
         sort_order=5,
@@ -247,8 +255,16 @@ def resolve_static_chapters(book: BookSpec) -> list[ChapterSpec]:
     for chapter in book.chapters:
         content = chapter.content
         if content is None:
-            text = pages.setdefault(chapter.external_url, fetch_page_text(chapter.external_url))
-            content = extract_section(text, chapter.title, chapter.next_title)
+            # A failed fetch must not abort startup: keep the chapter metadata
+            # and leave the full text empty so the next run can retry.
+            if chapter.external_url not in pages:
+                try:
+                    pages[chapter.external_url] = fetch_page_text(chapter.external_url)
+                except SCRAPE_ERRORS as exc:
+                    logger.warning("Skipping full text for %s: %s", chapter.external_url, exc)
+                    pages[chapter.external_url] = ""
+            text = pages[chapter.external_url]
+            content = extract_section(text, chapter.title, chapter.next_title) if text else None
         chapters.append(
             ChapterSpec(
                 title=chapter.title,
@@ -266,7 +282,8 @@ def resolve_embedded_chapters() -> dict[str, list[ChapterSpec]]:
     for source in EMBEDDED_PAGE_SOURCES:
         try:
             html = fetch_html(source.url)
-        except OSError:
+        except SCRAPE_ERRORS as exc:
+            logger.warning("Skipping embedded source %s: %s", source.url, exc)
             continue
         chapters = extract_embedded_articles(html, source)
         grouped.setdefault(source.book_id, []).extend(chapters)
@@ -283,8 +300,10 @@ def resolve_qstheory_chapters(db: Session) -> dict[str, list[ChapterSpec]]:
         if source.book_id in skipped_book_ids:
             continue
         try:
-            html = fetch_html(source.url, allow_unverified_ssl=True)
-        except OSError:
+            html = fetch_html(source.url)
+        except SCRAPE_ERRORS as exc:
+            # Network/TLS problems must not abort startup; the next run retries.
+            logger.warning("Skipping %s full text: %s", source.book_id, exc)
             continue
 
         page_numbers = discover_qstheory_pages(html, source.content_id, source.expected_pages)
@@ -295,7 +314,11 @@ def resolve_qstheory_chapters(db: Session) -> dict[str, list[ChapterSpec]]:
                 for page_number in page_numbers
             }
             for future in as_completed(futures):
-                chapter = future.result()
+                try:
+                    chapter = future.result()
+                except SCRAPE_ERRORS as exc:
+                    logger.warning("Skipping one page of %s: %s", source.book_id, exc)
+                    continue
                 if chapter:
                     chapters.append(chapter)
         chapters.sort(key=lambda chapter: page_numbers.index(qstheory_page_number(chapter.external_url)))
@@ -333,8 +356,9 @@ def existing_chapters_as_specs(db: Session, book_id: str) -> list[ChapterSpec]:
 def fetch_qstheory_chapter(source: QstheoryBookSpec, page_number: int, first_page_html: str | None = None) -> ChapterSpec | None:
     page_url = qstheory_page_url(source.url, source.content_id, page_number)
     try:
-        page_html = first_page_html if first_page_html is not None else fetch_html(page_url, allow_unverified_ssl=True)
-    except OSError:
+        page_html = first_page_html if first_page_html is not None else fetch_html(page_url)
+    except SCRAPE_ERRORS as exc:
+        logger.warning("Skipping chapter %s: %s", page_url, exc)
         return None
     chapter = extract_qstheory_chapter(page_html, page_url)
     if chapter and chapter.title == "注释":
@@ -423,10 +447,15 @@ def is_known_stale_chapter(title: str) -> bool:
     return normalized in {normalize_title(title) for title in stale_titles}
 
 
-def fetch_html(url: str, allow_unverified_ssl: bool = False) -> str:
+def fetch_html(url: str) -> str:
+    """Fetch ``url`` with normal certificate validation.
+
+    There used to be an ``verify=False`` escape hatch here; scraped sites with
+    a broken certificate now simply fail and the caller logs a warning instead
+    of silently accepting an unverified TLS connection.
+    """
     request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    context = ssl._create_unverified_context() if allow_unverified_ssl and url.startswith("https://") else None
-    raw = urlopen(request, timeout=20, context=context).read()
+    raw = urlopen(request, timeout=20).read()
     for encoding in ("utf-8", "gb18030", "gbk"):
         try:
             return raw.decode(encoding)

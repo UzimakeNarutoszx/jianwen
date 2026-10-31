@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -160,6 +161,125 @@ class DailyArticleTests(unittest.TestCase):
                 daily_articles.scheduled_daily_article_refresh()
                 rows = daily_articles._daily_articles_for_date(db, selected_date)
                 self.assertEqual([a.article_id for a in rows], [f"fresh-{i}" for i in range(5)])
+
+
+class ReadOnlyDailyArticleTests(unittest.TestCase):
+    """Request-thread reads must never fetch sources or call the AI model."""
+
+    def setUp(self) -> None:
+        self.engine = create_engine(
+            "sqlite+pysqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+
+    def tearDown(self) -> None:
+        Base.metadata.drop_all(self.engine)
+        self.engine.dispose()
+
+    def _seed_pool(self, db, count: int = 5) -> list[ContentArticle]:
+        rows = [
+            ContentArticle(
+                article_id=f"pool-{index}",
+                title=f"Pool {index}",
+                is_today=True,
+                today_order=index,
+                sort_order=index,
+            )
+            for index in range(1, count + 1)
+        ]
+        db.add_all(rows)
+        db.commit()
+        return rows
+
+    def test_read_falls_back_to_latest_day_without_generating(self) -> None:
+        with self.Session() as db:
+            rows = self._seed_pool(db)
+            db.add_all(
+                [
+                    DailyArticleSet(content_date=date(2026, 7, 1), article_id=rows[0].article_id, position=1),
+                    DailyArticleSet(content_date=date(2026, 7, 1), article_id=rows[1].article_id, position=2),
+                ]
+            )
+            db.commit()
+
+            with patch.object(daily_articles, "_generate_ai_articles") as generate:
+                articles = daily_articles.read_daily_articles(db, date(2026, 7, 5))
+
+            generate.assert_not_called()
+
+        self.assertEqual([article.article_id for article in articles], ["pool-1", "pool-2"])
+
+    def test_read_without_any_set_returns_fallback_pool_without_generating(self) -> None:
+        with self.Session() as db:
+            self._seed_pool(db)
+            with patch.object(daily_articles, "_generate_ai_articles") as generate, \
+                 patch.object(daily_articles, "_fetch_recent_policy_materials") as fetch:
+                articles = daily_articles.read_daily_articles(db, date(2026, 7, 5))
+
+            generate.assert_not_called()
+            fetch.assert_not_called()
+
+        self.assertEqual(len(articles), 5)
+
+    def test_generation_failure_rolls_back_partial_rows(self) -> None:
+        selected_date = date(2026, 7, 3)
+        with self.Session() as db:
+            self._seed_pool(db)
+
+            def generate(session, content_date):
+                session.add(ContentArticle(article_id="half-written", title="Half"))
+                session.flush()
+                raise RuntimeError("model exploded")
+
+            with patch.object(daily_articles, "_generate_ai_articles", side_effect=generate):
+                articles = daily_articles.generate_daily_articles(db, selected_date)
+
+            leftover = db.query(ContentArticle).filter(ContentArticle.article_id == "half-written").count()
+            stored_ids = [row.article_id for row in daily_articles._daily_articles_for_date(db, selected_date)]
+
+        # The half-written row is gone, and the fallback pool was committed
+        # alone instead of being mixed with the failed generation.
+        self.assertEqual(leftover, 0)
+        self.assertEqual(len(stored_ids), 5)
+        self.assertFalse(any(article_id.startswith("half-written") for article_id in stored_ids))
+        self.assertEqual(len(articles), 5)
+
+    def test_incomplete_generation_does_not_commit_partial_set(self) -> None:
+        selected_date = date(2026, 7, 3)
+        with self.Session() as db:
+            self._seed_pool(db)
+
+            def generate(session, content_date):
+                # Only 2 of the 5 required articles were upserted.
+                rows = [ContentArticle(article_id=f"partial-{i}", title="Partial") for i in range(2)]
+                session.add_all(rows)
+                session.flush()
+                return rows
+
+            with patch.object(daily_articles, "_generate_ai_articles", side_effect=generate):
+                daily_articles.generate_daily_articles(db, selected_date)
+
+            stored_ids = [row.article_id for row in daily_articles._daily_articles_for_date(db, selected_date)]
+
+        self.assertEqual(len(stored_ids), 5)
+        self.assertFalse(any(article_id.startswith("partial-") for article_id in stored_ids))
+
+    def test_integrity_error_rereads_instead_of_raising(self) -> None:
+        selected_date = date(2026, 7, 3)
+        with self.Session() as db:
+            self._seed_pool(db)
+            with patch.object(daily_articles, "_generate_ai_articles", return_value=[]), \
+                 patch.object(
+                     daily_articles,
+                     "_replace_daily_set",
+                     side_effect=IntegrityError("insert", {}, Exception("duplicate")),
+                 ):
+                articles = daily_articles.generate_daily_articles(db, selected_date)
+
+        self.assertEqual(articles, [])
 
 
 if __name__ == "__main__":

@@ -3,12 +3,62 @@ const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window
   : 'http://127.0.0.1:8000')
 const TODAY_FALLBACK_ARTICLE_LIMIT = 5
 
+const AUTH_TOKEN_KEY = 'jianwen_auth_token'
+const AUTH_USER_KEY = 'jianwen_auth_user'
+const LOGIN_EXPIRES_AT_KEY = 'jianwen_login_expires_at'
+const LOGIN_ROUTE = 'pages/auth/login'
+// A burst of concurrent requests can each fail with 401; one login page is enough.
+const AUTH_REDIRECT_WINDOW = 2000
+let authRedirectPending = false
+let authRedirectAt = 0
+
 export function getApiBaseUrl() {
   return uni.getStorageSync('jianwen_api_base_url') || DEFAULT_API_BASE_URL
 }
 
 export function getAuthToken() {
-  return uni.getStorageSync('jianwen_auth_token') || ''
+  return uni.getStorageSync(AUTH_TOKEN_KEY) || ''
+}
+
+export function clearAuthSession() {
+  uni.removeStorageSync(AUTH_TOKEN_KEY)
+  uni.removeStorageSync(AUTH_USER_KEY)
+  uni.removeStorageSync(LOGIN_EXPIRES_AT_KEY)
+}
+
+export function isUnauthorized(error) {
+  return Number((error && (error.status != null ? error.status : error.statusCode)) || 0) === 401
+}
+
+function currentPagePath() {
+  const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+  const page = pages.length ? pages[pages.length - 1] : null
+  if (!page) return ''
+  const route = page.route || page.__route__ || ''
+  if (!route) return ''
+  const options = page.options || (page.$page && page.$page.options) || {}
+  const query = Object.keys(options)
+    .filter(key => options[key] !== undefined && options[key] !== null && options[key] !== '')
+    .map(key => `${key}=${encodeURIComponent(options[key])}`)
+    .join('&')
+  return `/${route}${query ? `?${query}` : ''}`
+}
+
+// Single entry point for an expired session: clear credentials once, then hand the
+// user to the login page with the page they were on so they can come back.
+export function handleUnauthorized() {
+  const now = Date.now()
+  if (authRedirectPending && now - authRedirectAt < AUTH_REDIRECT_WINDOW) return
+  const current = currentPagePath()
+  if (!current || current.indexOf(`/${LOGIN_ROUTE}`) === 0) return
+  clearAuthSession()
+  authRedirectPending = true
+  authRedirectAt = now
+  const url = `/${LOGIN_ROUTE}?redirect=${encodeURIComponent(current)}`
+  uni.navigateTo({
+    url,
+    fail() { uni.redirectTo({ url, fail() { uni.reLaunch({ url }) } }) }
+  })
 }
 
 export function buildFileUrl(path) {
@@ -41,6 +91,7 @@ export function apiRequest({ url, method = 'GET', data = {}, token = '' }) {
         }
         const error = new Error(normalizeApiError(response.data && response.data.detail))
         error.status = statusCode
+        if (statusCode === 401 && token) handleUnauthorized()
         reject(error)
       },
       fail(error) {
@@ -66,6 +117,7 @@ function fromContentArticle(record = {}) {
     sources: record.sources || record.source || '',
     readTime: record.read_time || record.readTime || '',
     image: record.image || '',
+    publishedDate: record.published_date || record.publishedDate || '',
     relation: record.relation || '',
     viewed: !!record.viewed,
     summary: Array.isArray(record.summary) ? record.summary : [],
@@ -224,6 +276,7 @@ export function uploadMyAvatar(filePath) {
           resolve(data)
           return
         }
+        if (statusCode === 401) handleUnauthorized()
         reject(new Error(normalizeApiError(data && data.detail)))
       },
       fail(error) { reject(new Error(error.errMsg || '头像上传失败')) }
@@ -277,6 +330,11 @@ export function getArticleDetail(id) {
   return apiRequest({ url: `/api/v1/content/articles/${encodeURIComponent(id)}` }).then(fromContentArticle)
 }
 
+// 大事报道：首页置顶卡片，无需登录。
+export function getMajorEvents() {
+  return apiRequest({ url: '/api/v1/content/breaking-news' }).then(data => (Array.isArray(data) ? data : []))
+}
+
 export function getDiscoverContent() {
   return apiRequest({ url: '/api/v1/content/discover' }).then(data => ({
     topics: (data.topics || []).map(fromContentCategory),
@@ -325,6 +383,10 @@ export function getAskBootstrap() {
   }))
 }
 
+export function getAiQuota() {
+  return authRequest({ url: '/api/v1/content/ai/quota' })
+}
+
 export function askQuestion(question, options = {}) {
   return authRequest({
     url: '/api/v1/content/ask',
@@ -350,7 +412,8 @@ export async function askQuestionStream(question, options = {}, onDelta = () => 
     body: JSON.stringify({
       question,
       article_id: options.articleId || ''
-    })
+    }),
+    signal: options.signal
   })
 
   if (!response.ok) {
@@ -361,7 +424,10 @@ export async function askQuestionStream(question, options = {}, onDelta = () => 
     } catch (error) {
       detail = response.statusText || '流式回答失败'
     }
-    throw new Error(detail)
+    if (response.status === 401) handleUnauthorized()
+    const error = new Error(detail)
+    error.status = response.status
+    throw error
   }
 
   if (!response.body || typeof response.body.getReader !== 'function') {

@@ -60,7 +60,7 @@ class BrowsingHistoryResponse(BaseModel):
 
 
 class AiUsageRecordRequest(BaseModel):
-    question: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1, max_length=2000)
     answer: str | None = None
     sources: str | None = Field(default=None, max_length=255)
 

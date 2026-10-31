@@ -198,14 +198,11 @@ class ContentRouteTests(unittest.TestCase):
             db.commit()
 
             original_get_content_date = content.get_content_date
-            original_ensure_daily_articles = content.ensure_daily_articles
             try:
                 content.get_content_date = lambda: date(2026, 7, 3)
-                content.ensure_daily_articles = lambda db: None
                 response = content.get_personalized_today(current_user=user, db=db)
             finally:
                 content.get_content_date = original_get_content_date
-                content.ensure_daily_articles = original_ensure_daily_articles
 
         self.assertEqual([article.article_id for article in response.articles], ["housing", "job", "general"])
         self.assertEqual(response.read_count, 1)

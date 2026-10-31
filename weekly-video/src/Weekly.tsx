@@ -13,10 +13,10 @@ const chapterDuration = (chapter: string) => {
   return (episode.chapters[index + 1]?.seconds ?? episode.durationSeconds) - episode.chapters[index].seconds;
 };
 
-const Identity = () => {
+const Identity: React.FC<{frames: number}> = ({frames}) => {
   const frame = useCurrentFrame();
   return <div style={{position: 'absolute', right: 0, top: 180, width: 920, height: 520}}>
-    {frame < 72 ? <Sequence durationInFrames={72} layout="none"><Video src={staticFile('identity/identity.mp4')} muted objectFit="cover" style={{width:'100%', height:'100%'}} /></Sequence>
+    {frame < frames ? <Sequence durationInFrames={frames} layout="none"><Video src={staticFile('identity/identity.mp4')} muted objectFit="cover" style={{width:'100%', height:'100%'}} /></Sequence>
       : <CanvasImage src={staticFile('identity/hold.jpg')} style={{width: '100%', height: '100%'}} />}
   </div>;
 };
@@ -24,6 +24,9 @@ const Identity = () => {
 const ChapterInner: React.FC<ChapterProps> = ({chapter}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const chapterFrames = Math.round(chapterDuration(chapter) * fps);
+  // Short chapters (e.g. a ~1 minute episode) must not overflow the 72-frame identity intro.
+  const identityFrames = Math.max(1, Math.min(72, chapterFrames));
   const globalSeconds = frame / fps + chapterStart(chapter);
   const slides = episode.slides.filter(item => item.chapter === chapter);
   const slide = slides.find(item => globalSeconds >= item.start && globalSeconds < item.end) || slides[0];
@@ -35,8 +38,8 @@ const ChapterInner: React.FC<ChapterProps> = ({chapter}) => {
     <div style={{position:'absolute', left:104, right:104, top:64, display:'flex', justifyContent:'space-between', fontSize:26, color:blue, borderBottom:'1px solid #bfcdd0', paddingBottom:22}}>
       <span style={{fontWeight:600}}>见闻 / 每周视频</span><span>第 {episode.number} 期 · {episode.weekStart}—{episode.weekEnd}</span>
     </div>
-    {isBookend && <Identity />}
-    {!isBookend && frame < 72 && <Sequence durationInFrames={72}><Video src={staticFile('identity/identity.mp4')} muted style={{position:'absolute',right:20,top:120,width:360,height:203,opacity:.4}} /></Sequence>}
+    {isBookend && <Identity frames={identityFrames} />}
+    {!isBookend && frame < identityFrames && <Sequence durationInFrames={identityFrames}><Video src={staticFile('identity/identity.mp4')} muted style={{position:'absolute',right:20,top:120,width:360,height:203,opacity:.4}} /></Sequence>}
     <div style={{position:'absolute', left:104, top:168, fontSize:28, color:blue}}>{chapter}</div>
     <div style={{position:'absolute', left:104, right:104, top:232, display:'grid', gridTemplateColumns:isBookend ? '1fr 1fr' : '1.05fr 1fr', gap:96, alignItems:'start'}}>
       <h1 style={{fontFamily:'"Songti SC", "STSong", serif', fontSize:isBookend ? 100 : 76, lineHeight:1.28, fontWeight:600, letterSpacing:'-.02em', whiteSpace:'pre-line', margin:0,

@@ -16,10 +16,13 @@ try:
 except ImportError:  # pragma: no cover
     certifi = None
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.content import ContentArticle, DailyArticleSet
+from app.services.breaking_news import scheduled_breaking_news_refresh
+from app.services.seed_content import CATEGORIES
 from services.ai import AIClientError, ask as ask_ai
 
 
@@ -35,6 +38,8 @@ MAX_SECTION_LENGTH = 300
 ARTICLE_SECTION_COUNT = 3
 SOURCE_TIMEOUT_SECONDS = 10
 SCHEDULER_POLL_SECONDS = 60
+# 重大会议抓取不需要每分钟一次，按小时节流即可。
+BREAKING_NEWS_REFRESH_MINUTES = 60
 SOURCE_LIST_URLS = (
     "https://www.gov.cn/yaowen/liebiao/YAOWENLIEBIAO.json",
     "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
@@ -47,15 +52,38 @@ PROHIBITED_CLICHES = (
     "后续可关注",
 )
 TRADEOFF_MARKERS = ("但", "不过", "风险", "难点", "成本", "约束", "取决于", "关键在于")
+# Daily articles must land in the discover-page channels, otherwise a channel
+# filter (/articles?category=…) can never match them.
+CHANNEL_CATEGORIES = [name for name, _image, _is_priority in CATEGORIES]
 DEFAULT_IMAGE_BY_CATEGORY = {
-    "党和国家": "/static/images/党和国家.png",
-    "时政大事": "/static/images/政策解读.png",
-    "民生政策": "/static/images/社会民生.png",
-    "青年就业": "/static/images/就业.png",
-    "科技产业": "/static/images/AI技术.png",
-    "城市生活": "/static/images/社会民生.png",
+    "党和国家": "/static/images/党和国家.jpg",
+    "共产党": "/static/images/共产党.jpg",
+    "时政大事": "/static/images/政策解读.jpg",
+    "就业": "/static/images/就业.jpg",
+    "住房": "/static/images/住房.jpg",
+    "科技": "/static/images/科技产业.jpg",
+    "医保": "/static/images/医保社保.jpg",
+    "消费": "/static/images/消费补贴.jpg",
+    "城市生活": "/static/images/公共生活.jpg",
 }
-DEFAULT_CATEGORIES = list(DEFAULT_IMAGE_BY_CATEGORY)
+# AI output from older prompts still carries the retired six-category names.
+CATEGORY_ALIASES = {
+    "青年就业": "就业",
+    "科技产业": "科技",
+    "AI技术": "科技",
+}
+# Retired names whose keyword pass found nothing fall back to a channel.
+CATEGORY_FALLBACKS = {
+    "民生政策": "城市生活",
+}
+KEYWORD_CATEGORY_RULES = (
+    ("住房", ("住房", "房贷", "公积金", "租房")),
+    ("医保", ("医保", "医疗", "社保", "养老", "药")),
+    ("消费", ("消费", "补贴", "以旧换新", "价格")),
+    ("就业", ("就业", "招聘", "毕业生", "岗位")),
+    ("共产党", ("党建", "党员", "党章")),
+)
+DEFAULT_CATEGORY = "时政大事"
 _scheduler_stop_event = threading.Event()
 _scheduler_thread: threading.Thread | None = None
 
@@ -76,35 +104,96 @@ def get_content_date(now: datetime | None = None) -> date:
     return current.date()
 
 
-def ensure_daily_articles(
+def read_daily_articles(db: Session, content_date: date | None = None) -> list[ContentArticle]:
+    """Read today's article set without ever generating content.
+
+    Request handlers must stay read-only: a missing set falls back to the most
+    recent published day and finally to the local seed pool. Generation (source
+    fetching + AI calls) is triggered only by the scheduler thread.
+    """
+    selected_date = content_date or get_content_date()
+    articles = _daily_articles_for_date(db, selected_date)
+    if articles:
+        return articles[:DAILY_ARTICLE_COUNT]
+    latest_articles = _latest_available_articles(db, selected_date)
+    if latest_articles:
+        return latest_articles[:DAILY_ARTICLE_COUNT]
+    return _fallback_articles(db, selected_date)
+
+
+def ensure_daily_articles(db: Session, content_date: date | None = None) -> list[ContentArticle]:
+    """Backwards-compatible read-only entry point used by request handlers."""
+    return read_daily_articles(db, content_date)
+
+
+def generate_daily_articles(
     db: Session, content_date: date | None = None, *, retry_fallback: bool = False
 ) -> list[ContentArticle]:
+    """Generate and persist the article set for one content date.
+
+    Only the scheduler thread should call this. Failures roll back so a partly
+    written set is never mixed with the fallback pool in one commit.
+    """
     selected_date = content_date or get_content_date()
     articles = _daily_articles_for_date(db, selected_date)
     if len(articles) >= DAILY_ARTICLE_COUNT and (
         not retry_fallback or all(_stored_article_is_valid(a, selected_date) for a in articles)
     ):
         return articles[:DAILY_ARTICLE_COUNT]
-    existing_articles = articles
-    articles = _generate_ai_articles(db, selected_date)
+    try:
+        articles = _generate_ai_articles(db, selected_date)
+    except Exception:
+        logger.exception("AI daily article generation raised for %s", selected_date)
+        articles = []
+
     if len(articles) < DAILY_ARTICLE_COUNT:
+        # Always roll back the generation attempt: a half-upserted AI set must
+        # never be committed together with the fallback pool.
+        db.rollback()
+        existing_articles = _daily_articles_for_date(db, selected_date)
         if len(existing_articles) >= DAILY_ARTICLE_COUNT:
             return existing_articles[:DAILY_ARTICLE_COUNT]
         logger.warning("AI daily articles unavailable or incomplete; using fallback pool")
         articles = _fallback_articles(db, selected_date)
 
-    db.query(DailyArticleSet).filter(DailyArticleSet.content_date == selected_date).delete()
-    db.flush()
-    for position, article in enumerate(articles[:DAILY_ARTICLE_COUNT], start=1):
-        db.add(DailyArticleSet(content_date=selected_date, article_id=article.article_id, position=position))
-    db.commit()
+    try:
+        _replace_daily_set(db, selected_date, articles[:DAILY_ARTICLE_COUNT])
+    except IntegrityError:
+        # A concurrent writer already stored this date; re-read instead of 500.
+        db.rollback()
+        logger.warning("Daily article set for %s conflicted with a concurrent write", selected_date)
+        return _daily_articles_for_date(db, selected_date)[:DAILY_ARTICLE_COUNT]
+    except Exception:
+        db.rollback()
+        logger.exception("Storing daily article set failed for %s", selected_date)
+        return _daily_articles_for_date(db, selected_date)[:DAILY_ARTICLE_COUNT]
     return _daily_articles_for_date(db, selected_date)
+
+
+def _replace_daily_set(db: Session, content_date: date, articles: list[ContentArticle]) -> None:
+    db.query(DailyArticleSet).filter(DailyArticleSet.content_date == content_date).delete()
+    db.flush()
+    for position, article in enumerate(articles, start=1):
+        db.add(DailyArticleSet(content_date=content_date, article_id=article.article_id, position=position))
+    db.commit()
+
+
+def _latest_available_articles(db: Session, content_date: date) -> list[ContentArticle]:
+    latest_date = (
+        db.query(DailyArticleSet.content_date)
+        .filter(DailyArticleSet.content_date < content_date)
+        .order_by(DailyArticleSet.content_date.desc())
+        .first()
+    )
+    if latest_date is None:
+        return []
+    return _daily_articles_for_date(db, latest_date[0])
 
 
 def scheduled_daily_article_refresh() -> bool:
     with SessionLocal() as db:
         selected_date = get_content_date()
-        articles = ensure_daily_articles(db, selected_date, retry_fallback=True)
+        articles = generate_daily_articles(db, selected_date, retry_fallback=True)
         return len(articles) == DAILY_ARTICLE_COUNT and all(
             _stored_article_is_valid(article, selected_date) for article in articles
         )
@@ -128,7 +217,16 @@ def _daily_article_scheduler_loop() -> None:
     # Polling also recovers from reloads, sleep/wake, and a missed exact 06:00
     # wake-up. A failed refresh remains eligible on the next poll.
     processed_date: date | None = None
+    last_breaking_news_at: datetime | None = None
     while not _scheduler_stop_event.is_set():
+        # 重大会议置顶跟随同一次轮询刷新，但按小时节流；它自己兜住所有异常，
+        # 抓取失败不会影响每日文章。
+        now = get_content_datetime()
+        if last_breaking_news_at is None or now - last_breaking_news_at >= timedelta(
+            minutes=BREAKING_NEWS_REFRESH_MINUTES
+        ):
+            scheduled_breaking_news_refresh(now)
+            last_breaking_news_at = now
         current_date = get_content_date()
         if current_date != processed_date:
             try:
@@ -168,7 +266,13 @@ def _daily_articles_for_date(db: Session, content_date: date) -> list[ContentArt
         .order_by(DailyArticleSet.position, DailyArticleSet.id)
         .all()
     )
-    return [row.article for row in rows if row.article is not None]
+    articles: list[ContentArticle] = []
+    for row in rows:
+        if row.article is None:
+            continue
+        setattr(row.article, "_daily_position", row.position)
+        articles.append(row.article)
+    return articles
 
 
 def _fallback_articles(db: Session, content_date: date) -> list[ContentArticle]:
@@ -244,7 +348,7 @@ def _upsert_ai_article(db: Session, content_date: date, position: int, raw: dict
     if not title or not desc:
         return None
 
-    category = _normalize_category(raw.get("category"))
+    category = _normalize_category(raw.get("category"), title, desc)
     article_id = f"{AI_ARTICLE_ID_PREFIX}-{content_date.strftime('%Y%m%d')}-{position}"
     article = db.query(ContentArticle).filter(ContentArticle.article_id == article_id).first()
     if article is None:
@@ -256,7 +360,9 @@ def _upsert_ai_article(db: Session, content_date: date, position: int, raw: dict
     article.desc = desc
     article.sources = _clean_text(raw.get("sources"), 255) or "AI辅助生成 / 公开信息线索"
     article.read_time = _clean_text(raw.get("read_time"), 32) or "4分钟"
-    article.image = _clean_text(raw.get("image"), 255) or DEFAULT_IMAGE_BY_CATEGORY.get(category, "/static/images/政策解读.png")
+    article.image = _clean_text(raw.get("image"), 255) or DEFAULT_IMAGE_BY_CATEGORY.get(
+        category, "/static/images/政策解读.jpg"
+    )
     article.relation = _clean_text(raw.get("relation"), 255) or "普通读者 / 政策关注者"
     article.summary = _clean_string_list(raw.get("summary"), 3) or [desc]
     article.sections = _clean_sections(raw.get("sections"))
@@ -272,7 +378,12 @@ def _upsert_ai_article(db: Session, content_date: date, position: int, raw: dict
 
 
 def _daily_article_context(db: Session) -> dict[str, object]:
-    categories = sorted({row[0] for row in db.query(ContentArticle.category).filter(ContentArticle.category.is_not(None)).all() if row[0]})
+    stored_categories = {
+        row[0]
+        for row in db.query(ContentArticle.category).filter(ContentArticle.category.is_not(None)).all()
+        if row[0]
+    }
+    categories = [name for name in CHANNEL_CATEGORIES if name in stored_categories]
     recent_titles = [
         row[0]
         for row in (
@@ -284,7 +395,7 @@ def _daily_article_context(db: Session) -> dict[str, object]:
         )
     ]
     return {
-        "existing_categories": categories or DEFAULT_CATEGORIES,
+        "existing_categories": categories or CHANNEL_CATEGORIES,
         "recent_titles": recent_titles,
         "output_rule": "Return strict JSON only. Do not add markdown fences.",
     }
@@ -292,10 +403,12 @@ def _daily_article_context(db: Session) -> dict[str, object]:
 
 def _daily_article_prompt(content_date: date) -> str:
     previous_date = content_date - timedelta(days=1)
+    channel_list = "、".join(CHANNEL_CATEGORIES)
     return f"""
 请为“见闻”APP生成 {content_date.isoformat()} 的今日清单文章，必须正好 5 篇。
 
-范围：党和国家、时政大事、民生政策、青年就业、科技产业、城市生活。
+范围：{channel_list}。
+分类规则：category 字段必须从上句列出的 {len(CHANNEL_CATEGORIES)} 个频道中原样选一个，逐字照抄，不得自造、缩写、改写或使用其他分类名；尽量让 5 篇分布在不同频道。
 素材边界：
 1. 只能使用 context.official_materials 中的事实，素材发布日期必须是 {content_date.isoformat()} 或 {previous_date.isoformat()}。
 2. 不得用常识补写素材中没有的数字、人名、地点、政策条款或因果结论。references 的 title、date、url 必须与给定素材一致。
@@ -364,9 +477,23 @@ def _clean_text(value: object, max_length: int) -> str:
     return text[:max_length]
 
 
-def _normalize_category(value: object) -> str:
+def _normalize_category(value: object, title: object = None, desc: object = None) -> str:
+    """Map any stored/AI category name onto one of the discover channels.
+
+    ``title``/``desc`` are used to re-classify retired categories and unknown
+    values by keyword; without them those fall back to a channel guess.
+    """
     text = _clean_text(value, 64)
-    return text if text in DEFAULT_IMAGE_BY_CATEGORY else "时政大事"
+    if text in CHANNEL_CATEGORIES:
+        return text
+    alias = CATEGORY_ALIASES.get(text)
+    if alias is not None:
+        return alias
+    haystack = f"{_clean_text(title, 120)} {_clean_text(desc, 220)}"
+    for category, keywords in KEYWORD_CATEGORY_RULES:
+        if any(keyword in haystack for keyword in keywords):
+            return category
+    return CATEGORY_FALLBACKS.get(text, DEFAULT_CATEGORY)
 
 
 def _clean_string_list(value: object, limit: int) -> list[str]:

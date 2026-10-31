@@ -75,6 +75,141 @@
       "video": "assets/weekly-video/2026-W42/episode.mp4",
       "poster": "assets/weekly-video/2026-W42/cover.jpg",
       "captions": "assets/weekly-video/2026-W42/captions.vtt"
+    },
+    {
+      "id": "2026-W43",
+      "number": 2,
+      "title": "从人工智能就业，到前三季度数据",
+      "description": "一篇重点文章，一次见闻更新回看，以及国家统计局前三季度数据的本周观察。",
+      "weekStart": "2026-10-19",
+      "weekEnd": "2026-10-25",
+      "cutoff": "2026-10-25T18:30:00+08:00",
+      "durationSeconds": 65.5,
+      "chapters": [
+        {
+          "title": "片头导读",
+          "seconds": 0.0
+        },
+        {
+          "title": "本周重点文章",
+          "seconds": 9.966666666666667
+        },
+        {
+          "title": "本周见闻更新",
+          "seconds": 32.833333333333336
+        },
+        {
+          "title": "大事总结",
+          "seconds": 42.53333333333333
+        },
+        {
+          "title": "片尾来源",
+          "seconds": 53.166666666666664
+        }
+      ],
+      "articles": [
+        {
+          "title": "AI冲击就业，国办文件怎么兜底",
+          "url": "jianwen/article.html?id=ai-daily-20261024-4",
+          "date": "2026-10-24"
+        }
+      ],
+      "sources": [
+        {
+          "title": "国务院办公厅印发《关于适应人工智能技术发展助力构建就业友好型发展方式的意见》",
+          "url": "https://www.gov.cn/yaowen/liebiao/202610/content_7084113.htm",
+          "date": "2026-10-23"
+        },
+        {
+          "title": "国务院办公厅关于适应人工智能技术发展助力构建就业友好型发展方式的意见",
+          "url": "https://www.gov.cn/zhengce/content/202610/content_7084107.htm",
+          "date": "2026-10-23"
+        },
+        {
+          "title": "国家统计局：前三季度经济运行总体平稳　高质量发展取得新成效",
+          "url": "https://www.stats.gov.cn/sj/zxfbhjd/202610/t20261019_1965618.html",
+          "date": "2026-10-19"
+        },
+        {
+          "title": "见闻公开更新日志",
+          "url": "changelog.html",
+          "date": "2026-10-17"
+        }
+      ],
+      "durationTarget": {
+        "min": 50,
+        "max": 70
+      },
+      "status": "published",
+      "publishedAt": "2026-10-31T18:08:54.506422+08:00",
+      "video": "assets/weekly-video/2026-W43/episode.mp4",
+      "poster": "assets/weekly-video/2026-W43/cover.jpg",
+      "captions": "assets/weekly-video/2026-W43/captions.vtt"
+    },
+    {
+      "id": "2026-W44",
+      "number": 3,
+      "title": "从商务旅行卡，到五中全会公报",
+      "description": "一篇重点文章，一次见闻更新回看，以及二十届五中全会的本周观察。",
+      "weekStart": "2026-10-26",
+      "weekEnd": "2026-11-01",
+      "cutoff": "2026-10-31T18:30:00+08:00",
+      "durationSeconds": 66.96666666666667,
+      "chapters": [
+        {
+          "title": "片头导读",
+          "seconds": 0.0
+        },
+        {
+          "title": "本周重点文章",
+          "seconds": 10.733333333333333
+        },
+        {
+          "title": "本周见闻更新",
+          "seconds": 32.5
+        },
+        {
+          "title": "大事总结",
+          "seconds": 42.2
+        },
+        {
+          "title": "片尾来源",
+          "seconds": 54.8
+        }
+      ],
+      "articles": [
+        {
+          "title": "APEC商务旅行卡停留期延长，谁用得上",
+          "url": "jianwen/article.html?id=ai-daily-20261031-3",
+          "date": "2026-10-31"
+        }
+      ],
+      "sources": [
+        {
+          "title": "中方决定延长APEC商务旅行卡停留期",
+          "url": "https://www.gov.cn/yaowen/liebiao/202610/content_7084583.htm",
+          "date": "2026-10-30"
+        },
+        {
+          "title": "中国共产党第二十届中央委员会第五次全体会议公报",
+          "url": "https://cpc.people.com.cn/n1/2026/1029/c64387-40824095.html",
+          "date": "2026-10-29"
+        },
+        {
+          "title": "见闻公开更新日志",
+          "url": "changelog.html",
+          "date": "2026-10-17"
+        }
+      ],
+      "durationTarget": {
+        "min": 50,
+        "max": 70
+      },
+      "status": "published",
+      "publishedAt": "2026-10-31T18:08:54.564211+08:00",
+      "video": "assets/weekly-video/2026-W44/episode.mp4",
+      "poster": "assets/weekly-video/2026-W44/cover.jpg",
+      "captions": "assets/weekly-video/2026-W44/captions.vtt"
     }
   ],
   "upcoming": null

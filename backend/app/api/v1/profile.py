@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from uuid import uuid4
@@ -32,6 +33,7 @@ from app.schemas.user import MessageResponse
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -215,11 +217,13 @@ def get_today_checklist(
 
 
 @router.post("/me/avatar", response_model=ProfileResponse)
-async def upload_avatar(
+def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ProfileResponse:
+    # Sync ``def`` on purpose: FastAPI runs it in the thread pool, so the disk
+    # writes below never block the event loop.
     extension = Path(file.filename or "").suffix.lower()
     if extension not in ALLOWED_AVATAR_EXTENSIONS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="头像仅支持 jpg、png、webp 格式")
@@ -231,18 +235,40 @@ async def upload_avatar(
     filename = f"user_{current_user.id}_{uuid4().hex}{extension}"
     avatar_file = avatar_dir / filename
 
-    content = await file.read(2 * 1024 * 1024 + 1)
+    content = file.file.read(2 * 1024 * 1024 + 1)
     if len(content) > 2 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="头像大小不能超过 2MB")
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="头像文件不能为空")
 
+    previous_avatar = current_user.avatar_path
     avatar_file.write_bytes(content)
     current_user.avatar_path = f"/uploads/avatars/{filename}"
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
+    _remove_old_avatar(previous_avatar)
     return _profile_response(db, current_user)
+
+
+def _remove_old_avatar(avatar_path: str | None) -> None:
+    """Delete a replaced avatar, but only inside the uploads directory."""
+    if not avatar_path:
+        return
+    upload_root = Path(settings.UPLOAD_DIR).resolve()
+    relative = avatar_path.removeprefix("/uploads/").lstrip("/")
+    if not relative:
+        return
+    candidate = (upload_root / relative).resolve()
+    # ``is_relative_to`` rejects '../' escapes and absolute paths outside root.
+    if candidate == upload_root or not candidate.is_relative_to(upload_root):
+        return
+    if not candidate.is_file():
+        return
+    try:
+        candidate.unlink()
+    except OSError:
+        logger.warning("Failed to delete replaced avatar %s", candidate, exc_info=True)
 
 
 @router.get("/favorites", response_model=list[FavoriteArticleResponse])

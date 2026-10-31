@@ -56,13 +56,18 @@ async (page) => {
     const img = new Image(); img.src = window.__weeklyExportUrl; await img.decode()
     const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
     const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
-    return img.height > 1000 && ctx.getImageData(20, img.height - 1, 1, 1).data[3] === 255
+    const pixels = ctx.getImageData(0, 300, img.width, Math.min(900, img.height - 300)).data
+    let nonPaper = 0
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] < 235 || pixels[i + 1] < 235 || pixels[i + 2] < 235) nonPaper++
+    return img.height > 1000 && ctx.getImageData(20, img.height - 1, 1, 1).data[3] === 255 && nonPaper > 1000
   })
-  assert(hasFullImage, 'export backing canvas includes final row; no one-pixel blank export')
-  await page.getByText('完整长图已生成，可预览或保存。所有明细均已包含。', { exact:true }).waitFor()
+  assert(hasFullImage, 'export backing canvas includes chart pixels and final row')
+  assert(await page.getByText('图表长图已生成，可预览或保存。', { exact:true }).count() === 1, 'export result message')
+  assert(await page.getByText('查看图表数据', { exact:true }).count() === 0, 'activity detail toggle hidden')
+  assert(await page.getByText('本周文章标题', { exact:true }).count() === 0, 'article detail hidden')
   await page.getByText('上一周', {exact:true}).click()
   await page.getByText('2026-10-05 — 2026-10-18', {exact:true}).waitFor()
-  assert(await page.getByText('完整长图已生成，可预览或保存。所有明细均已包含。', {exact:true}).count() === 0, 'old export cleared')
+  assert(await page.getByText('图表长图已生成，可预览或保存。', {exact:true}).count() === 0, 'old export cleared')
   await page.getByText('回到本周', {exact:true}).click()
   await page.getByText('2026-10-12 — 2026-10-18', {exact:true}).waitFor()
   await page.setViewportSize({width:1280,height:900})

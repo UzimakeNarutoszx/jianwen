@@ -36,7 +36,7 @@
     <view class="topic-grid">
       <view v-for="(topic, index) in topics" :key="topic.name" class="topic-card card" @click="openCategory(topic.name)">
         <view class="topic-icon-wrap">
-          <image v-if="topic.image" class="topic-image" :src="topic.image" mode="aspectFill" />
+          <image v-if="topic.image" class="topic-image" :src="topic.image" mode="aspectFill" lazy-load />
           <text v-else class="topic-initial">{{ topicInitial(topic.name) }}</text>
         </view>
         <view class="topic-copy">
@@ -57,7 +57,7 @@
       <view class="classic-track">
         <view v-for="book in classicBooks" :key="book.bookId" class="classic-card card" @click="openClassic(book.bookId)">
           <view class="classic-cover-wrap">
-            <image class="classic-cover" :src="book.coverImage" mode="aspectFill" />
+            <image class="classic-cover" :src="book.coverImage" mode="aspectFill" lazy-load />
             <view class="classic-cover-shade"></view>
             <text class="classic-category">{{ book.category || '经典' }}</text>
           </view>
@@ -83,7 +83,7 @@
     </view>
     <view class="feature-list">
       <view v-for="feature in features" :key="feature.id" class="feature-card card" @click="openCategory(feature.categoryName)">
-        <image class="card-bg-image" :src="feature.image" mode="aspectFill" />
+        <image class="card-bg-image" :src="feature.image" mode="aspectFill" lazy-load />
         <view class="image-gradient"></view>
         <view class="feature-copy">
           <text class="feature-kicker">{{ feature.categoryName || '专题' }}</text>
@@ -102,6 +102,13 @@
       <text class="section-note">刚更新 / 官方来源</text>
     </view>
     <view class="update-list">
+      <StateView
+        v-if="loadState !== 'ready' || !updates.length"
+        :state="loadState === 'ready' ? 'empty' : loadState"
+        :message="stateMessage"
+        :dark-mode="darkMode"
+        @retry="loadContent()"
+      />
       <view v-for="(item, index) in updates" :key="item.id" class="update-item card" @click="openArticle(item.articleId)">
         <view class="update-rank">
           <text>{{ updateRank(index) }}</text>
@@ -112,9 +119,12 @@
             <text class="update-chip">{{ item.topic || item.category || '公共议题' }}</text>
           </view>
           <text class="update-title">{{ item.title }}</text>
-          <text class="source-line">{{ item.source }}</text>
+          <view class="update-foot">
+            <text class="source-line">{{ item.source }}</text>
+            <text v-if="item.publishedDate" class="update-date">{{ item.publishedDate }}</text>
+          </view>
         </view>
-        <image class="update-thumb" :src="item.image" mode="aspectFill" />
+        <image class="update-thumb" :src="item.image" mode="aspectFill" lazy-load />
       </view>
     </view>
 
@@ -125,8 +135,10 @@
 <script>
 import { getClassicBooks, getDiscoverContent } from '@/utils/api.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
+import StateView from '@/components/StateView.vue'
 
 export default {
+  components: { StateView },
   data() {
     return {
       topics: [],
@@ -134,10 +146,18 @@ export default {
       fontSize: 'standard',
       features: [],
       updates: [],
-      classicBooks: []
+      classicBooks: [],
+      loadState: 'loading',
+      loadError: '',
+      loadVersion: 0
     }
   },
   computed: {
+    stateMessage() {
+      if (this.loadState === 'loading') return '正在加载主题、经典与最新更新'
+      if (this.loadState === 'error') return this.loadError || '发现内容暂时加载失败，请稍后重试'
+      return '最近还没有新的更新，稍后再来看看'
+    },
     totalEntryCount() {
       return this.topics.length + this.features.length + this.classicBooks.length
     }
@@ -148,20 +168,38 @@ export default {
     this.loadContent()
     applyTabBarTheme(this.darkMode)
   },
+  onPullDownRefresh() {
+    this.loadContent().finally(() => uni.stopPullDownRefresh())
+  },
   methods: {
     async loadContent() {
+      const version = ++this.loadVersion
+      // 有内容时不退回 loading 占位，下拉刷新只是静默重拉。
+      const hasContent = this.updates.length > 0 || this.topics.length > 0
+      if (!hasContent) {
+        this.loadState = 'loading'
+        this.loadError = ''
+      }
       try {
         const [discover, books] = await Promise.all([getDiscoverContent(), getClassicBooks()])
+        if (version !== this.loadVersion) return
         this.topics = discover.topics || []
         this.features = discover.features || []
         this.updates = discover.updates || []
         this.classicBooks = books || []
+        this.loadState = 'ready'
       } catch (error) {
-        uni.showToast({ title: error.message || '发现内容加载失败', icon: 'none' })
+        if (version !== this.loadVersion) return
+        if (hasContent) {
+          uni.showToast({ title: error.message || '刷新失败，稍后再试', icon: 'none' })
+          return
+        }
+        this.loadState = 'error'
+        this.loadError = error.message || '发现内容加载失败，请稍后重试'
       }
     },
     openArticle(id) {
-      uni.navigateTo({ url: `/pages/article/detail?id=${id}` })
+      uni.navigateTo({ url: `/pages/article/detail?id=${encodeURIComponent(id)}` })
     },
     openClassic(bookId) {
       uni.navigateTo({ url: `/pages/classics/detail?id=${encodeURIComponent(bookId)}` })
@@ -679,6 +717,23 @@ export default {
   font-weight: 900;
 }
 
+/* 发布日期来自接口的 published_date；缺失时整行不渲染。 */
+.update-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-width: 0;
+}
+
+.update-date {
+  flex: 0 0 auto;
+  color: #7C8790;
+  font-size: 22rpx;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
 .update-thumb {
   flex: 0 0 auto;
   width: 118rpx;
@@ -777,6 +832,7 @@ export default {
 .dark-mode .feature-desc,
 .dark-mode .feature-tags,
 .dark-mode .source-line,
+.dark-mode .update-date,
 .dark-mode .page-end {
   color: #B6C2CC !important;
 }

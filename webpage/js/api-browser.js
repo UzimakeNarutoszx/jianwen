@@ -169,6 +169,7 @@
     dailyQuote: date => publicRequest(`/api/v1/content/daily-quote${date ? `?date=${encodeURIComponent(date)}` : ''}`),
     categories: () => publicRequest('/api/v1/content/categories'),
     discover: () => publicRequest('/api/v1/content/discover'),
+    majorEvents: () => publicRequest('/api/v1/content/breaking-news'),
     articles: params => publicRequest(`/api/v1/content/articles${withQuery(params)}`),
     article: id => publicRequest(`/api/v1/content/articles/${encodeURIComponent(id)}`),
     relatedArticles: id => publicRequest(`/api/v1/content/articles/${encodeURIComponent(id)}/related`),
@@ -179,6 +180,7 @@
     classicChapter: (bookId, chapterId) => publicRequest(`/api/v1/content/classic-books/${encodeURIComponent(bookId)}/chapters/${encodeURIComponent(chapterId)}`),
     contentPage: key => publicRequest(`/api/v1/content/pages/${encodeURIComponent(key)}`),
     askBootstrap: () => publicRequest('/api/v1/content/ask/bootstrap'),
+    aiQuota: () => authRequest('/api/v1/content/ai/quota', { cache: 'no-store' }),
     ask: (question, articleId) => authRequest('/api/v1/content/ask', {
       method: 'POST',
       body: JSON.stringify({ question, article_id: articleId || '' })

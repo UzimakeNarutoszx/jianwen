@@ -11,14 +11,16 @@
       "path": "pages/today/today",
       "style": {
         "navigationBarTitleText": "见闻",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/discover/discover",
       "style": {
         "navigationBarTitleText": "发现",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -67,7 +69,8 @@
       "path": "pages/category/category",
       "style": {
         "navigationBarTitleText": "分类",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {

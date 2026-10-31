@@ -1,3 +1,4 @@
+from app.models.breaking_news import BreakingNews
 from app.models.content import (
     AiAnswerRule,
     AiPrompt,
@@ -10,12 +11,14 @@ from app.models.content import (
     DailyArticleSet,
     DailyQuote,
 )
-from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic, UserReadingPosition
+from app.models.profile import UserAiDailyUsage, UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic, UserReadingPosition
+from app.models.sms import SmsCodeIssue
 from app.models.user import User
 
 __all__ = [
     "AiAnswerRule",
     "AiPrompt",
+    "BreakingNews",
     "ClassicBook",
     "ClassicBookChapter",
     "ContentArticle",
@@ -25,7 +28,9 @@ __all__ = [
     "DailyArticleSet",
     "DailyQuote",
     "User",
+    "UserAiDailyUsage",
     "UserAiUsageRecord",
+    "SmsCodeIssue",
     "UserBrowsingHistory",
     "UserFavoriteArticle",
     "UserFollowTopic",

@@ -224,6 +224,16 @@ button.back-button::after {
   border: 0 !important;
 }
 
+/* 56rpx visual size kept; a transparent pad lifts the tap target to 88rpx. */
+.back-button::before {
+  content: '';
+  position: absolute;
+  top: -16rpx;
+  right: -16rpx;
+  bottom: -16rpx;
+  left: -16rpx;
+}
+
 .back-symbol {
   display: inline-block !important;
   flex: 0 0 14rpx !important;

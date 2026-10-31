@@ -71,7 +71,7 @@
         <view class="article-rank">
           <text>{{ articleRank(index) }}</text>
         </view>
-        <image class="article-image" :src="item.image" mode="aspectFill" />
+        <image class="article-image" :src="item.image" mode="aspectFill" lazy-load />
         <view class="article-copy">
           <view class="article-head">
             <text class="tag">{{ item.category || item.topic }}</text>
@@ -318,10 +318,21 @@ export default {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 44rpx;
   height: 44rpx;
   border-radius: 999rpx;
   background: rgba(31,95,122,0.1);
+}
+
+/* 44rpx dot keeps its look; the transparent pad brings the tap target to 88rpx. */
+.clear-button::before {
+  content: '';
+  position: absolute;
+  top: -22rpx;
+  right: -22rpx;
+  bottom: -22rpx;
+  left: -22rpx;
 }
 
 .clear-mark {

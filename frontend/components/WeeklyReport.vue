@@ -14,29 +14,11 @@
       <canvas :id="canvasId(chart.key)" :canvas-id="canvasId(chart.key)" :style="{ width: chartWidth + 'px', height: getChartHeight(chart.key) + 'px' }" :width="chartWidth" :height="getChartHeight(chart.key)" />
       <text class="report-meta">{{ chart.caption }}</text>
     </view>
-    <view class="report-section">
-      <button class="data-toggle" @click="showData = !showData">{{ showData ? '收起图表数据' : '查看图表数据' }}</button>
-      <view v-if="showData" class="report-data">
-        <view v-for="day in report.days" :key="day.date" class="data-day">
-          <text>{{ day.date }}</text><text class="report-meta">文章 {{ day.articles }} · 章节 {{ day.chapters }} · 问问 {{ day.ask }} · 阿烬 {{ day.ajin }} · 停留 {{ formatMinutes(day.reading_seconds) }} 分钟</text>
-        </view>
-        <text v-for="topic in report.topics" :key="topic.name" class="report-meta">{{ topic.name }} {{ topic.count }} 篇</text>
-      </view>
-    </view>
-    <view v-for="section in model.sections" :key="section.title" class="report-section">
-      <text class="section-title">{{ section.title }}</text>
-      <text v-if="section.intro" class="report-meta">{{ section.intro }}</text>
-      <text v-if="!section.items.length" class="report-meta report-empty">{{ section.empty }}</text>
-      <view v-for="(item, index) in section.items" :key="index" class="report-row" :class="{ 'report-link': !!item.kind }" @click="openItem(item)">
-        <text class="row-title">{{ item.title }}<text v-if="item.kind" class="row-arrow"> ›</text></text><text class="report-meta">{{ item.meta }}</text>
-      </view>
-    </view>
-    <view class="report-section report-notes"><text v-for="note in model.notes" :key="note" class="report-meta">{{ note }}</text></view>
     <view class="report-export">
       <button :disabled="exporting" class="export-button" @click="exportImage">{{ exporting ? '正在生成完整长图…' : '导出完整周报长图' }}</button>
       <text v-if="exportError" class="export-error">{{ exportError }}</text>
       <view v-if="exportPath" class="export-result">
-        <text class="report-meta">完整长图已生成，可预览或保存。所有明细均已包含。</text>
+        <text class="report-meta">图表长图已生成，可预览或保存。</text>
         <button class="data-toggle" @click="previewImage">预览完整长图</button>
         <button class="data-toggle" @click="saveImage">{{ isWeb ? '下载完整长图' : '保存到相册' }}</button>
       </view>
@@ -56,9 +38,8 @@ export default {
     darkMode: { type: Boolean, default: false },
     fontSize: { type: String, default: 'standard' }
   },
-  emits: ['open-article', 'open-classic'],
   data() {
-    return { charts: CHARTS, instanceId: `weekly-report-${++nextCanvasId}`, chartWidth: 280, showData: false, exporting: false, exportPath: '', exportError: '', exportWidth: 720, exportHeight: 1, revision: 0, resizeHandler: null, isWeb: false }
+    return { charts: CHARTS, instanceId: `weekly-report-${++nextCanvasId}`, chartWidth: 280, exporting: false, exportPath: '', exportError: '', exportWidth: 720, exportHeight: 1, revision: 0, resizeHandler: null, isWeb: false }
   },
   computed: { model() { return reportModel(this.report) } },
   watch: {
@@ -89,10 +70,6 @@ export default {
         ctx.draw()
       })
     },
-    openItem(item) {
-      if (item.kind === 'article') this.$emit('open-article', item.source)
-      if (item.kind === 'classic') this.$emit('open-classic', item.source)
-    },
     async exportImage() {
       if (this.exporting) return
       const revision = this.revision, identity = this.identity
@@ -110,6 +87,12 @@ export default {
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => reject(new Error('设备未能完成长图绘制，请重试。')), 20000)
           ctx.draw(false, () => { clearTimeout(timeout); resolve() })
+        })
+        // H5 may invoke the draw callback before the transparent canvas has
+        // committed its backing store; give the browser two paint turns before export.
+        await new Promise(resolve => {
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(resolve))
+          else setTimeout(resolve, 50)
         })
         if (revision !== this.revision || identity !== this.identity) return
         const result = await new Promise((resolve, reject) => uni.canvasToTempFilePath({ canvasId: this.canvasId('export'), x: 0, y: 0, width: scene.width, height: scene.height, destWidth: scene.width, destHeight: scene.height, fileType: 'png', success: resolve, fail: reject }, this))
@@ -162,8 +145,8 @@ export default {
 .report-badge { color: #568f85; font-size: .85em; }.report-copy { line-height: 1.7; }
 .report-stats { display: flex; flex-wrap: wrap; padding: 0 30rpx 20rpx; gap: 20rpx; }.report-stat { min-width: 42%; display: flex; flex-direction: column; gap: 8rpx; }.report-stat-value { font-size: 1.25em; font-weight: 600; }
 .report-section { margin: 0 30rpx; padding: 28rpx 0; border-top: 1rpx solid var(--line); }.section-title { display: block; font-size: 1.08em; font-weight: 600; line-height: 1.6; margin-bottom: 16rpx; }
-.report-meta { display: block; font-size: .86em; color: var(--muted); line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }.report-row { padding: 20rpx 0; border-bottom: 1rpx solid var(--line); }.report-row:last-child { border-bottom: 0; }.row-title { line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }.report-link .row-title { color: #4e8a98; }.row-arrow { font-weight: 600; }
-.data-toggle { background: transparent; color: #4e8a98; font-size: .9em; text-align: left; padding: 10rpx 0; line-height: 1.7; margin: 0; }.data-toggle::after { border: 0; }.data-day { padding: 12rpx 0; }.report-notes .report-meta { margin-bottom: 14rpx; }.report-empty { padding: 12rpx 0; }
+.report-meta { display: block; font-size: .86em; color: var(--muted); line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 折叠：grid-template-rows 0fr ↔ 1fr，内容常驻 DOM，无需 max-height。 */
 .report-export { padding: 0 30rpx 32rpx; }.export-button { background: #28645e; color: #fff; border-radius: 14rpx; font-size: 1em; }.export-button[disabled] { opacity: .5; background: #28645e; color: #fff; }.export-error { display: block; color: #b65d52; font-size: .9em; line-height: 1.8; margin-top: 20rpx; }.export-result { margin-top: 20rpx; }
-.export-canvas { position: fixed; left: -10000px; top: 0; pointer-events: none; }
+.export-canvas { position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none; z-index: -1; }
 </style>

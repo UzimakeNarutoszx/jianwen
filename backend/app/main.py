@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from urllib.parse import quote
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -18,6 +19,30 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 # Content records use the same image paths as the H5 bundle. Mount those
 # directories explicitly before the backend-owned static directory.
 frontend_static = Path(__file__).resolve().parents[2] / "frontend" / "static"
+
+
+def _legacy_image_name_is_safe(name: str) -> bool:
+    """Reject anything that could escape the images directory."""
+    return bool(name) and not any(char in name for char in ("/", "\\", "\x00")) and ".." not in name
+
+
+@app.get("/static/images/{name}.png", include_in_schema=False)
+def legacy_image_redirect(name: str):
+    """Category covers moved from .png to .jpg; keep cached .png URLs working."""
+    if not _legacy_image_name_is_safe(name):
+        raise HTTPException(status_code=404, detail="Not Found")
+    directory = frontend_static / "images"
+    png_path = directory / f"{name}.png"
+    jpg_path = directory / f"{name}.jpg"
+    if not png_path.resolve().is_relative_to(directory.resolve()):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if png_path.is_file():
+        return FileResponse(png_path)
+    if jpg_path.is_file():
+        return RedirectResponse(f"/static/images/{quote(name, safe='')}.jpg", status_code=307)
+    raise HTTPException(status_code=404, detail="Not Found")
+
+
 for directory_name in ("images", "icons", "app-icons"):
     directory = frontend_static / directory_name
     if directory.is_dir():

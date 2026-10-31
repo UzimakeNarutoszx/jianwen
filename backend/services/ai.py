@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import http.client
 import json
 from collections.abc import Iterator
 from typing import Any
@@ -150,7 +151,7 @@ def chat_completions(
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")
         raise AIClientError(f"AI API returned HTTP {exc.code}: {details or exc.reason}") from exc
-    except (TimeoutError, urllib.error.URLError) as exc:
+    except (TimeoutError, urllib.error.URLError, OSError, http.client.HTTPException, http.client.IncompleteRead) as exc:
         raise AIClientError(f"AI API request failed: {getattr(exc, 'reason', str(exc))}") from exc
 
     try:
@@ -214,7 +215,7 @@ def stream_chat_completions(
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")
         raise AIClientError(f"AI API returned HTTP {exc.code}: {details or exc.reason}") from exc
-    except (TimeoutError, urllib.error.URLError) as exc:
+    except (TimeoutError, urllib.error.URLError, OSError, http.client.HTTPException, http.client.IncompleteRead) as exc:
         raise AIClientError(f"AI API request failed: {getattr(exc, 'reason', str(exc))}") from exc
 
 

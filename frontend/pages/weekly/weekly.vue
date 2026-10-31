@@ -29,7 +29,7 @@
       <view v-if="!catalogLoading && !catalogError" class="archive-section">
         <text class="section-title">往期节目</text>
         <text v-if="!selection.archive.length" class="subtle">还没有往期节目，每一期发布后都会留在这里。</text>
-        <button v-for="item in selection.archive" :key="item.id" :class="['archive-row', item.id === selectedId && 'selected']" @click="chooseEpisode(item.id)"><image v-if="media(item.poster)" class="archive-cover" :src="media(item.poster)" mode="aspectFill" /><view class="archive-copy"><text class="subtle">第 {{ item.number }} 期 · {{ item.weekStart }}</text><text class="archive-title">{{ item.title }}</text><text class="subtle">{{ timestamp(item.durationSeconds) }}{{ item.id === selectedId ? ' · 正在观看' : '' }}</text></view></button>
+        <button v-for="item in selection.archive" :key="item.id" :class="['archive-row', item.id === selectedId && 'selected']" @click="chooseEpisode(item.id)"><image v-if="media(item.poster)" class="archive-cover" :src="media(item.poster)" mode="aspectFill" lazy-load /><view class="archive-copy"><text class="subtle">第 {{ item.number }} 期 · {{ item.weekStart }}</text><text class="archive-title">{{ item.title }}</text><text class="subtle">{{ timestamp(item.durationSeconds) }}{{ item.id === selectedId ? ' · 正在观看' : '' }}</text></view></button>
       </view>
     </view>
 
@@ -41,14 +41,14 @@
         <text class="week-note">北京时间 · 周一至周日</text>
         <view v-if="reportLoading" class="status card"><text>正在整理你的周报…</text></view>
         <view v-else-if="reportError" class="status card"><text>{{ reportError }}</text><button class="secondary" @click="loadReport">重新加载</button></view>
-        <template v-else-if="report"><text v-if="!report.summary.active_days" class="notice">这一周还没有使用记录，阅读或提问后会在这里显示。</text><WeeklyReport :key="identity + selectedWeek" :report="report" :identity="identity" :dark-mode="darkMode" :font-size="fontSize" @open-article="openArticle" @open-classic="openClassic" /></template>
+        <template v-else-if="report"><text v-if="!report.summary.active_days" class="notice">这一周还没有使用记录，阅读或提问后会在这里显示。</text><WeeklyReport :key="identity + selectedWeek" :report="report" :identity="identity" :dark-mode="darkMode" :font-size="fontSize" /></template>
       </template>
     </view>
   </view>
 </template>
 
 <script>
-import { getWeeklyReport, getWeeklyCatalog, getAuthToken, buildPublicUrl } from '@/utils/api.js'
+import { getWeeklyReport, getWeeklyCatalog, getAuthToken, buildPublicUrl, isUnauthorized } from '@/utils/api.js'
 import { beijingWeekStart, shiftDate, weekForDate, selectEpisodes, timestamp, safePublicPath } from '@/utils/weekly-model.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import WeeklyReport from '@/components/WeeklyReport.vue'
@@ -174,7 +174,8 @@ export default {
         this.report = report
       } catch (error) {
         if (version !== this.reportVersion || token !== getAuthToken() || !this.visible) return
-        if (Number(error.statusCode || error.status) === 401) this.authExpired = true
+        // 401 is handled centrally in utils/api.js (clears session + opens login with redirect).
+        if (isUnauthorized(error)) this.authExpired = true
         else this.reportError = error.message || '周报加载失败，请重试。'
       } finally { if (version === this.reportVersion) this.reportLoading = false }
     },

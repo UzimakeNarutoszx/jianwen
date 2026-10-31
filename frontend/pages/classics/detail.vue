@@ -14,7 +14,7 @@
 
       <view class="cover-shell">
         <view class="cover-stage">
-          <image v-if="book.coverImage" class="cover-image" :src="book.coverImage" mode="aspectFill" />
+          <image v-if="book.coverImage" class="cover-image" :src="book.coverImage" mode="aspectFill" lazy-load />
           <view v-else class="cover-fallback">
             <text class="cover-fallback-title">{{ book.title }}</text>
           </view>
@@ -297,7 +297,7 @@ export default {
 }
 
 .book-title {
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 48rpx;
   line-height: 1.18;
   font-weight: 900;
@@ -391,7 +391,7 @@ export default {
 }
 
 .block-title {
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 30rpx;
   font-weight: 900;
 }
@@ -513,7 +513,7 @@ export default {
 .chapter-title {
   flex: 1;
   min-width: 0;
-  color: #000000;
+  color: var(--jw-ink, #14212B);
   font-size: 30rpx;
   line-height: 1.4;
   font-weight: 900;
@@ -644,7 +644,7 @@ export default {
 .dark-mode .block-title,
 .dark-mode .chapter-title,
 .dark-mode .section-title {
-  color: #000000 !important;
+  color: #F4F7FA !important;
 }
 
 .dark-mode .stat-value {

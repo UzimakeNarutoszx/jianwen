@@ -99,11 +99,28 @@ const AUTH_USER_KEY = 'jianwen_auth_user'
 const SAVED_LOGIN_KEY = 'jianwen_saved_login_credentials'
 const LOGIN_EXPIRES_AT_KEY = 'jianwen_login_expires_at'
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+// Pages registered in pages.json tabBar must be reopened with switchTab.
+const TAB_BAR_ROUTES = [
+  '/pages/today/today',
+  '/pages/discover/discover',
+  '/pages/weekly/weekly',
+  '/pages/ask/ask',
+  '/pages/profile/profile'
+]
+
+function sanitizeRedirect(value) {
+  let target = ''
+  try { target = decodeURIComponent(String(value || '')) } catch (error) { target = '' }
+  if (!target || target.charAt(0) !== '/') return ''
+  if (target.indexOf('/pages/auth/login') === 0) return ''
+  return target
+}
 
 export default {
   data() {
     return {
       mode: 'login',
+      redirect: '',
       darkMode: false,
       fontSize: 'standard',
       submitting: false,
@@ -145,6 +162,7 @@ export default {
   },
   onLoad(options) {
     if (options && options.mode === 'register') this.mode = 'register'
+    this.redirect = sanitizeRedirect(options && options.redirect)
     this.loadSavedLogin()
     if (this.mode === 'login') this.skipIfSessionValid()
   },
@@ -287,6 +305,25 @@ export default {
       setTimeout(() => this.goBack(), 350)
     },
     goBack() {
+      // Reached from an expired session: return the user to where they were.
+      if (this.redirect) {
+        const target = this.redirect
+        this.redirect = ''
+        const isTab = TAB_BAR_ROUTES.some(route => target === route || target.indexOf(`${route}?`) === 0)
+        if (isTab) {
+          uni.switchTab({ url: target, fail: () => uni.reLaunch({ url: target }) })
+          return
+        }
+        const pages = getCurrentPages()
+        const previous = pages.length > 1 ? pages[pages.length - 2] : null
+        const previousUrl = previous ? `/${previous.route || previous.__route__ || ''}` : ''
+        if (previousUrl && target.indexOf(previousUrl) === 0) {
+          uni.navigateBack()
+          return
+        }
+        uni.redirectTo({ url: target, fail: () => uni.reLaunch({ url: target }) })
+        return
+      }
       if (getCurrentPages().length > 1) {
         uni.navigateBack()
         return

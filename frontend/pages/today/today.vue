@@ -40,10 +40,22 @@
         </view>
       </view>
 
+      <view v-if="majorEvent" class="major-event card" @click="openMajorEvent">
+        <image class="major-event-image" :src="majorEventImage" mode="aspectFill" />
+        <view class="major-event-body">
+          <view class="major-event-eyebrow">
+            <text>大事报道</text>
+            <text :class="['major-event-badge', majorEvent.status === '已闭幕' ? 'is-closed' : '']">{{ majorEvent.status || '进行中' }}</text>
+          </view>
+          <text class="major-event-title">{{ majorEvent.event_name || majorEvent.title }}</text>
+          <text class="major-event-summary">{{ majorEvent.summary }}</text>
+          <text class="major-event-meta">{{ majorEventDates }} · {{ majorEvent.source_name }}</text>
+        </view>
+      </view>
       <swiper v-if="bannerItems.length" class="banner-swiper" indicator-dots circular autoplay interval="4200" duration="420">
         <swiper-item v-for="item in bannerItems" :key="item.id">
           <view class="banner-card" @click="openBanner(item)">
-            <image class="banner-image" :src="item.image" mode="aspectFill" />
+            <image class="banner-image" :src="item.image" mode="aspectFill" lazy-load />
             <view class="banner-overlay"></view>
             <view class="banner-content">
               <view class="banner-meta">
@@ -110,9 +122,17 @@
         <text class="section-heading">今日 briefing 卡片流</text>
       </view>
 
+      <StateView
+        v-if="loadState !== 'ready' || !articles.length"
+        :state="loadState === 'ready' ? 'empty' : loadState"
+        :message="stateMessage"
+        :dark-mode="darkMode"
+        @retry="loadContent()"
+      />
+
       <view v-for="(item, index) in articles" :key="item.id" class="article-card card" @click="openArticle(item.id)">
         <view class="article-media">
-          <image class="article-image" :src="item.image" mode="aspectFill" />
+          <image class="article-image" :src="item.image" mode="aspectFill" lazy-load />
           <view class="article-image-overlay"></view>
           <view class="article-rank">
             <text>{{ articleRank(index) }}</text>
@@ -148,23 +168,48 @@
 </template>
 
 <script>
-import { getDailyQuote, getRemoteTodayChecklist, getTodayContent } from '@/utils/api.js'
+import { buildFileUrl, getDailyQuote, getMajorEvents, getRemoteTodayChecklist, getTodayContent } from '@/utils/api.js'
 import { formatToday } from '@/utils/date.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { getReadArticleIds } from '@/utils/user-data.js'
+import StateView from '@/components/StateView.vue'
+
+// 60 秒内回到页面不重拉，避免 tab 切换反复打接口。
+const RELOAD_INTERVAL_MS = 60000
 
 export default {
+  components: { StateView },
   data() {
     return {
+      majorEvent: null,
       todayText: '',
       darkMode: false,
       fontSize: 'standard',
       articles: [],
       banners: [],
-      dailyQuote: null
+      dailyQuote: null,
+      loadState: 'loading',
+      loadError: '',
+      lastLoadedAt: 0,
+      loadVersion: 0
     }
   },
   computed: {
+    stateMessage() {
+      if (this.loadState === 'loading') return '正在整理今天值得知道的事'
+      if (this.loadState === 'error') return this.loadError || '今日内容暂时加载失败，请稍后重试'
+      return '今天还没有新内容，晚点再来看看'
+    },
+    majorEventImage() {
+      return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/共产党.jpg')
+    },
+    majorEventDates() {
+      const item = this.majorEvent || {}
+      if (item.start_date && item.end_date && item.start_date !== item.end_date) {
+        return `${item.start_date} 至 ${item.end_date}`
+      }
+      return item.start_date || item.end_date || ''
+    },
     readCount() { return this.articles.filter(item => item.viewed).length },
     isComplete() { return this.articles.length > 0 && this.readCount === this.articles.length },
     progressPercent() {
@@ -207,30 +252,79 @@ export default {
     this.todayText = formatToday()
     this.darkMode = !!uni.getStorageSync('jianwen_dark_mode')
     this.fontSize = uni.getStorageSync('jianwen_font_size') || 'standard'
-    this.loadContent()
+    // 60s 内刚成功加载过就不重拉；失败或过期才重新请求。
+    const fresh = this.loadState === 'ready' && Date.now() - this.lastLoadedAt < RELOAD_INTERVAL_MS
+    if (!fresh) this.loadContent()
     applyTabBarTheme(this.darkMode)
   },
+  onPullDownRefresh() {
+    this.loadContent().finally(() => uni.stopPullDownRefresh())
+  },
   methods: {
+    // 大事报道：失败就不显示，不影响今日内容。
+    loadMajorEvent() {
+      getMajorEvents()
+        .then(items => { this.majorEvent = items[0] || null })
+        .catch(() => { this.majorEvent = null })
+    },
+    // 打开官方原文：H5 新窗口；App 内用系统浏览器。
+    openMajorEvent() {
+      const url = this.majorEvent && this.majorEvent.source_url
+      if (!url || !/^https:\/\//.test(url)) return
+      // #ifdef H5
+      window.open(url, '_blank', 'noopener')
+      // #endif
+      // #ifdef APP-PLUS
+      plus.runtime.openURL(url)
+      // #endif
+      // #ifdef MP
+      uni.setClipboardData({ data: url })
+      uni.showToast({ title: '原文链接已复制', icon: 'none' })
+      // #endif
+    },
     async loadContent() {
-      this.loadDailyQuote()
-      if (uni.getStorageSync('jianwen_auth_token')) {
-        try {
-          const remoteData = await getRemoteTodayChecklist()
-          this.articles = remoteData.articles || []
-          this.banners = remoteData.banners || []
-          return
-        } catch (error) {
-          uni.showToast({ title: '个性化清单暂时不可用，已显示默认清单', icon: 'none' })
-        }
+      this.loadMajorEvent()
+      const version = ++this.loadVersion
+      // 已有内容时刷新不退回 loading 占位，避免列表整块闪一下。
+      const hasContent = this.articles.length > 0
+      if (!hasContent) {
+        this.loadState = 'loading'
+        this.loadError = ''
       }
-
-      try {
+      this.loadDailyQuote()
+      const fallback = async () => {
         const data = await getTodayContent()
         const readIds = getReadArticleIds()
-        this.articles = (data.articles || []).map(item => Object.assign({}, item, { viewed: readIds.includes(item.id) }))
-        this.banners = data.banners || []
+        return {
+          articles: (data.articles || []).map(item => Object.assign({}, item, { viewed: readIds.includes(item.id) })),
+          banners: data.banners || []
+        }
+      }
+      try {
+        let result
+        if (uni.getStorageSync('jianwen_auth_token')) {
+          try {
+            result = await getRemoteTodayChecklist()
+          } catch (error) {
+            result = await fallback()
+          }
+        } else {
+          result = await fallback()
+        }
+        if (version !== this.loadVersion) return
+        this.articles = result.articles || []
+        this.banners = result.banners || []
+        this.loadState = 'ready'
+        this.lastLoadedAt = Date.now()
       } catch (error) {
-        uni.showToast({ title: error.message || '今日内容加载失败', icon: 'none' })
+        if (version !== this.loadVersion) return
+        // 已有内容时刷新失败保留旧列表，只提示；否则才切三态错误页。
+        if (hasContent) {
+          uni.showToast({ title: error.message || '刷新失败，稍后再试', icon: 'none' })
+          return
+        }
+        this.loadState = 'error'
+        this.loadError = error.message || '今日内容加载失败，请稍后重试'
       }
     },
     async loadDailyQuote() {
@@ -1151,5 +1245,77 @@ export default {
   background:
     radial-gradient(circle at 50% 50%, rgba(23,35,49,0.96) 0, rgba(23,35,49,0.96) 44rpx, transparent 46rpx),
     conic-gradient(#D4AA4E 0deg, #7EB8D1 240deg, rgba(126,184,209,0.16) 240deg);
+}
+
+.major-event {
+  display: flex;
+  gap: 24rpx;
+  align-items: center;
+  margin: 28rpx 0 8rpx;
+  padding: 24rpx;
+  border-radius: 28rpx;
+}
+.major-event-image {
+  flex: 0 0 200rpx;
+  width: 200rpx;
+  height: 150rpx;
+  border-radius: 18rpx;
+}
+.major-event-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+.major-event-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  color: #B5413A;
+  font-size: 24rpx;
+  letter-spacing: 2rpx;
+}
+.major-event-badge {
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  background: #B5413A;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  letter-spacing: 0;
+}
+.major-event-badge.is-closed {
+  background: #6C7880;
+}
+.major-event-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.major-event-summary {
+  color: #4B5A63;
+  font-size: 26rpx;
+  line-height: 1.65;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.major-event-meta {
+  color: #6C7880;
+  font-size: 22rpx;
+  font-variant-numeric: tabular-nums;
+}
+.dark-mode .major-event-summary {
+  color: #B9C4CC;
+}
+.dark-mode .major-event-meta {
+  color: #8E9AA3;
+}
+.dark-mode .major-event-eyebrow {
+  color: #E08A82;
+}
+.dark-mode .major-event-title {
+  font-weight: 420;
 }
 </style>

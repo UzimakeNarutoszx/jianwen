@@ -1,0 +1,42 @@
+{
+  "cutoff": "2026-10-31T18:30:00+08:00",
+  "verifiedOn": "2026-10-31",
+  "research": "Source pages retrieved via AnySearch; article snapshots read from the existing public local API. No content generation endpoint was called.",
+  "visuals": {
+    "origin": "Original Blender scene authored in blender/identity.py, rendered with Blender 5.2.2 LTS; source saved in public/identity/identity.blend",
+    "poster": "Remotion WeeklyCover with the same original Blender hold frame"
+  },
+  "sources": [
+    "ai-daily-20261031-3.json",
+    "plenum-source.md",
+    "changelog-snapshot.html"
+  ],
+  "voice": {
+    "engine": "Qwen3-TTS / MLX-Audio 0.5.9",
+    "model": "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit",
+    "voice": "Vivian",
+    "scope": "Generated locally from authored narration; no API key or cloud TTS requests."
+  },
+  "music": {
+    "title": "雨",
+    "artistTag": "昔日烬",
+    "rightsBasis": "User explicitly confirmed in this task on 2026-10-17 that 憩、柱、雨、岚、终 are their originals and authorized their use. See music-library.json. Earlier CLAUDE_HANDOFF.md entry 2026-10-11 also identifies 雨 as user-original. No public-domain or CC license claim.",
+    "sourceSnapshot": "music/雨.mp3",
+    "sourceSha256": "39e5ff4da91a1ae9f66dfbdb61ad204bbff3ffa56a25c1de97e98f5c515c01e8",
+    "narrationSha256": "88d75013f92d260a41de80e9999cb9f4336038f1b084723469f54539fc9c11e3",
+    "mix": {
+      "loopCrossfadeSeconds": 3,
+      "fadeInSeconds": 3,
+      "fadeOutSeconds": 5,
+      "musicTargetLUFS": -30,
+      "speechDucking": true,
+      "mixTargetLUFS": -16,
+      "mixTruePeakCeilingDb": -1.5
+    },
+    "output": {
+      "file": "soundtrack-900b664079ae.m4a",
+      "sha256": "900b664079aefb4b87c141fbe3b050f1e736c8cb6abaf01c67be9862a13e003e",
+      "credit": "原创配乐《雨》 · 昔日烬"
+    }
+  }
+}

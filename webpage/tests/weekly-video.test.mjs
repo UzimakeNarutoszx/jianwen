@@ -56,7 +56,7 @@ test('links reject executable and malformed URLs', () => {
   assert.equal(mediaUrl('https://example.org/video.mp4'), 'https://example.org/video.mp4')
 })
 
-test('first episode has a continuous 3–5 minute timeline and non-overlapping readable subtitles', async () => {
+test('W42 has a continuous 3–5 minute timeline and non-overlapping readable subtitles', async () => {
   const episode = JSON.parse(await readFile(new URL('../../weekly-video/episodes/2026-W42/timeline.json', import.meta.url), 'utf8'))
   assert.ok(episode.durationSeconds >= 180 && episode.durationSeconds <= 300)
   assert.equal(episode.durationInFrames, Math.round(episode.durationSeconds * 30))
@@ -71,4 +71,14 @@ test('first episode has a continuous 3–5 minute timeline and non-overlapping r
   }
   assert.ok(end <= episode.durationSeconds)
   for (const source of episode.sources) assert.ok(source.date <= episode.cutoff.slice(0, 10))
+})
+
+test('every published episode fits its own durationTarget (default 180–300s)', async () => {
+  const catalog = JSON.parse(await readFile(new URL('../data/weekly-videos.json', import.meta.url), 'utf8'))
+  const episodes = catalog.episodes.filter(item => item.status === 'published')
+  assert.ok(episodes.length >= 1)
+  for (const item of episodes) {
+    const {min = 180, max = 300} = item.durationTarget || {}
+    assert.ok(item.durationSeconds >= min && item.durationSeconds <= max, `${item.id} ${item.durationSeconds}s outside ${min}–${max}s`)
+  }
 })

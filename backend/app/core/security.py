@@ -4,6 +4,7 @@ import hmac
 import json
 import secrets
 import time
+from dataclasses import dataclass
 
 from app.core.config import settings
 
@@ -27,10 +28,17 @@ def verify_password(password: str, password_hash: str) -> bool:
     return hmac.compare_digest(digest.hex(), stored_digest)
 
 
-def create_access_token(user_id: int) -> str:
+@dataclass(frozen=True)
+class TokenPayload:
+    user_id: int
+    token_version: int
+
+
+def create_access_token(user_id: int, token_version: int = 0) -> str:
     payload = {
         "sub": str(user_id),
         "exp": int(time.time()) + settings.ACCESS_TOKEN_EXPIRE_SECONDS,
+        "tv": int(token_version or 0),
     }
     payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     payload_token = base64.urlsafe_b64encode(payload_bytes).decode("utf-8").rstrip("=")
@@ -43,7 +51,12 @@ def _add_base64_padding(value: str) -> str:
     return value + "=" * (-len(value) % 4)
 
 
-def verify_access_token(token: str) -> int | None:
+def decode_access_token(token: str) -> TokenPayload | None:
+    """Validate signature/expiry and return the claims we care about.
+
+    Tokens signed before the ``tv`` claim existed are accepted as version 0 so
+    already-signed-in users keep their session after the upgrade.
+    """
     if not isinstance(token, str) or not token.isascii():
         return None
     try:
@@ -65,6 +78,11 @@ def verify_access_token(token: str) -> int | None:
         payload = json.loads(payload_bytes.decode("utf-8"))
         if not isinstance(payload, dict) or int(payload.get("exp", 0)) <= int(time.time()):
             return None
-        return int(payload["sub"])
+        return TokenPayload(user_id=int(payload["sub"]), token_version=int(payload.get("tv", 0) or 0))
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
+
+
+def verify_access_token(token: str) -> int | None:
+    payload = decode_access_token(token)
+    return None if payload is None else payload.user_id

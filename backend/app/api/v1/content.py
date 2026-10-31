@@ -1,5 +1,6 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 import logging
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, get_optional_current_user
 from app.core.config import settings
+from app.core.timeutil import today_cn
+from app.crud.user import AiQuotaExceeded, ai_quota_used, consume_ai_quota, refund_ai_quota
+from app.db.session import SessionLocal
 from app.models.content import (
     AiAnswerRule,
     AiPrompt,
@@ -23,12 +27,14 @@ from app.models.content import (
 )
 from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFollowTopic
 from app.models.user import User
-from app.services.daily_articles import ensure_daily_articles, get_content_date
+from app.services.breaking_news import active_breaking_news, card_payload
+from app.services.daily_articles import AI_ARTICLE_ID_PREFIX, get_content_date, read_daily_articles
 from app.schemas.content import (
     AiAnswerRequest,
     AiAnswerResponse,
     AjinChatRequest,
     AiPromptResponse,
+    BreakingNewsResponse,
     ClassicBookChapterDetailResponse,
     ClassicBookChapterResponse,
     ClassicBookDetailResponse,
@@ -47,6 +53,17 @@ from services.ai import AIClientError, ask as ask_ai, ask_ajin, stream_ask
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+_UPDATES_HARD_LIMIT = 120
+_UPDATES_RECENT_DAYS = 15
+_UPDATES_MID_DAYS = 30
+_UPDATES_MID_DAILY_CAP = 2
+_UPDATES_OLD_DAYS = 90
+_UPDATES_OLD_WEEKLY_CAP = 2
+_ASK_CONTEXT_RECENT_LIMIT = 20
+_ASK_CONTEXT_RELATED_LIMIT = 10
+_ASK_CONTEXT_QUESTION_KEYWORD_LIMIT = 6
+_AI_DAILY_ID_PATTERN = re.compile(rf"^{AI_ARTICLE_ID_PREFIX}-(\d{{8}})-(\d+)$")
+
 
 def _as_list(value: list | None) -> list:
     return value if isinstance(value, list) else []
@@ -54,6 +71,9 @@ def _as_list(value: list | None) -> list:
 
 def _article_list_response(article: ContentArticle, viewed_article_ids: set[str] | None = None) -> ContentArticleListResponse:
     viewed_ids = viewed_article_ids or set()
+    published_date = getattr(article, "_published_date", None)
+    if published_date is None:
+        published_date = _article_published_date(article)
     return ContentArticleListResponse(
         id=article.article_id,
         article_id=article.article_id,
@@ -67,6 +87,7 @@ def _article_list_response(article: ContentArticle, viewed_article_ids: set[str]
         image=article.image,
         relation=article.relation,
         viewed=article.article_id in viewed_ids,
+        published_date=published_date,
     )
 
 
@@ -109,21 +130,7 @@ def _book_list_response(book: ClassicBook) -> ClassicBookListResponse:
 
 
 def _today_articles(db: Session) -> list[ContentArticle]:
-    content_date = get_content_date()
-    ensure_daily_articles(db)
-    rows = (
-        db.query(ContentArticle, DailyArticleSet.position)
-        .join(DailyArticleSet, DailyArticleSet.article_id == ContentArticle.article_id)
-        .filter(DailyArticleSet.content_date == content_date)
-        .order_by(DailyArticleSet.position, ContentArticle.sort_order, ContentArticle.id)
-        .limit(5)
-        .all()
-    )
-    articles: list[ContentArticle] = []
-    for article, position in rows:
-        setattr(article, "_daily_position", position)
-        articles.append(article)
-    return articles
+    return read_daily_articles(db, get_content_date())[:5]
 
 
 def _viewed_article_ids(db: Session, user: User | None, article_ids: list[str]) -> set[str]:
@@ -253,27 +260,20 @@ def _ajin_fallback_answer(question: str) -> AiAnswerResponse:
     return AiAnswerResponse(answer=answer, sources="阿烬本地应急回复；外部 AI 服务恢复后将继续提供完整对话。")
 
 
-def _today_usage_window() -> tuple[datetime, datetime]:
-    start = datetime.combine(date.today(), time.min)
-    return start, start + timedelta(days=1)
-
-
 def _ensure_ai_quota(db: Session, user: User) -> None:
-    start, end = _today_usage_window()
-    used_count = (
-        db.query(UserAiUsageRecord)
-        .filter(
-            UserAiUsageRecord.user_id == user.id,
-            UserAiUsageRecord.created_at >= start,
-            UserAiUsageRecord.created_at < end,
-        )
-        .count()
-    )
-    if used_count >= settings.AI_DAILY_QUESTION_LIMIT:
+    """Charge one question against today's quota.
+
+    The counter lives in ``user_ai_daily_usage`` (not the record rows) and is
+    incremented atomically, so deleting chat history does not refund quota and
+    concurrent requests cannot exceed the daily limit.
+    """
+    try:
+        consume_ai_quota(db, user.id, settings.AI_DAILY_QUESTION_LIMIT)
+    except AiQuotaExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"今日 AI 提问额度已用完，每日最多 {settings.AI_DAILY_QUESTION_LIMIT} 个问题",
-        )
+        ) from exc
 
 
 def _save_ai_usage(db: Session, user: User, question: str, answer: str, sources: str | None) -> None:
@@ -281,11 +281,107 @@ def _save_ai_usage(db: Session, user: User, question: str, answer: str, sources:
     db.commit()
 
 
-def _build_ask_context(db: Session, article_id: str | None = None) -> dict[str, object]:
-    articles = db.query(ContentArticle).order_by(ContentArticle.sort_order, ContentArticle.id).all()
-    linked_article = next((article for article in articles if article.article_id == article_id), None)
+def _record_stream_usage(user_id: int, question: str, answer: str, sources: str | None) -> None:
+    """Persist streamed-answer usage on a fresh session.
+
+    Streaming responses outlive the request-scoped session, so this opens its
+    own short-lived session. Failures are logged, never raised: the answer has
+    already been delivered to the client.
+    """
+    try:
+        with SessionLocal() as db:
+            db.add(UserAiUsageRecord(user_id=user_id, question=question, answer=answer, sources=sources))
+            db.commit()
+    except Exception:
+        logger.exception("Failed to record streamed AI usage for user %s", user_id)
+
+
+def _refund_ai_quota(user_id: int) -> None:
+    """Give the daily quota back when no answer reached the client."""
+    try:
+        with SessionLocal() as db:
+            refund_ai_quota(db, user_id)
+    except Exception:
+        logger.exception("Failed to refund AI quota for user %s", user_id)
+
+
+def _question_keywords(question: str) -> list[str]:
+    """Rough Chinese keyword extraction for narrowing the AI context."""
+    text = (question or "").strip()
+    if not text:
+        return []
+    keywords: list[str] = []
+    # Latin words / numbers are meaningful on their own.
+    keywords.extend(re.findall(r"[A-Za-z][A-Za-z0-9+#.-]{1,}", text))
+    # Chinese has no spaces: fall back to 2-4 character sliding windows.
+    han_runs = re.findall(r"[一-鿿]{2,}", text)
+    for run in han_runs:
+        if len(run) <= 4:
+            keywords.append(run)
+            continue
+        for size in (2, 3, 4):
+            for start in range(0, len(run) - size + 1):
+                keywords.append(run[start : start + size])
+    seen: list[str] = []
+    for keyword in keywords:
+        if keyword and keyword not in seen:
+            seen.append(keyword)
+        if len(seen) >= _ASK_CONTEXT_QUESTION_KEYWORD_LIMIT:
+            break
+    return seen
+
+
+def _build_ask_context(
+    db: Session, article_id: str | None = None, question: str | None = None
+) -> dict[str, object]:
+    """Build a bounded AI context.
+
+    Sending the whole catalog bloats the prompt and slows answers, so only the
+    current article, articles matching the question, and the most recent N
+    articles are included.
+    """
+    recent_articles = (
+        db.query(ContentArticle)
+        .order_by(ContentArticle.created_at.desc(), ContentArticle.id.desc())
+        .limit(_ASK_CONTEXT_RECENT_LIMIT)
+        .all()
+    )
+    linked_article: ContentArticle | None = None
+    if article_id:
+        linked_article = db.query(ContentArticle).filter(ContentArticle.article_id == article_id).first()
+
+    related_articles: list[ContentArticle] = []
+    keywords = _question_keywords(question or "")
+    if keywords:
+        conditions = []
+        for keyword in keywords:
+            like = f"%{keyword}%"
+            conditions.extend(
+                [
+                    ContentArticle.title.like(like),
+                    ContentArticle.desc.like(like),
+                    ContentArticle.topic.like(like),
+                    ContentArticle.category.like(like),
+                ]
+            )
+        related_articles = (
+            db.query(ContentArticle)
+            .filter(or_(*conditions))
+            .order_by(ContentArticle.created_at.desc(), ContentArticle.id.desc())
+            .limit(_ASK_CONTEXT_RELATED_LIMIT)
+            .all()
+        )
+
+    selected: list[ContentArticle] = []
+    seen_ids: set[str] = set()
+    for candidate in ([linked_article] if linked_article else []) + related_articles + recent_articles:
+        if candidate.article_id in seen_ids:
+            continue
+        seen_ids.add(candidate.article_id)
+        selected.append(candidate)
+
     context: dict[str, object] = {
-        "全站文章资料库": [_article_context(article) for article in articles],
+        "相关文章资料库": [_article_context(article) for article in selected],
     }
     if linked_article is not None:
         context["当前关联文章"] = _article_context(linked_article)
@@ -378,17 +474,121 @@ def list_related_articles(
     return [_article_list_response(item) for item in articles]
 
 
+def _article_published_date(
+    article: ContentArticle, daily_dates: dict[str, date] | None = None
+) -> date | None:
+    """Resolve a publish date: daily set first, then ai-daily id, then created_at."""
+    if daily_dates:
+        stored = daily_dates.get(article.article_id)
+        if stored is not None:
+            return stored
+    match = _AI_DAILY_ID_PATTERN.match(article.article_id or "")
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y%m%d").date()
+        except ValueError:
+            pass
+    created_at = article.created_at
+    if isinstance(created_at, datetime):
+        return created_at.date()
+    if isinstance(created_at, date):
+        return created_at
+    return None
+
+
+def _updates_are_important(
+    published: date,
+    today: date,
+    mid_day_counts: dict[date, int],
+    old_week_counts: dict[tuple[int, int], int],
+) -> tuple[bool, int, int]:
+    """Decide whether one article is kept, returning (keep, mid, old) counters.
+
+    Recency tiers, measured against today in Asia/Shanghai:
+    0-15 days keep everything, 15-30 days keep at most 2 per day,
+    30-90 days keep at most 2 per ISO week, older than 90 days is dropped.
+    Search is unaffected because this only filters /discover updates.
+    """
+    age_days = (today - published).days
+    if age_days < 0:
+        # A future-dated entry is still the newest thing we have; keep it.
+        return True, 0, 0
+    if age_days <= _UPDATES_RECENT_DAYS:
+        return True, 0, 0
+    if age_days <= _UPDATES_MID_DAYS:
+        used = mid_day_counts.get(published, 0)
+        if used >= _UPDATES_MID_DAILY_CAP:
+            return False, 0, 0
+        return True, 1, 0
+    if age_days <= _UPDATES_OLD_DAYS:
+        iso_year, iso_week, _weekday = published.isocalendar()
+        key = (iso_year, iso_week)
+        used = old_week_counts.get(key, 0)
+        if used >= _UPDATES_OLD_WEEKLY_CAP:
+            return False, 0, 0
+        return True, 0, 1
+    return False, 0, 0
+
+
+def _discover_updates(db: Session, today: date | None = None) -> list[ContentArticle]:
+    """Recent ai-daily articles, newest first, with importance-based thinning."""
+    reference_day = today or today_cn()
+    rows = (
+        db.query(ContentArticle)
+        .filter(ContentArticle.article_id.startswith(f"{AI_ARTICLE_ID_PREFIX}-"))
+        .all()
+    )
+    if not rows:
+        return []
+
+    daily_dates = {
+        row.article_id: row.content_date
+        for row in db.query(DailyArticleSet)
+        .filter(DailyArticleSet.article_id.in_([article.article_id for article in rows]))
+        .all()
+    }
+
+    published_by_id: dict[str, date | None] = {}
+    position_by_id: dict[str, int] = {}
+    for article in rows:
+        published_by_id[article.article_id] = _article_published_date(article, daily_dates)
+        match = _AI_DAILY_ID_PATTERN.match(article.article_id)
+        position_by_id[article.article_id] = int(match.group(2)) if match else 0
+
+    ordered = sorted(
+        (article for article in rows if published_by_id[article.article_id] is not None),
+        key=lambda article: (
+            -published_by_id[article.article_id].toordinal(),
+            position_by_id[article.article_id],
+            -article.id,
+        ),
+    )
+
+    kept: list[ContentArticle] = []
+    mid_day_counts: dict[date, int] = {}
+    old_week_counts: dict[tuple[int, int], int] = {}
+    for article in ordered:
+        published = published_by_id[article.article_id]
+        keep, mid, old = _updates_are_important(published, reference_day, mid_day_counts, old_week_counts)
+        if not keep:
+            continue
+        if mid:
+            mid_day_counts[published] = mid_day_counts.get(published, 0) + 1
+        if old:
+            iso_year, iso_week, _weekday = published.isocalendar()
+            old_week_counts[(iso_year, iso_week)] = old_week_counts.get((iso_year, iso_week), 0) + 1
+        setattr(article, "_published_date", published)
+        kept.append(article)
+        if len(kept) >= _UPDATES_HARD_LIMIT:
+            break
+    return kept
+
+
 @router.get("/discover", response_model=DiscoverContentResponse)
 def get_discover_content(db: Session = Depends(get_db)) -> DiscoverContentResponse:
     topics = list_categories(db)
     features = db.query(ContentFeature).order_by(ContentFeature.sort_order, ContentFeature.id).all()
-    updates = (
-        db.query(ContentArticle)
-        .filter(ContentArticle.is_latest.is_(True))
-        .order_by(ContentArticle.sort_order, ContentArticle.id)
-        .limit(10)
-        .all()
-    )
+    updates = _discover_updates(db)
     return DiscoverContentResponse(
         topics=topics,
         features=features,
@@ -453,6 +653,12 @@ def get_content_page(page_key: str, db: Session = Depends(get_db)) -> ContentPag
     return page
 
 
+@router.get("/breaking-news", response_model=list[BreakingNewsResponse])
+def list_breaking_news(db: Session = Depends(get_db)) -> list[dict]:
+    """当前应置顶的重大会议，无需登录；只读数据库，绝不在请求里联网。"""
+    return [card_payload(row) for row in active_breaking_news(db)]
+
+
 @router.get("/daily-quote", response_model=DailyQuoteResponse)
 def get_daily_quote(
     date_value: str | None = Query(default=None, alias="date"),
@@ -464,7 +670,7 @@ def get_daily_quote(
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="date 必须是 YYYY-MM-DD") from exc
     else:
-        selected_date = date.today()
+        selected_date = today_cn()
 
     quotes = (
         db.query(DailyQuote)
@@ -488,6 +694,16 @@ def get_ask_prompts(db: Session = Depends(get_db)) -> AiPromptResponse:
     return AiPromptResponse(prompts=prompts, followups=followups, welcome_message=welcome)
 
 
+@router.get("/ai/quota")
+def get_ai_quota(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    limit = settings.AI_DAILY_QUESTION_LIMIT
+    used = ai_quota_used(db, current_user.id)
+    return {"limit": limit, "used": used, "remaining": max(0, limit - used)}
+
+
 @router.get("/ask/bootstrap", response_model=AiPromptResponse)
 def get_ask_bootstrap(db: Session = Depends(get_db)) -> AiPromptResponse:
     return get_ask_prompts(db)
@@ -506,7 +722,7 @@ def answer_question(
     _ensure_ai_quota(db, current_user)
 
     try:
-        result = ask_ai(question, context=_build_ask_context(db, payload.article_id))
+        result = ask_ai(question, context=_build_ask_context(db, payload.article_id, question))
     except AIClientError as exc:
         logger.warning("Ark AI request failed: %s", exc)
         fallback = _local_answer(db, question)
@@ -515,10 +731,15 @@ def answer_question(
                 answer="外部 AI 服务暂时不可用。你可以先根据页面中的文章和来源继续阅读，稍后再试。",
                 sources="见闻本地应急回复",
             )
+        elif not fallback.sources:
+            # Rule-based answers must not look like AI-generated content.
+            fallback = AiAnswerResponse(answer=fallback.answer, sources="见闻本地规则兜底，非 AI 生成")
         _save_ai_usage(db, current_user, question, fallback.answer, fallback.sources)
         return fallback
 
     if not result.text:
+        # No answer was produced, so the question must not be charged.
+        refund_ai_quota(db, current_user.id)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
 
     sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
@@ -558,6 +779,8 @@ def chat_with_ajin(
         return fallback
 
     if not result.text:
+        # No answer was produced, so the question must not be charged.
+        refund_ai_quota(db, current_user.id)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="阿烬没有返回有效回答")
 
     _save_ai_usage(db, current_user, question, result.text, "阿烬对话")
@@ -574,13 +797,20 @@ def stream_answer_question(
     if not question:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="问题不能为空")
 
-    _ensure_ai_quota(db, current_user)
-    context = _build_ask_context(db, payload.article_id)
+    # Read the id first: _ensure_ai_quota commits, which expires every attribute
+    # on ``current_user``, and the request-scoped session is closed before the
+    # response body is streamed. Nothing below may touch the ORM instance.
+    user_id = current_user.id
 
+    _ensure_ai_quota(db, current_user)
+    context = _build_ask_context(db, payload.article_id, question)
+
+    used_sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
     try:
         stream = iter(stream_ask(question, context=context))
         first_chunk = next(stream)
     except StopIteration:
+        _refund_ai_quota(user_id)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
     except AIClientError as exc:
         logger.warning("Ark AI stream request failed: %s", exc)
@@ -590,23 +820,39 @@ def stream_answer_question(
                 answer="外部 AI 服务暂时不可用。你可以先根据页面中的文章和来源继续阅读，稍后再试。",
                 sources="见闻本地应急回复",
             )
+        # The fallback is a local rule-based answer, so record that provenance
+        # instead of claiming an AI-generated answer.
+        used_sources = fallback.sources or "见闻本地应急回复（规则兜底，非 AI 生成）"
         # The first chunk is already assigned below; keep the iterator empty
         # so the fallback is not emitted twice.
         stream = iter(())
         first_chunk = fallback.answer
 
     def generate():
+        # Only values captured above are used here: ``db`` is closed and
+        # ``current_user`` is detached by the time this runs.
         chunks: list[str] = [first_chunk]
-        used_sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
-        yield first_chunk
+        saved = False
+        # The request-scoped session from Depends(get_db) is closed before the
+        # response body is streamed, so the generator owns its own session.
         try:
-            for text in stream:
-                chunks.append(text)
-                yield text
-        except AIClientError as exc:
-            logger.warning("Ark AI stream interrupted: %s", exc)
-        answer = "".join(chunks).strip()
-        if answer:
-            _save_ai_usage(db, current_user, question, answer, used_sources)
+            yield first_chunk
+            try:
+                for text in stream:
+                    chunks.append(text)
+                    yield text
+            except AIClientError as exc:
+                logger.warning("Ark AI stream interrupted: %s", exc)
+            answer = "".join(chunks).strip()
+            if answer:
+                _record_stream_usage(user_id, question, answer, used_sources)
+                saved = True
+        finally:
+            # Runs even when the client disconnects (GeneratorExit), so a
+            # partial answer still counts against the daily quota.
+            if not saved:
+                answer = "".join(chunks).strip()
+                if answer:
+                    _record_stream_usage(user_id, question, answer, used_sources)
 
     return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")

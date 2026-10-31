@@ -1,14 +1,44 @@
 (async function () {
-  const articleId = new URLSearchParams(location.search).get('id')
+  const searchParams = new URLSearchParams(location.search)
+  const articleId = searchParams.get('id')
   const hero = document.querySelector('#article-hero')
   const body = document.querySelector('#article-body')
   const favoriteButton = document.querySelector('#favorite-button')
+  const backButton = document.querySelector('.detail-nav .back-button')
   let article = null
   let isFavorite = false
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]))
   }
+
+  // 返回入口按来源页决定：只认白名单值，其他值（或缺少参数）一律回今日页。
+  function resolveBackTarget() {
+    const from = searchParams.get('from')
+    if (from === 'discover') return { href: 'discover.html?v=20261031-1', label: '← 返回发现', fallback: '返回发现页重新选择。' }
+    if (from === 'category') {
+      const name = (searchParams.get('name') || '').trim()
+      if (!name) return null
+      return {
+        href: `category.html?name=${encodeURIComponent(name)}&v=20261031-1`,
+        label: `← 返回${name}`,
+        fallback: `返回「${name}」重新选择。`
+      }
+    }
+    return null
+  }
+
+  const backTarget = resolveBackTarget()
+  const backFallback = backTarget ? backTarget.fallback : '返回今日页重新选择。'
+
+  function applyBackButton() {
+    if (!backButton || !backTarget) return
+    backButton.setAttribute('href', backTarget.href)
+    // 用 textContent 写入带分类名的文案，浏览器天然不会把它当 HTML 解析。
+    backButton.textContent = backTarget.label
+  }
+
+  applyBackButton()
 
   function safeUrl(value) {
     try {
@@ -120,7 +150,7 @@
 
   if (!articleId) {
     hero.innerHTML = '<p class="eyebrow">JIANWEN / ARTICLE</p><h1>缺少文章编号</h1><p class="article-deck">请从今日列表选择一篇文章阅读。</p>'
-    body.innerHTML = '<strong>无法定位文章</strong><span>返回今日页重新选择。</span>'
+    body.innerHTML = `<strong>无法定位文章</strong><span>${escapeHtml(backFallback)}</span>`
     return
   }
 

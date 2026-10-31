@@ -7,10 +7,12 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;')
 }
 
+// Colours stay inherited so light/dark themes control contrast; only the
+// translucent tint layers are baked in, because rich-text cannot read CSS vars.
 function inlineMarkdown(value = '') {
   return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code style="padding:2px 6px;border-radius:4px;background:#E8EEF2;color:#1F5F7A;font-size:0.92em;">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:900;color:#14212B;">$1</strong>')
+    .replace(/`([^`]+)`/g, '<code style="padding:2px 6px;border-radius:4px;background:rgba(31,95,122,.10);color:inherit;font-size:0.92em;">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:900;color:inherit;">$1</strong>')
 }
 
 function flushList(html, listItems, ordered) {
@@ -36,7 +38,7 @@ export function markdownToHtml(markdown = '') {
   function flushCodeBlock() {
     if (!codeLines.length) return
     html.push(
-      `<pre style="box-sizing:border-box;margin:10px 0;padding:12px;border-radius:8px;background:#172331;color:#F4F7FA;white-space:pre-wrap;line-height:1.55;font-size:13px;"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`
+      `<pre style="box-sizing:border-box;margin:10px 0;padding:12px;border-radius:8px;background:rgba(31,95,122,.10);color:inherit;white-space:pre-wrap;line-height:1.55;font-size:0.87em;"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`
     )
     codeLines = []
   }
@@ -70,9 +72,9 @@ export function markdownToHtml(markdown = '') {
     if (headingMatch) {
       flushList(html, listItems, listOrdered)
       const level = headingMatch[1].length
-      const size = level === 1 ? 20 : level === 2 ? 18 : 16
+      const size = level === 1 ? '1.25em' : level === 2 ? '1.125em' : '1em'
       html.push(
-        `<div style="margin:${level === 1 ? 14 : 12}px 0 8px;color:#14212B;font-weight:900;font-size:${size}px;line-height:1.35;">${inlineMarkdown(headingMatch[2])}</div>`
+        `<div style="margin:${level === 1 ? 14 : 12}px 0 8px;color:inherit;font-weight:900;font-size:${size};line-height:1.35;">${inlineMarkdown(headingMatch[2])}</div>`
       )
       return
     }
@@ -81,7 +83,7 @@ export function markdownToHtml(markdown = '') {
     if (quoteMatch) {
       flushList(html, listItems, listOrdered)
       html.push(
-        `<blockquote style="box-sizing:border-box;margin:8px 0;padding:8px 12px;border-left:3px solid #1F5F7A;background:#E6F0F4;color:#2D3D47;line-height:1.65;">${inlineMarkdown(quoteMatch[1])}</blockquote>`
+        `<blockquote style="box-sizing:border-box;margin:8px 0;padding:8px 12px;border-left:3px solid rgba(31,95,122,.45);background:rgba(31,95,122,.10);color:inherit;line-height:1.65;">${inlineMarkdown(quoteMatch[1])}</blockquote>`
       )
       return
     }

@@ -9,17 +9,10 @@ export const CHARTS = [
 ]
 export function reportModel(report) {
   const s = report.summary || {}
-  const sections = [
-    { title: `这一周，看过的文章 · ${s.articles || 0} 篇`, empty: '这一周还没有文章阅读记录。', items: (report.articles || []).map(i => ({ kind: 'article', source: i, title: i.title, meta: `${i.topic || '其他'} · ${(i.dates || []).join('、')} · ${i.seconds > 0 ? `已记录停留 ${minutes(i.seconds)} 分钟` : '未采集阅读时长'}` })) },
-    ...['ask', 'ajin'].map(channel => ({ title: `${channel === 'ask' ? 'AI 问问' : '阿烬提问'} · ${s[channel] || 0} 次`, empty: '这一周还没有提问记录。', items: (report.questions || []).filter(q => q.channel === channel).map(q => ({ title: q.question, meta: String(q.created_at || '').slice(0, 16).replace('T', ' ') })) })),
-    { title: `这一周，读过的名著 · ${s.books || 0} 本`, empty: '还没有累计停留满 30 秒的名著章节。', items: (report.classics || []).map(i => ({ kind: 'classic', source: i, title: `${i.book_title} · ${i.title}`, meta: `${(i.dates || []).join('、')} · 章内最近进度 ${i.scroll_progress || 0}% · 有效停留 ${minutes(i.seconds)} 分钟` })) }
-  ]
-  if ((report.legacy || []).length) sections.push({ title: '名著历史位置', intro: '仅保留最近阅读位置，无法确认有效停留，不计入上方名著阅读统计。', items: report.legacy.map(i => ({ kind: 'classic', source: i, title: `${i.book_title ? i.book_title + ' · ' : ''}${i.title}`, meta: `${String(i.date || '').slice(0, 16).replace('T', ' ')} · 章内进度 ${i.scroll_progress || 0}%` })) })
   return {
     title: `${report.user?.nickname || '我'}的见闻周报`, period: `${report.week_start} — ${report.week_end}`,
     badge: report.is_current ? '本周 · 持续更新中' : '个人历史周报', active: `这一周，你有 ${s.active_days || 0} 天留下阅读或提问记录。`,
-    stats: [['文章阅读', `${s.articles || 0} 篇`], ['名著阅读', `${s.chapters || 0} 章 / ${s.books || 0} 本`], ['AI 问问', `${s.ask || 0} 次`], ['阿烬提问', `${s.ajin || 0} 次`], ['有效停留', `${minutes(s.reading_seconds)} 分钟`]], sections,
-    notes: ['仅记录当前登录账号的个人活动。北京时间周一至周日。', '文章按已有浏览／已读记录计数，同一天同一篇只计一次，本周按文章去重；名著章节需累计有效停留满 30 秒。每日数量之和可能与周去重数量不同。', '隐藏、离开页面或连续 60 秒无操作时暂停计时，重叠时间只计一次。', `${report.tracking_since ? `当前账号最早留存的有效停留记录：${report.tracking_since}。` : '当前账号尚无有效停留记录。'}历史文章计入篇数，不补算未采集的阅读时长。周报随记录清除而更新。`]
+    stats: [['文章阅读', `${s.articles || 0} 篇`], ['名著阅读', `${s.chapters || 0} 章 / ${s.books || 0} 本`], ['AI 问问', `${s.ask || 0} 次`], ['阿烬提问', `${s.ajin || 0} 次`], ['有效停留', `${minutes(s.reading_seconds)} 分钟`]]
   }
 }
 // Conservatively reserve one full em for non-ASCII glyphs, avoiding canvas text clipping.
@@ -105,16 +98,6 @@ export function exportScene(data, width = 720) {
     chartOps.forEach(op => ops.push({ ...op, x: op.x == null ? op.x : op.x + margin, y: op.y == null ? op.y : op.y + y, points: op.points?.map(([x, py]) => [x + margin, py + y]) }))
     y += height + 12; paragraph(chart.caption, 17, '#657779')
   })
-  paragraph('每日图表数据', 25)
-  ;(data.days || []).forEach(d => paragraph(`${d.date}：文章 ${d.articles} · 章节 ${d.chapters} · 问问 ${d.ask} · 阿烬 ${d.ajin} · 停留 ${minutes(d.reading_seconds)} 分钟`, 18))
-  paragraph((data.topics || []).map(t => `${t.name} ${t.count} 篇`).join(' · '), 18)
-  model.sections.forEach(section => {
-    y += 22; paragraph(section.title, 25)
-    if (section.intro) paragraph(section.intro, 18, '#657779')
-    if (!section.items.length) paragraph(section.empty, 18, '#657779')
-    section.items.forEach(item => { paragraph(item.title, 21); paragraph(item.meta, 17, '#657779'); y += 10 })
-  })
-  y += 24; model.notes.forEach(note => paragraph(note, 17, '#657779'))
   const height = Math.ceil(y + 30)
   if (height > 30000 || width * height > 16000000) throw new Error('本周明细超出当前设备的单张长图容量，请使用内存更充足的设备重试。')
   return { width, height, ops }

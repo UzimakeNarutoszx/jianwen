@@ -53,7 +53,9 @@ export function createReadingCollector({ now = Date.now, identity, read, write, 
           syncIdentity()
           if (session.token !== expected.token || session.owner !== expected.owner) break
           if (error.status === 404 || error.status === 422) { queue.shift(); persist(); continue }
-          if (error.status === 401) { blockedToken = expected.token; segment = null }
+          // Session clearing and the login redirect are centralised in utils/api.js
+          // (handleUnauthorized); here we only stop collecting under the dead token.
+          if (Number(error.status) === 401) { blockedToken = expected.token; segment = null }
           break
         }
         syncIdentity()
