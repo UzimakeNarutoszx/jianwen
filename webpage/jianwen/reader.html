@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="见闻原典阅读室。按章阅读经典，保存阅读位置，让思想慢慢沉淀。">
+  <title>原典阅读室 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20261031-1">
+  <link rel="stylesheet" href="../css/reader.css?v=20261031-1">
+
+<link rel="stylesheet" href="../css/editorial.css?v=20261031-1">
+<link rel="icon" href="../assets/agents.png?v=agents-1" type="image/png">
+</head>
+<body class="reader-page" data-page="jianwen-reader">
+  <header data-site-header></header>
+  <main class="page-shell reader-shell">
+    <div class="reader-topline"><a class="text-link" href="discover.html?v=20261031-1#classics">← 返回原典书架</a><span>留一点时间，与原典对话</span></div>
+    <section class="reader-intro"><div><p class="eyebrow">JIANWEN / READING ROOM</p><h1 id="book-title">原典阅读室</h1><p id="book-meta">正在打开书籍…</p></div><a id="book-source" class="text-link" target="_blank" rel="noopener noreferrer" hidden>查看原始出处 ↗</a></section>
+    <div class="reader-toolbar" aria-label="阅读设置">
+      <a class="text-link" href="#site-navigation">全站导航 ↑</a><button id="toc-toggle" type="button" aria-expanded="true" aria-controls="reader-sidebar">收起目录</button>
+      <div class="reader-font-controls"><button id="font-smaller" type="button" aria-label="缩小正文字号">A−</button><output id="font-value">20 px</output><button id="font-larger" type="button" aria-label="放大正文字号">A＋</button></div>
+      <button id="focus-toggle" type="button" aria-pressed="false">专注阅读</button><span id="save-state" role="status">阅读位置保存在此设备</span>
+    </div>
+    <div class="reader-layout">
+      <aside id="reader-sidebar" class="reader-sidebar"><div class="reader-toc-heading"><h2>章节目录</h2><span id="chapter-count"></span></div><label class="reader-search">查找章节<input id="chapter-search" type="search" placeholder="输入章节名" autocomplete="off"></label><nav id="chapter-list" aria-label="章节目录"><p class="reader-hint">正在加载目录…</p></nav></aside>
+      <section class="reader-paper" aria-label="正文">
+        <div class="reader-chapter-meta"><span id="chapter-number">原典阅读</span><span id="chapter-progress"></span></div>
+        <h2 id="chapter-title" tabindex="-1">正在加载…</h2>
+        <div id="reader-content" class="reader-content" aria-busy="true"><p class="reader-hint" role="status">正在加载书籍与章节。</p></div>
+        <div class="reader-bottom"><button id="previous-chapter" type="button" disabled>← 上一章</button><a href="#chapter-title">回到章首 ↑</a><button id="next-chapter" type="button" disabled>下一章 →</button></div>
+      </section>
+    </div>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20261031-1"></script>
+  <script src="../js/api-browser.js?v=20261031-1"></script>
+  <script src="../js/reading-activity.js?v=20261031-1"></script>
+  <script src="../js/reader.js?v=20261031-1"></script>
+</body>
+</html>

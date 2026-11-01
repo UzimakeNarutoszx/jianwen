@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 问问 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20261031-1">
+  <link rel="stylesheet" href="../css/pages/jianwen-ask.css?v=20261031-2">
+
+  <link rel="stylesheet" href="../css/ask.css?v=20261024-2">
+<link rel="stylesheet" href="../css/editorial.css?v=20261024-2">
+<link rel="icon" href="../assets/agents.png?v=agents-1" type="image/png">
+</head>
+<body data-page="jianwen-ask">
+  <header data-site-header></header>
+  <main class="page-shell ask-page">
+    <section class="ask-hero">
+      <div>
+        <p class="eyebrow">JIANWEN / POLICY RESEARCH ASSISTANT</p>
+        <h1>把问题问深，<br>把判断落稳。</h1>
+        <p>围绕政策、文章和正在发生的事继续追问。回答仅供学习与研究参考，请结合原文和可靠来源判断。</p>
+        <p id="ai-quota" class="ai-quota" role="status" aria-live="polite">今日剩余额度：加载中</p>
+      </div>
+      <aside class="ask-status-card" aria-label="AI 服务状态">
+        <span class="status-dot" aria-hidden="true"></span>
+        <div><strong>见闻研究助理</strong><small id="context-state">可直接开始提问</small></div>
+      </aside>
+    </section>
+
+    <section class="ask-workspace" aria-labelledby="ask-title">
+      <div class="ask-prompts">
+        <p class="eyebrow" id="ask-title">从这里开始</p>
+        <h2>试着这样问</h2>
+        <div class="prompt-grid">
+          <button type="button" class="prompt-chip" data-question="这件事和我的生活有什么关系？">这件事和我的生活有什么关系？</button>
+          <button type="button" class="prompt-chip" data-question="请用三点解释它的背景与影响。">请用三点解释它的背景与影响。</button>
+          <button type="button" class="prompt-chip" data-question="我还应该核对哪些来源？">我还应该核对哪些来源？</button>
+        </div>
+      </div>
+      <section id="ask-output" class="ask-answer" aria-label="AI 回答">
+        <div class="answer-placeholder"><span class="icon" aria-hidden="true">✦</span><strong>等待你的问题</strong><p>选择一个推荐问题，或在下方输入自己的问题。</p></div>
+      </section>
+      <p id="ask-live" class="visually-hidden" role="status" aria-live="polite"></p>
+    </section>
+
+    <form id="ask-form" class="ask-dock" novalidate>
+      <span id="ai-quota-dock" class="ai-quota-dock" role="status" aria-live="polite">今日剩余额度：加载中</span>
+      <input id="ask-input" aria-label="你的问题" required maxlength="4000" autocomplete="off" placeholder="例如：这件事和我有什么关系？">
+      <button id="ask-stop" class="ask-stop" type="button" hidden>停止生成</button>
+      <button id="ask-submit" class="button button-primary" type="submit">开始提问 <span class="icon" aria-hidden="true">→</span></button>
+    </form>
+    <div id="answer-actions" class="answer-actions" hidden><button id="ask-retry" type="button" hidden>重新尝试</button><button id="answer-copy-button" type="button" disabled>复制回答</button></div>
+    <p id="ask-status" class="ask-feedback" role="status" aria-live="polite">每次提问独立生成回答；从文章进入时会带入该文章的上下文。</p>
+    <p class="ask-note">提交问题即表示你理解：AI 回答可能不完整，应以原始资料和权威渠道为准。</p>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20261031-1"></script>
+  <script src="../js/api-browser.js?v=20261031-2"></script>
+  <script src="../js/ask.js?v=20261031-2"></script>
+</body>
+</html>

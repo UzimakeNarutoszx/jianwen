@@ -1,0 +1,39 @@
+/* 最近更新：整行带配图的卡片网格，列数按容器宽度自适应（不再用视口媒体查询硬切列数）。 */
+/* 「专题简报」现在独占 .discover-columns（最近更新已移出），让它占满整行。 */
+.discover-columns{grid-template-columns:minmax(0,1fr)}
+/* .discover-layout 自身 gap 为 56px，这里不再额外加外边距。 */
+.update-section{min-width:0}
+/* 搜索结果整卡现在是一个 <a>，保持块级以免 <p>/<h3> 撑不开点击区。 */
+.search-result-link{display:block;color:inherit}
+.update-groups{display:grid;gap:40px}
+.update-group{min-width:0}
+.update-group-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 16px}
+.update-group-heading h3{margin:0;color:var(--blue-dark);font-size:15px;font-weight:600;letter-spacing:.02em}
+.update-group-count{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.update-date{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+/* 列数按容器宽度自适应（整行约 3–4 列，手机 1 列），不再用视口媒体查询硬切。 */
+.update-groups .update-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px}
+.update-groups .update-list>p{grid-column:1/-1;margin:0;color:var(--muted);font-size:13px}
+.update-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .24s ease}
+.update-fold.is-open{grid-template-rows:1fr}
+.update-fold-inner{min-height:0;overflow:hidden}
+/* 折叠区内的网格与主网格保持同样的 24px 间距，展开后两段之间也是 24px。 */
+.update-fold-inner>.update-list{padding-top:24px}
+.update-toggle{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:11px 16px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--blue-dark);font-size:13px;font-weight:600;transition:background-color .14s,border-color .14s,color .14s}
+.update-toggle:hover{border-color:var(--blue);background:var(--mist);color:var(--blue-dark)}
+.update-toggle-extra{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+
+/* 卡片：内边距 16px；图与文字间距 12px；分类日期 / 标题 / 摘要之间 6px。层级用明度微差，不用黑边。
+   选择器加 .update-groups 前缀是为了压过后加载的 editorial.css（它有 .update-card 与 :hover 覆写）。 */
+.update-groups .update-list .update-card{position:relative;display:flex;flex-direction:column;gap:12px;height:100%;min-width:0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface-card);box-shadow:0 12px 28px rgba(31,47,58,.06);transition:transform .16s,box-shadow .16s,border-color .16s}
+.update-groups .update-card .update-cover{display:block;flex:0 0 auto;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:var(--mist)}
+.update-groups .update-card .update-body{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:6px}
+.update-groups .update-card .update-meta{display:flex;align-items:center;justify-content:flex-start;gap:6px;color:var(--blue);font-size:10px;font-weight:800;letter-spacing:.04em}
+.update-groups .update-card .update-meta span+span:before{content:'·';margin-right:6px;color:var(--muted)}
+.update-groups .update-card .update-title{display:-webkit-box;overflow:hidden;font-size:15px;font-weight:600;line-height:1.45;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.update-groups .update-card .update-desc{display:-webkit-box;overflow:hidden;color:var(--muted);font-size:12px;line-height:1.55;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.update-groups .update-list .update-card:focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:box-shadow .14s}
+@media(hover:hover){.update-groups .update-list .update-card:hover{transform:translateY(-2px);border-color:rgba(31,95,122,.18);box-shadow:0 20px 40px rgba(31,47,58,.12)}}
+/* 暗底字重按 60% 收：600→360、800→480。 */
+@media(prefers-color-scheme:dark){.update-groups .update-card .update-title{font-weight:360}.update-groups .update-card .update-meta{font-weight:480}}
+@media(prefers-reduced-motion:reduce){.update-fold{transition:none}.update-groups .update-list .update-card{transition:none}.update-groups .update-list .update-card:hover{transform:none}}

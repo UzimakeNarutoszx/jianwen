@@ -1,0 +1,16 @@
+.hero-meta{display:flex;align-items:center;gap:10px;margin-top:28px;color:var(--muted);font-size:13px}
+
+/* Sections moved from the retired about/links pages. Keep their layout local to the single homepage. */
+.identity-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:24px}
+.identity-primary{padding:36px;border-radius:var(--radius);background:var(--blue-dark);color:#fff}
+.identity-primary .eyebrow{color:#b5d0c1}.identity-primary h3{font-size:52px;font-weight:500;margin:38px 0 20px}
+.identity-primary p{color:#d9e8df;max-width:360px;line-height:1.9}
+.identity-directions{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.identity-directions article{padding:24px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+.identity-directions span{font-size:10px;color:var(--blue);letter-spacing:.1em}.identity-directions h3{font-weight:500;font-size:25px;margin:16px 0 8px}.identity-directions p{font-size:13px;color:var(--muted);margin:0}
+.about-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;margin-top:24px}.about-main,.info-list{padding:30px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}
+.about-main h3{margin:0;font-size:29px}.info-list{display:flex;flex-direction:column;gap:20px}.info-list div{display:flex;flex-direction:column;gap:4px}.info-list span{color:var(--muted);font-size:12px}.info-list strong{font-size:16px}
+.about-extra{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}.about-extra article{padding:23px;border:1px solid var(--line);border-radius:18px;background:#fff}.about-extra h3{margin:8px 0 5px;font-size:19px}.about-extra p{margin:0;color:var(--muted);font-size:14px}
+.about-note{margin-top:18px;padding:25px;border-left:3px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;background:var(--mist)}.about-note h3{margin:0 0 8px;font-size:23px}.about-note p{margin:0;color:var(--muted)}
+.links-note{margin:0 0 18px;color:var(--muted);font-size:13px}.link-groups{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.link-group{padding:23px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}.link-list{display:grid;gap:5px}.link-item{display:grid;grid-template-columns:24px 1fr 20px;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--line)}.link-item p{margin:2px 0 0;color:var(--muted);font-size:13px}.group-heading{margin-bottom:14px}.group-heading h3{margin:0;font-size:20px}
+@media(max-width:760px){.identity-grid,.about-grid{grid-template-columns:1fr}.identity-primary{padding:28px}.identity-primary h3{margin:20px 0}.identity-directions{gap:12px}.identity-directions article{padding:20px}.about-extra,.link-groups{grid-template-columns:1fr}}

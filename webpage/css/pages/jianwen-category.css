@@ -1,0 +1,20 @@
+/* 文章卡：带配图的网格，列数按容器宽度自适应（minmax 280px，间距 24px）。 */
+.category-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px}
+.category-list .empty-state{grid-column:1/-1}
+/* 卡片内边距 16px，图与文字间距 12px；分类/标题/摘要之间 6px。 */
+.category-card{position:relative;display:flex;height:100%;min-width:0;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface-card);box-shadow:0 12px 28px rgba(31,47,58,.06);transition:transform .16s,box-shadow .16s,border-color .16s}
+.category-list .category-card:hover{border-color:rgba(31,95,122,.18);box-shadow:0 20px 40px rgba(31,47,58,.12)}
+.category-card-link{display:flex;flex:1 1 auto;flex-direction:column;gap:12px;min-width:0;padding:0}
+.category-card .category-cover{display:block;flex:0 0 auto;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:var(--mist)}
+.category-card .category-card-body{display:flex;flex:1 1 auto;flex-direction:column;gap:6px;min-width:0}
+.category-card-link .eyebrow{margin:0}
+.category-card-link h2{display:-webkit-box;overflow:hidden;margin:0;font-size:19px;line-height:1.4;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.category-card-link p:not(.eyebrow){display:-webkit-box;overflow:hidden;margin:0;color:var(--muted);font-size:13px;line-height:1.7;text-wrap:pretty;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.category-card-meta{margin-top:auto;padding-top:10px;overflow:hidden;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.category-page :is(input,textarea,select,[contenteditable="true"]):focus-visible{border-color:transparent}
+.category-empty-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 18px}
+@media(hover:hover){.category-list .category-card:hover{transform:translateY(-2px)}}
+/* 暗底字重按 60% 收：600→360。 */
+@media(prefers-color-scheme:dark){.category-card-link h2{font-weight:360}}
+@media(max-width:620px){.category-nav{background:rgba(255,255,255,.5)}.category-nav-status{max-width:40vw}.category-heading{padding:28px 0 22px}.category-heading h1{font-size:36px}.category-card-link h2{font-size:18px}}
+@media(prefers-reduced-motion:reduce){.category-list .category-card{transition:none}.category-list .category-card:hover{transform:none}}

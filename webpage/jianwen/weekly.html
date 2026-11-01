@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>我的周报 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20261031-1">
+  <link rel="stylesheet" href="../css/pages/jianwen-weekly.css?v=20261031-1">
+  <link rel="stylesheet" href="../css/editorial.css?v=20261031-1">
+  <link rel="icon" href="../assets/agents.png?v=agents-1" type="image/png">
+</head>
+<body data-page="jianwen-weekly">
+  <header data-site-header></header>
+  <main class="page-shell weekly-page">
+    <div class="weekly-heading"><div><h1>我的周报</h1><p>把这一周的阅读与追问，留在一起。</p></div><button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button></div>
+    <nav class="weekly-controls" aria-label="选择周报日期">
+      <button id="previous-week" class="button button-secondary" type="button">上一周</button>
+      <label>选择一周 <input id="week-date" type="date" min="2000-01-03"></label>
+      <button id="next-week" class="button button-secondary" type="button" disabled>下一周</button>
+      <button id="current-week" class="button button-secondary" type="button">回到本周</button>
+      <span>北京时间 · 周一至周日</span>
+    </nav>
+    <p id="weekly-status" role="status" aria-live="polite">正在整理你的周报…</p>
+    <div id="weekly-report" aria-busy="true"></div>
+    <div id="export-preview"></div>
+  </main>
+  <footer data-site-footer></footer>
+  <script src="../js/site.js?v=20261031-1"></script>
+  <script src="../js/api-browser.js?v=20261031-1"></script>
+  <!-- 图表库与长图导出库体积较大，由 weekly.js 在需要时动态加载。 -->
+  <script src="../js/weekly.js?v=20261031-2"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{
+    "name" : "见闻",
+    "appid" : "__UNI__8D7394F",
+    "description" : "",
+    "versionName" : "1.0.1",
+    "versionCode" : "101",
+    "transformPx" : false,
+    /* 5+App特有相关 */
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        /* 模块配置 */
+        "modules" : {
+            "VideoPlayer" : {},
+            "Camera" : {},
+            "Gallery" : {}
+        },
+        /* 应用发布信息 */
+        "distribute" : {
+            "icons" : {
+                "android" : {
+                    "mdpi" : "static/app-icons/icon-48.png",
+                    "hdpi" : "static/app-icons/icon-72.png",
+                    "xhdpi" : "static/app-icons/icon-96.png",
+                    "xxhdpi" : "static/app-icons/icon-144.png",
+                    "xxxhdpi" : "static/app-icons/icon-192.png"
+                },
+                "ios" : {
+                    "appstore" : "static/app-icons/icon-1024.png",
+                    "ipad" : "static/app-icons/icon-76.png",
+                    "ipad@2x" : "static/app-icons/icon-152.png",
+                    "iphone@2x" : "static/app-icons/icon-120.png",
+                    "iphone@3x" : "static/app-icons/icon-180.png"
+                }
+            },
+            /* android打包配置 */
+            "android" : {
+                "packagename" : "com.jianwen.app",
+                "minSdkVersion" : 23,
+                "permissionPhoneState" : {
+                    "request" : "none"
+                },
+                "permissionExternalStorage" : {
+                    "request" : "none"
+                },
+                "excludePermissions" : [
+                    "<uses-permission android:name=\"android.permission.INSTALL_PACKAGES\"/>",
+                    "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>",
+                    "<uses-permission android:name=\"com.asus.msa.SupplementaryDID.ACCESS\"/>",
+                    "<uses-permission android:name=\"com.huawei.android.launcher.permission.CHANGE_BADGE\"/>",
+                    "<uses-permission android:name=\"com.vivo.notification.permission.BADGE_ICON\"/>",
+                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_LOGS\"/>",
+                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>"
+                ],
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+                    "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>"
+                ]
+            },
+            /* ios打包配置 */
+            "ios" : {
+                "dSYMs" : false
+            },
+            /* SDK配置 */
+            "sdkConfigs" : {}
+        }
+    },
+    /* 快应用特有相关 */
+    "quickapp" : {},
+    /* 小程序特有相关 */
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        },
+        "usingComponents" : true
+    },
+    "mp-alipay" : {
+        "usingComponents" : true
+    },
+    "mp-baidu" : {
+        "usingComponents" : true
+    },
+    "mp-toutiao" : {
+        "usingComponents" : true
+    },
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "vueVersion" : "3"
+}
