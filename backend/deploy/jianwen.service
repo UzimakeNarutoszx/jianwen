@@ -1,0 +1,25 @@
+[Unit]
+Description=Jianwen FastAPI backend
+After=network-online.target mysql.service
+Wants=network-online.target
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=jianwen
+Group=jianwen
+WorkingDirectory=/opt/jianwen/backend
+Environment=TZ=Asia/Shanghai
+ExecStart=/opt/jianwen/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/jianwen/backend/uploads
+
+[Install]
+WantedBy=multi-user.target

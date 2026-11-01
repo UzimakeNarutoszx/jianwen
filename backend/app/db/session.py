@@ -36,7 +36,8 @@ def init_database() -> None:
     ensure_user_token_version_column()
     ensure_classic_chapter_columns()
     with SessionLocal() as db:
-        seed_content(db)
+        if settings.SEED_CONTENT_ON_STARTUP:
+            seed_content(db)
         ensure_category_image_extensions(db)
         ensure_article_categories_aligned(db)
 

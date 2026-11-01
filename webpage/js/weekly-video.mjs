@@ -1,4 +1,4 @@
-import { selectEpisodes, mediaUrl, timestamp } from './weekly-video-model.mjs'
+import { selectEpisodes, mediaUrl, timestamp } from './weekly-video-model.mjs?v=20261101-media2'
 
 const feature = document.querySelector('#episode')
 const archive = document.querySelector('#archive-list')

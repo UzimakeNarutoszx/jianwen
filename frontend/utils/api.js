@@ -116,7 +116,7 @@ function fromContentArticle(record = {}) {
     source: record.source || record.sources || '',
     sources: record.sources || record.source || '',
     readTime: record.read_time || record.readTime || '',
-    image: record.image || '',
+    image: buildFileUrl(record.image || ''),
     publishedDate: record.published_date || record.publishedDate || '',
     relation: record.relation || '',
     viewed: !!record.viewed,
@@ -130,7 +130,7 @@ function fromContentCategory(record = {}) {
   return {
     id: record.id,
     name: record.name || '',
-    image: record.image || '',
+    image: buildFileUrl(record.image || ''),
     isPriority: !!record.is_priority,
     sortOrder: record.sort_order || 0
   }
@@ -142,7 +142,7 @@ function fromContentFeature(record = {}) {
     title: record.title || '',
     desc: record.desc || '',
     tags: record.tags || '',
-    image: record.image || '',
+    image: buildFileUrl(record.image || ''),
     count: record.count || 0,
     categoryName: record.category_name || ''
   }
@@ -169,7 +169,7 @@ function fromClassicBook(record = {}) {
     author: record.author || '',
     category: record.category || '',
     description: record.description || '',
-    coverImage: record.cover_image || '',
+    coverImage: buildFileUrl(record.cover_image || ''),
     sourceOrg: record.source_org || '',
     externalUrl: record.external_url || '',
     isFeatured: !!record.is_featured,

@@ -640,6 +640,9 @@ def refresh_breaking_news(
             if end_date is not None and row.end_date != end_date:
                 row.end_date = end_date
             row.status = meeting_status(row.start_date, row.end_date, current)
+        # Production sessions disable autoflush; make this item visible to the
+        # next source record while keeping the whole refresh transactional.
+        db.flush()
         touched += 1
     db.commit()
     if touched:

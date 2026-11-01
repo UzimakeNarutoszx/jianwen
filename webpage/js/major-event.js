@@ -10,11 +10,10 @@
       return ok ? url.href : ''
     } catch { return '' }
   }
-  // 网页端图片用本地 PNG 副本，和首页其他卡片的 imageUrl 规则一致。
+  // 与文章列表共用后端压缩封面。
   function imageUrl(value) {
-    const name = String(value || '/static/images/共产党.jpg').split('/').pop().replace(/\.jpg$/i, '.png')
-    const root = document.body && document.body.dataset.page === 'jianwen-index' ? '../' : ''
-    return root + 'asset/images/' + encodeURIComponent(name)
+    const name = String(value || '/static/images/共产党.jpg').split('/').pop()
+    return window.jianwenApi.baseUrl() + '/static/images/' + encodeURIComponent(name)
   }
   function dateRange(item) {
     if (item.start_date && item.end_date && item.start_date !== item.end_date) return `${item.start_date} 至 ${item.end_date}`

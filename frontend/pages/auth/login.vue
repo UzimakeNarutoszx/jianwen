@@ -425,6 +425,10 @@ export default {
 }
 
 .mode-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   min-height: 72rpx;
   border-radius: 18rpx;
   color: #5C6873;

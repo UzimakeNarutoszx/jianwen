@@ -3,9 +3,35 @@
 import http.client
 import unittest
 import urllib.error
+from dataclasses import replace
 from unittest.mock import patch
 
 from app.services import classic_fulltext, seed_content
+
+
+class MigratedDatabaseStartupTests(unittest.TestCase):
+    def test_startup_preserves_migrated_prompts_when_seeding_is_disabled(self) -> None:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.db import session as database
+        from app.models import AiPrompt
+
+        engine = create_engine("sqlite+pysqlite:///:memory:")
+        self.addCleanup(engine.dispose)
+        database.Base.metadata.create_all(engine)
+        sessions = sessionmaker(bind=engine)
+        with sessions() as db:
+            db.add(AiPrompt(prompt_type="welcome", text="迁移保留内容", sort_order=1))
+            db.commit()
+        with patch.object(database, "engine", engine), \
+             patch.object(database, "SessionLocal", sessions), \
+             patch.object(database, "settings", replace(database.settings, SEED_CONTENT_ON_STARTUP=False)), \
+             patch.object(database, "create_database_if_needed"), \
+             patch.object(database, "ensure_classic_chapter_columns"), \
+             patch.object(database, "seed_content", side_effect=AssertionError("must preserve imported content")):
+            database.init_database()
+        with sessions() as db:
+            self.assertEqual(db.query(AiPrompt).one().text, "迁移保留内容")
 
 
 class FetchFailureTests(unittest.TestCase):

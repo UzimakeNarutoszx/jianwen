@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Jianwen database
+After=mysql.service
+Requires=mysql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/jianwen-backup
+UMask=0077

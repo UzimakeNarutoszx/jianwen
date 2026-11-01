@@ -56,6 +56,9 @@ export default {
 }
 
 .composer-shell { position: fixed; left: 22rpx; right: 22rpx; bottom: calc(124rpx + env(safe-area-inset-bottom)); z-index: 5; }
+/* #ifdef APP-PLUS */
+.composer-shell { bottom: 12rpx; }
+/* #endif */
 .quota-label { display: block; margin: 0 18rpx 10rpx; color: #1f5f7a; font-size: 22rpx; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .composer-shell .composer { position: relative; left: auto; right: auto; bottom: auto; }
 .composer-shell.is-dark .quota-label { color: #9fc7d8; }

@@ -75,18 +75,12 @@ a.major-event-card:focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring
         return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]))
       }
 
-      const localImageNames = new Set('AI技术,党和国家,公共生活,共产党,就业,科技产业,绿色发展,社会民生,消费补贴,医保社保,政策解读,住房'.split(','))
-
       function imageUrl(value) {
         if (!value) return ''
         try {
           if (!String(value).startsWith('/static/images/')) return ''
           let filename = decodeURIComponent(String(value).split('/').pop() || '')
-          // The web bundle still ships PNG copies; API data now points at .jpg.
-          if (filename.endsWith('.jpg') && localImageNames.has(filename.slice(0, -4))) {
-            filename = `${filename.slice(0, -4)}.png`
-          }
-          return filename ? `../asset/images/${encodeURIComponent(filename)}` : ''
+          return filename ? `${jianwenApi.baseUrl()}/static/images/${encodeURIComponent(filename)}` : ''
         } catch { return '' }
       }
 

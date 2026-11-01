@@ -77,18 +77,13 @@
         list.setAttribute('aria-busy', 'false')
       }
 
-      const localImageNames = new Set('AI技术,党和国家,公共生活,共产党,就业,科技产业,绿色发展,社会民生,消费补贴,医保社保,政策解读,住房'.split(','))
-
-      // 与首页/发现页保持同一套本地图片映射：API 返回 /static/images/xxx.jpg，网页端只带了同名 png。
+      // 使用后端压缩封面，避免加载原始大图。
       function imageUrl(value) {
         if (!value) return ''
         try {
           if (!String(value).startsWith('/static/images/')) return ''
           let filename = decodeURIComponent(String(value).split('/').pop() || '')
-          if (filename.endsWith('.jpg') && localImageNames.has(filename.slice(0, -4))) {
-            filename = `${filename.slice(0, -4)}.png`
-          }
-          return filename ? `../asset/images/${encodeURIComponent(filename)}` : ''
+          return filename ? `${jianwenApi.baseUrl()}/static/images/${encodeURIComponent(filename)}` : ''
         } catch { return '' }
       }
 

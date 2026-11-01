@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- Temporary public server, until an HTTPS domain is available. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">8.147.110.194</domain>
+    </domain-config>
+</network-security-config>

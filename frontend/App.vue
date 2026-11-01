@@ -47,6 +47,12 @@ button::after {
     linear-gradient(180deg, #F8F5EC 0%, #EDF5F7 460rpx, #F5F7F4 100%);
 }
 
+/* #ifdef APP-PLUS */
+.page {
+  padding-top: calc(96rpx + var(--status-bar-height));
+}
+/* #endif */
+
 .index-page,
 .redirect-page,
 .discover-page,

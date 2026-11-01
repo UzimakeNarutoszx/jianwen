@@ -1,0 +1,10 @@
+# Preparation only. Not included in nginx. No certificate has been issued.
+# Include inside the future domain HTTPS server only after ICP approval,
+# certificate verification, and an explicit review of the latest live config.
+ssl_certificate /etc/nginx/tls/jianwen.xin/fullchain.pem;
+ssl_certificate_key /etc/nginx/tls/jianwen.xin/privkey.pem;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_session_cache shared:JianwenTLS:10m;
+ssl_session_timeout 1d;
+ssl_session_tickets off;
+# Do not enable HSTS until HTTPS and renewal have passed browser acceptance.

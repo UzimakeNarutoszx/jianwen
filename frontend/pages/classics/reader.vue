@@ -403,6 +403,21 @@ export default {
   min-height: 560rpx;
 }
 
+/* #ifdef APP-PLUS */
+.reader-page {
+  padding-top: calc(132rpx + var(--status-bar-height));
+}
+
+.reader-topbar {
+  height: calc(116rpx + var(--status-bar-height));
+  padding-top: calc(28rpx + var(--status-bar-height));
+}
+
+.book-swiper {
+  height: calc(100vh - 274rpx - var(--status-bar-height) - env(safe-area-inset-bottom));
+}
+/* #endif */
+
 .book-shell {
   display: flex;
   align-items: stretch;

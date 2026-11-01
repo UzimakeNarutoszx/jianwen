@@ -138,7 +138,10 @@ function settleStaleMessages(messages) {
   return (messages || []).map(item => {
     if (!item || item.role !== 'assistant') return item
     const pending = item.streaming || item.text === '正在思考…'
-    if (!pending) return item
+    if (!pending) {
+      const elapsed = /^已思考 (\d+) 秒$/.exec(item.thinkingLabel || '')
+      return elapsed && Number(elapsed[1]) > 86400 ? { ...item, thinkingLabel: '' } : item
+    }
     const text = item.text && item.text !== '正在思考…' ? item.text : '上次回答在生成中被中断，可以重新提问。'
     return { ...item, text, streaming: false, liveBlock: '', thinkingLabel: '已中断' }
   })
@@ -375,6 +378,7 @@ export default {
       this.clearTypeTimer()
       this.clearBottomScrollTimer()
       this.thinkingStartedAt = Date.now()
+      const requestStartedAt = this.thinkingStartedAt
       syncMessageId(this.messages)
       const pendingId = messageId++
       const userId = messageId++
@@ -426,7 +430,7 @@ export default {
           this.streamAbort = null
         }
         const displaySources = responseSources || (this.linkedArticle && this.linkedArticle.sources) || ''
-        const thinkingSeconds = Math.max(1, Math.round((Date.now() - this.thinkingStartedAt) / 1000))
+        const thinkingSeconds = Math.max(1, Math.round((Date.now() - requestStartedAt) / 1000))
         this.replaceAssistantMessage(pendingId, {
           text: answer,
           sources: displaySources,
@@ -462,7 +466,7 @@ export default {
         this.replaceAssistantMessage(pendingId, {
           text: error.message || '回答生成失败',
           sources: '',
-          thinkingLabel: `已思考 ${Math.max(1, Math.round((Date.now() - this.thinkingStartedAt) / 1000))} 秒`,
+          thinkingLabel: `已思考 ${Math.max(1, Math.round((Date.now() - requestStartedAt) / 1000))} 秒`,
           streaming: false,
           renderBlocks: '',
           liveBlock: ''
@@ -1023,6 +1027,28 @@ export default {
 .ask-scroll {
   padding: calc(92rpx + env(safe-area-inset-top)) 40rpx 96rpx;
 }
+
+/* #ifdef APP-PLUS */
+.ask-scroll {
+  padding-top: calc(92rpx + var(--status-bar-height));
+}
+
+.ask-page::before {
+  content: '';
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--status-bar-height);
+  background: #F5F7F4;
+  pointer-events: none;
+}
+
+.dark-mode.ask-page::before {
+  background: #101820;
+}
+/* #endif */
 
 .ask-topbar {
   min-height: 138rpx;

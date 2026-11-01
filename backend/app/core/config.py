@@ -66,6 +66,7 @@ class Settings:
     )
     # Only trust X-Forwarded-For when the app really runs behind a proxy.
     TRUST_PROXY: bool = _env_bool("TRUST_PROXY", False)
+    SEED_CONTENT_ON_STARTUP: bool = _env_bool("SEED_CONTENT_ON_STARTUP", True)
     UPLOAD_DIR: str = os.getenv(
         "UPLOAD_DIR",
         str(Path(__file__).resolve().parents[2] / "uploads"),

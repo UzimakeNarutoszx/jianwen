@@ -1,5 +1,7 @@
 (function () {
-  const DEFAULT_API_BASE_URL = `http://${window.location.hostname || '127.0.0.1'}:8000`
+  const DEFAULT_API_BASE_URL = window.location.protocol === 'https:' || (window.location.protocol === 'http:' && !window.location.port)
+    ? window.location.origin
+    : `http://${window.location.hostname || '127.0.0.1'}:8000`
   const TOKEN_KEY = 'jianwen_auth_token'
   const USER_KEY = 'jianwen_auth_user'
   const EXPIRES_KEY = 'jianwen_login_expires_at'

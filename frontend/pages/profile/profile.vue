@@ -490,6 +490,8 @@ export default {
 }
 
 .identity-main {
+  display: grid;
+  grid-template-columns: 116rpx minmax(0, 1fr);
   position: relative;
   z-index: 1;
   gap: 28rpx;
@@ -597,22 +599,25 @@ export default {
   font-weight: 800;
   word-break: keep-all;
   overflow-wrap: normal;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .sync-text {
   display: block;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: keep-all;
-  overflow-wrap: normal;
-  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
+  grid-column: 2;
+  justify-self: start;
   min-width: 112rpx;
   min-height: 66rpx;
   padding: 0 22rpx;

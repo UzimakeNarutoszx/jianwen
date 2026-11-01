@@ -235,6 +235,17 @@ class BehaviourTests(BreakingNewsTestCase):
             self.assertEqual(rows[0].title, "二十届五中全会在北京开幕")
             self.assertIsNone(rows[0].end_date)
 
+    def test_duplicate_records_in_one_refresh_without_autoflush(self) -> None:
+        with self.Session(autoflush=False) as db:
+            breaking_news.refresh_breaking_news(
+                db,
+                now=datetime(2026, 10, 30, 9),
+                records=[self._record(), self._record(end_date=date(2026, 10, 29))],
+            )
+            row = db.query(BreakingNews).one()
+            self.assertEqual(row.end_date, date(2026, 10, 29))
+            self.assertEqual(row.status, breaking_news.STATUS_CLOSED)
+
     def test_ongoing_to_closed_transition_updates_end_date(self) -> None:
         with self.Session() as db:
             breaking_news.refresh_breaking_news(db, now=datetime(2026, 10, 26, 12), records=[self._record()])
