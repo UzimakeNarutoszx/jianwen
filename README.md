@@ -2,7 +2,7 @@
 
 一个面向阅读、信息理解与公共议题学习的应用：把今日文章、可靠来源、AI 追问和个人阅读周报连接起来。
 
-[在线网站](https://ai4kid.cn/szx/) · [界面导览视频](docs/media/interface-tour.mp4) · [素材说明](docs/MEDIA.md)
+[在线网站](https://ai4kid.cn/szx/) · [Android 公开预览 APK](apk/jianwen-1.0.1-public-preview.apk) · [界面导览视频](docs/media/interface-tour.mp4) · [素材说明](docs/MEDIA.md)
 
 ![今日阅读界面](docs/media/today.png)
 
@@ -83,9 +83,16 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory webpage
 
 `AI_API_BASE_URL` 示例域名不可直接使用。未配置 AI 服务时，相关能力无法完整工作。本地验证码仅供开发，不应在公网启用。生产环境需要设置认证密钥、真实短信服务、严格跨域来源、HTTPS、上传限制和服务端日志策略。当前网页使用浏览器存储保存会话；部署时应评估 XSS 防护与会话设计。
 
-## Android 下载状态
+## Android 公开预览
 
-原始 1.0.1 APK 尚未纳入此公开版：包内携带非空签名配置字段，签名证书包含非通用身份字段，且签名校验报告存在失败。应先用脱敏源码、全新公开发布证书和自己的服务地址重新构建，再通过包内扫描、签名验证和真机验证。请勿从原始包直接补传 Release 附件。
+[下载见闻 1.0.1 公开预览 APK](https://github.com/UzimakeNarutoszx/jianwen-oss/releases/download/v1.0.1-public-preview/jianwen-1.0.1-public-preview.apk)（约 18.7 MiB）。这是对原始 Android 包进行脱敏、替换展示素材后，以全新通用证书重新签名的预览包；不是从本仓库执行原生完整编译产生的正式版。
+
+- 已移除包内构建签名配置、开发者字段、原渠道账号标识与原服务器地址；宣传片改为本仓库无声界面导览。
+- APK 对齐及签名验证通过，DEX、原生库和其余归档文件进行了字符串检查；未进行真机或模拟器安装验证。
+- 后端默认指向不可用的示例域名 `https://api.example.invalid`，因此在线内容、账号登录与 AI 请求默认不可用；此包用于检查客户端外观与打包产物。完整使用应按源码配置自己的服务并重新构建。
+- 包名仍为 `com.jianwen.app`，签名与原始版本不同；安装前可能需要卸载原版，卸载会清除本机应用数据，请先自行备份。原始包不包含在公开版中。
+
+SHA-256：`158e03e5c93dc0cc66311f0b76f8b2165b7e8e3c00ec15a7244919380bf83df9`。详见 [Android 预览说明](docs/ANDROID_PREVIEW.md)。
 
 ## 测试与截图复现
 
