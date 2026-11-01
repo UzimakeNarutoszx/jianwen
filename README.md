@@ -2,7 +2,7 @@
 
 一个面向阅读、信息理解与公共议题学习的应用：把今日文章、可靠来源、AI 追问和个人阅读周报连接起来。
 
-[在线网站](https://ai4kid.cn/szx/) · [Android 公开预览 APK](apk/jianwen-1.0.1-public-preview.apk) · [界面导览视频](docs/media/interface-tour.mp4) · [素材说明](docs/MEDIA.md)
+[在线网站](https://ai4kid.cn/szx/) · [Android 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk) · [界面导览视频](docs/media/interface-tour.mp4) · [素材说明](docs/MEDIA.md)
 
 ![今日阅读界面](docs/media/today.png)
 
