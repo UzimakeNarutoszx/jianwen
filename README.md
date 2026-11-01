@@ -85,7 +85,7 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory webpage
 
 ## Android 公开预览
 
-[下载见闻 1.0.1 公开预览 APK](https://github.com/UzimakeNarutoszx/jianwen-oss/releases/download/v1.0.1-public-preview/jianwen-1.0.1-public-preview.apk)（约 18.7 MiB）。这是对原始 Android 包进行脱敏、替换展示素材后，以全新通用证书重新签名的预览包；不是从本仓库执行原生完整编译产生的正式版。
+[下载见闻 1.0.1 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk)（约 18.7 MiB）。这是对原始 Android 包进行脱敏、替换展示素材后，以全新通用证书重新签名的预览包；不是从本仓库执行原生完整编译产生的正式版。
 
 - 已移除包内构建签名配置、开发者字段、原渠道账号标识与原服务器地址；宣传片改为本仓库无声界面导览。
 - APK 对齐及签名验证通过，DEX、原生库和其余归档文件进行了字符串检查；未进行真机或模拟器安装验证。

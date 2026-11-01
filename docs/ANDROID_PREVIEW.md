@@ -1,6 +1,6 @@
 # Android 公开预览包
 
-文件：[jianwen-1.0.1-public-preview.apk](https://github.com/UzimakeNarutoszx/jianwen-oss/releases/download/v1.0.1-public-preview/jianwen-1.0.1-public-preview.apk)，作为 GitHub Release 附件分发，不进入源码历史
+文件：[jianwen-1.0.1-public-preview.apk](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk)，作为 GitHub Release 附件分发，不进入源码历史
 
 这是原 Android 1.0.1 包经过脱敏重打包的独立公开预览产物。保留原有 uni-app / DCloud Android 运行时及客户端编译代码，没有声称通过本仓库源码完整重现原生构建。
 
