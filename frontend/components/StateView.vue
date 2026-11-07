@@ -9,8 +9,8 @@
       <text class="state-mark-symbol">{{ state === 'error' ? '!' : '·' }}</text>
     </view>
 
-    <!-- 传了 message 就当作主文案；没传时用各状态的默认标题。 -->
-    <text class="state-title">{{ message || DEFAULT_TITLE[state] }}</text>
+    <text class="state-title">{{ state === 'error' ? '内容暂时未能加载' : (message || DEFAULT_TITLE[state]) }}</text>
+    <text v-if="state === 'error'" class="state-description">{{ errorDescription }}</text>
 
     <button v-if="state === 'error'" class="state-retry" @click="$emit('retry')">
       <text class="state-retry-text">重新加载</text>
@@ -40,6 +40,14 @@ export default {
   emits: ['retry'],
   data() {
     return { DEFAULT_TITLE }
+  },
+  computed: {
+    errorDescription() {
+      const message = this.message || ''
+      return !message || /request:|fetch|network|https?:|failed|error/i.test(message)
+        ? '请检查网络连接，再试一次。'
+        : message
+    }
   }
 }
 </script>
@@ -50,12 +58,12 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18rpx;
-  padding: 64rpx 40rpx;
+  gap: 16rpx;
+  padding: 40rpx 32rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.86);
   border-radius: 28rpx;
   background: var(--jw-surface-card);
-  box-shadow: 0 18rpx 44rpx rgba(31, 47, 58, 0.07);
+  box-shadow: 0 8rpx 24rpx rgba(31, 47, 58, 0.04);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -114,13 +122,21 @@ export default {
   text-wrap: balance;
 }
 
+.state-description {
+  max-width: 100%;
+  color: var(--jw-muted);
+  font-size: 25rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .state-retry {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 88rpx;
+  min-height: 76rpx;
   margin: 8rpx 0 0;
-  padding: 0 40rpx;
+  padding: 0 32rpx;
   border-radius: 999rpx;
   background: rgba(40, 100, 94, 0.1);
   color: var(--jw-blue);

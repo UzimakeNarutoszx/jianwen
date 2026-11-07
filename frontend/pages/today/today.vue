@@ -157,6 +157,7 @@
             <image class="foot-arrow" src="/static/icons/icon-arrow-right.png" mode="aspectFit" />
           </view>
         </view>
+        <text v-if="item.updateLabel" class="article-update-date">{{ item.updateLabel }}</text>
       </view>
     </view>
 

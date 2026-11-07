@@ -67,6 +67,7 @@
           </view>
           <text class="article-title">{{ item.title }}</text>
           <text class="article-desc">{{ item.desc }}</text>
+          <text v-if="item.updateLabel" class="article-update-date">{{ item.updateLabel }}</text>
           <view class="article-foot">
             <text class="source-line">{{ item.source }}</text>
             <image class="foot-arrow" src="/static/icons/icon-arrow-right.png" mode="aspectFit" />
@@ -352,8 +353,9 @@ export default {
 
 .category-scroll {
   width: 100%;
-  margin: 0 -48rpx 44rpx;
-  padding: 0 48rpx;
+  margin: 0 0 44rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -369,6 +371,12 @@ export default {
 }
 
 .category-chip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1.4;
   min-height: 68rpx;
   padding: 0 30rpx;
   border: 0;

@@ -1,6 +1,6 @@
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname
-  ? `http://${window.location.hostname}:8000`
-  : 'http://127.0.0.1:8000')
+  ? window.location.origin
+  : 'http://8.147.110.194')
 const TODAY_FALLBACK_ARTICLE_LIMIT = 5
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
@@ -95,7 +95,7 @@ export function apiRequest({ url, method = 'GET', data = {}, token = '' }) {
         reject(error)
       },
       fail(error) {
-        reject(new Error(error.errMsg || '网络连接失败，请检查后端是否已启动'))
+        reject(new Error(/timeout/i.test(error.errMsg || '') ? '连接超时，请稍后重试' : '暂时无法连接，请检查网络后重试'))
       }
     })
   })
@@ -103,6 +103,18 @@ export function apiRequest({ url, method = 'GET', data = {}, token = '' }) {
 
 export function authRequest({ url, method = 'GET', data = {} }) {
   return apiRequest({ url, method, data, token: getAuthToken() })
+}
+
+export function articleUpdateLabel(value) {
+  if (!value) return ''
+  // API article timestamps are stored in Beijing local time without an offset.
+  // Read their calendar date directly so device timezones cannot shift the day.
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|T| )/.exec(String(value))
+  if (!match) return ''
+  const [, year, month, day] = match.map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return ''
+  return `${month}月${day}日更新`
 }
 
 function fromContentArticle(record = {}) {
@@ -118,6 +130,8 @@ function fromContentArticle(record = {}) {
     readTime: record.read_time || record.readTime || '',
     image: buildFileUrl(record.image || ''),
     publishedDate: record.published_date || record.publishedDate || '',
+    updatedAt: record.updated_at || record.updatedAt || '',
+    updateLabel: articleUpdateLabel(record.updated_at || record.updatedAt || record.published_date || record.publishedDate),
     relation: record.relation || '',
     viewed: !!record.viewed,
     summary: Array.isArray(record.summary) ? record.summary : [],

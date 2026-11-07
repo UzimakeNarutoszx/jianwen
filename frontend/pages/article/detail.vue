@@ -19,6 +19,7 @@
       <view class="article-info">
         <text class="meta">{{ article.readTime || '约 5 分钟' }} · AI辅助整理</text>
         <text class="source-line">{{ article.sources || '以权威来源为准' }}</text>
+        <text v-if="article.updateLabel" class="article-update-date">{{ article.updateLabel }}</text>
       </view>
     </view>
 

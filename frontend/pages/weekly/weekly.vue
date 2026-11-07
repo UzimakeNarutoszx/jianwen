@@ -11,7 +11,7 @@
 
     <view v-if="tab === 'video'" class="video-panel">
       <view v-if="catalogLoading" class="status card"><text>正在加载每周节目…</text></view>
-      <view v-else-if="catalogError" class="status card"><text>{{ catalogError }}</text><button class="secondary" @click="loadCatalog">重新加载</button></view>
+      <StateView v-else-if="catalogError" state="error" :message="catalogError" :dark-mode="darkMode" @retry="loadCatalog" />
       <template v-else-if="selection.selected">
         <view class="episode-meta"><text class="episode-label">{{ selection.label }}</text><text>第 {{ episode.number }} 期 · {{ episode.weekStart }} — {{ episode.weekEnd }}</text></view>
         <text v-if="selection.unknownId" class="notice">没有找到这期节目，已展示最近可用的节目。</text>
@@ -40,7 +40,7 @@
         <button v-if="selectedWeek !== currentWeek" class="back-current" @click="setWeek(currentWeek)">回到本周</button>
         <text class="week-note">北京时间 · 周一至周日</text>
         <view v-if="reportLoading" class="status card"><text>正在整理你的周报…</text></view>
-        <view v-else-if="reportError" class="status card"><text>{{ reportError }}</text><button class="secondary" @click="loadReport">重新加载</button></view>
+        <StateView v-else-if="reportError" state="error" :message="reportError" :dark-mode="darkMode" @retry="loadReport" />
         <template v-else-if="report"><text v-if="!report.summary.active_days" class="notice">这一周还没有使用记录，阅读或提问后会在这里显示。</text><WeeklyReport :key="identity + selectedWeek" :report="report" :identity="identity" :dark-mode="darkMode" :font-size="fontSize" /></template>
       </template>
     </view>
@@ -52,9 +52,10 @@ import { getWeeklyReport, getWeeklyCatalog, getAuthToken, buildPublicUrl, isUnau
 import { beijingWeekStart, shiftDate, weekForDate, selectEpisodes, timestamp, safePublicPath } from '@/utils/weekly-model.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import WeeklyReport from '@/components/WeeklyReport.vue'
+import StateView from '@/components/StateView.vue'
 
 export default {
-  components: { WeeklyReport },
+  components: { WeeklyReport, StateView },
   data() {
     return { tab: 'video', darkMode: false, fontSize: 'standard', visible: false,
       catalog: {}, catalogLoading: false, catalogError: '', selectedId: '', catalogVersion: 0,

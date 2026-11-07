@@ -2,8 +2,8 @@
     "name" : "见闻",
     "appid" : "__UNI__8D7394F",
     "description" : "",
-    "versionName" : "1.0.1",
-    "versionCode" : "101",
+    "versionName" : "1.0.2",
+    "versionCode" : "102",
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -52,7 +52,6 @@
                 },
                 "excludePermissions" : [
                     "<uses-permission android:name=\"android.permission.INSTALL_PACKAGES\"/>",
-                    "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>",
                     "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>",
                     "<uses-permission android:name=\"com.asus.msa.SupplementaryDID.ACCESS\"/>",
                     "<uses-permission android:name=\"com.huawei.android.launcher.permission.CHANGE_BADGE\"/>",
@@ -69,6 +68,7 @@
                 "permissions" : [
                     "<uses-permission android:name=\"android.permission.INTERNET\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
                     "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
                     "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>"

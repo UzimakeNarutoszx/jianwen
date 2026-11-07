@@ -121,7 +121,7 @@
           <text class="update-title">{{ item.title }}</text>
           <view class="update-foot">
             <text class="source-line">{{ item.source }}</text>
-            <text v-if="item.publishedDate" class="update-date">{{ item.publishedDate }}</text>
+            <text v-if="item.updateLabel" class="update-date">{{ item.updateLabel }}</text>
           </view>
         </view>
         <image class="update-thumb" :src="item.image" mode="aspectFill" lazy-load />

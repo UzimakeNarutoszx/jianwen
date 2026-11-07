@@ -1366,9 +1366,7 @@ export default {
 }
 
 .followup-card {
-  position: sticky;
-  bottom: calc(230rpx + env(safe-area-inset-bottom));
-  z-index: 3;
+  position: static;
   margin-top: 34rpx;
   padding: 22rpx 0 22rpx 24rpx;
   border: 1rpx solid rgba(255,255,255,0.82);
