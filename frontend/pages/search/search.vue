@@ -93,6 +93,7 @@
           </view>
           <view class="card-foot">
             <text class="source-line">{{ item.source || item.sources }}</text>
+            <text v-if="item.updateLabel" class="article-update-date">{{ item.updateLabel }}</text>
             <image class="foot-arrow" src="/static/icons/icon-arrow-right.png" mode="aspectFit" />
           </view>
         </view>

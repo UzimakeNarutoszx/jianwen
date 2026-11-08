@@ -14,7 +14,7 @@ test('API images resolve to the server in native App pages', async () => {
         : {
           topics: [{ image: '/static/images/就业.jpg' }],
           features: [{ image: 'https://example.com/cover.jpg' }],
-          updates: [{ image: '/uploads/article.jpg' }, { image: '' }]
+          updates: [{ image: '/uploads/article.jpg', updated_at: '2026-11-03T08:20:00', published_date: '2026-10-31' }, { image: '', published_date: '2026-11-02' }]
         }
       success({ statusCode: 200, data })
     }
@@ -26,6 +26,10 @@ test('API images resolve to the server in native App pages', async () => {
     assert.equal(content.features[0].image, 'https://example.com/cover.jpg')
     assert.equal(content.updates[0].image, 'http://api.example.com/uploads/article.jpg')
     assert.equal(content.updates[1].image, '')
+    assert.equal(content.updates[0].updateLabel, '11月3日更新')
+    assert.equal(content.updates[1].updateLabel, '11月2日更新')
+    assert.equal(api.articleUpdateLabel('2026-02-30'), '')
+    assert.equal(api.articleUpdateLabel(''), '')
     assert.equal((await api.getClassicBooks())[0].coverImage, 'http://api.example.com/static/books/book.jpg')
   } finally {
     globalThis.uni = prior

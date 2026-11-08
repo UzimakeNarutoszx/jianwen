@@ -1,11 +1,13 @@
 <script>
 import { installReadingActivity, readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
+import { checkForAppUpdate } from '@/utils/app-updater.js'
 export default {
   onLaunch() {
     installReadingActivity()
+    checkForAppUpdate()
     console.log('Jianwen launched')
   },
-  onShow() { resumeReadingActivity() },
+  onShow() { resumeReadingActivity(); checkForAppUpdate() },
   onHide() { readingActivity.pause() }
 }
 </script>
@@ -163,6 +165,19 @@ button::after {
   color: #7C8790;
   font-size: 24rpx;
   line-height: 1.5;
+}
+
+.article-update-date {
+  display: block;
+  margin-top: 12rpx;
+  color: #7C8790;
+  font-size: 23rpx;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.dark-mode .article-update-date {
+  color: #B6C2CC;
 }
 
 .primary-button {
