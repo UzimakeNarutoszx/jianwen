@@ -120,6 +120,11 @@
     return Boolean(track && track.url)
   }
 
+  // 播放键、进度条、音色下拉共用同一个可用判定。
+  function isPlayable(state) {
+    return hasTrack(state) && !state.loading
+  }
+
   function voiceOptions(state) {
     const article = state.articles[state.index]
     return state.voices.map(voice => ({
@@ -128,6 +133,20 @@
       available: Boolean(article && article.audio[voice.id]),
       active: voice.id === state.voice
     }))
+  }
+
+  // 下拉框只列这篇能播的声音；清单未就绪时列全部声音（配合禁用态说明有哪些声音）。
+  function voiceChoices(state) {
+    const options = voiceOptions(state)
+    return state.ready === true ? options.filter(option => option.available) : options
+  }
+
+  // 下拉框的渲染数据：disabled 决定 select 是否可用，value 是当前选中项，empty 表示这篇没有可播声音。
+  function voiceSelect(state) {
+    const options = voiceChoices(state).map(option => ({ id: option.id, label: option.label, selected: option.id === state.voice }))
+    const disabled = Boolean(state.loading) || state.ready !== true || options.length === 0
+    if (options.length && !options.some(option => option.selected)) options[0].selected = true
+    return { disabled, empty: options.length === 0, value: options.length ? options.find(option => option.selected).id : '', options }
   }
 
   // 自动续播只发生在当日清单内；最后一篇播完就停在原地。
@@ -141,6 +160,13 @@
     if (!Number.isFinite(value) || value <= 0) return '0:00'
     const total = Math.floor(value)
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+  }
+
+  // 标题按中文标点切段（标点留在前一段末尾）；没有标点就整句一段。
+  function titleChunks(title) {
+    const text = String(title || '').trim()
+    if (!text) return []
+    return text.match(/[^，、：；？！]+[，、：；？！]?/g) || [text]
   }
 
   function progressRatio(current, duration) {
@@ -204,8 +230,8 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       VOICE_STORAGE_KEY, PENDING_TEXT, DEFAULT_VOICES, normalizeManifest, resolveVoice, createTodayAudioState,
-      withLoading, setIndex, step, canPrev, canNext, selectVoice, currentTrack, hasTrack, voiceOptions,
-      afterEnded, formatTime, progressRatio, ratioToSeconds, statusLabel,
+      withLoading, setIndex, step, canPrev, canNext, selectVoice, currentTrack, hasTrack, isPlayable, voiceOptions, voiceChoices, voiceSelect,
+      afterEnded, formatTime, titleChunks, progressRatio, ratioToSeconds, statusLabel,
       LISTEN_DONE_RATIO, createListenTracker, trackListen, resetListenAnchor, finishListen
     }
     return
@@ -227,19 +253,24 @@
     return `${String(base).replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
   }
 
-  const SKELETON = `<div class="ta-head"><p class="eyebrow ta-eyebrow">今日朗读</p><p class="ta-count"><span class="ta-position" data-el="position">0</span><span class="ta-total" data-el="total">/ 0 篇</span></p></div>
+  const SKELETON = `<div class="ta-head"><p class="eyebrow ta-eyebrow">今日朗读</p><p class="ta-count" aria-live="off"><span class="ta-position" data-el="position">0</span><span class="ta-total" data-el="total">/ 0 篇</span></p></div>
     <h3 class="ta-title" data-el="title"></h3>
     <p class="ta-status" data-el="status" role="status"></p>
-    <div class="ta-voices" data-el="voices" role="group" aria-label="选择朗读声音"></div>
+    <div class="ta-voice-row" data-el="voice-row">
+      <label class="ta-voice-label" for="today-audio-voice">声音</label>
+      <span class="ta-select">
+        <select class="ta-select-input" id="today-audio-voice" data-el="voice-select" aria-label="选择朗读声音"></select>
+        <span class="ta-select-arrow" aria-hidden="true"></span>
+      </span>
+    </div>
     <div class="ta-controls">
       <button class="ta-button ta-skip" type="button" data-act="prev" aria-label="上一篇"><span class="ta-icon" aria-hidden="true">‹</span><span class="ta-button-text">上一篇</span></button>
-      <button class="ta-button ta-play" type="button" data-act="play" aria-label="播放"><span class="ta-icon" aria-hidden="true" data-el="play-icon">▶</span></button>
+      <button class="ta-button ta-play" type="button" data-act="play" aria-label="播放朗读"><span class="ta-icon ta-play-icon" aria-hidden="true" data-el="play-icon">▶</span></button>
       <button class="ta-button ta-skip" type="button" data-act="next" aria-label="下一篇"><span class="ta-button-text">下一篇</span><span class="ta-icon" aria-hidden="true">›</span></button>
     </div>
-    <div class="ta-track">
-      <span class="ta-time" data-el="current">0:00</span>
+    <div class="ta-progress">
       <input class="ta-range" type="range" min="0" max="1000" step="1" value="0" data-el="range" aria-label="播放进度" aria-valuetext="0:00 / 0:00">
-      <span class="ta-time" data-el="duration">0:00</span>
+      <div class="ta-times"><span class="ta-time" data-el="current">0:00</span><span class="ta-time" data-el="duration">0:00</span></div>
     </div>
     <audio preload="metadata" data-el="audio"></audio>`
 
@@ -247,7 +278,8 @@
     root.innerHTML = SKELETON
     const el = name => root.querySelector(`[data-el="${name}"]`)
     const parts = {
-      position: el('position'), total: el('total'), title: el('title'), status: el('status'), voices: el('voices'),
+      position: el('position'), total: el('total'), title: el('title'), status: el('status'),
+      voiceRow: el('voice-row'), voiceSelect: el('voice-select'),
       prev: root.querySelector('[data-act="prev"]'), play: root.querySelector('[data-act="play"]'),
       next: root.querySelector('[data-act="next"]'), playIcon: el('play-icon'),
       range: el('range'), current: el('current'), duration: el('duration')
@@ -264,10 +296,15 @@
       return el('audio')
     }
 
+    // 音色下拉：只有这篇能播的声音才进 option；清单没就绪时禁用，一篇都没有声音时给占位项。
     function renderVoices() {
-      const options = voiceOptions(state)
-      parts.voices.innerHTML = options.map(option => `<button class="ta-voice${option.active ? ' is-active' : ''}" type="button" role="radio" aria-checked="${option.active}" data-voice="${esc(option.id)}"${option.available ? '' : ' disabled aria-disabled="true" title="这篇没有这个声音"'}>${esc(option.label)}</button>`).join('')
-      parts.voices.hidden = options.length <= 1
+      const view = voiceSelect(state)
+      parts.voiceSelect.innerHTML = view.options.length
+        ? view.options.map(option => `<option value="${esc(option.id)}"${option.selected ? ' selected' : ''}>${esc(option.label)}</option>`).join('')
+        : '<option value="" selected>暂无可选声音</option>'
+      if (view.options.length) parts.voiceSelect.value = view.value
+      parts.voiceSelect.disabled = view.disabled
+      parts.voiceRow.dataset.empty = view.empty ? 'true' : 'false'
     }
 
     function render() {
@@ -277,11 +314,17 @@
       root.dataset.ready = state.ready ? 'true' : 'false'
       parts.position.textContent = track ? String(track.index + 1) : '0'
       parts.total.textContent = `/ ${state.articles.length} 篇`
-      parts.title.textContent = track ? track.title : ''
+      // 中文没有空格可断：按逗号等把标题切成几段，每段 inline-block，换行只落在标点后。
+      parts.title.replaceChildren(...titleChunks(track ? track.title : '').map(text => {
+        const span = document.createElement('span')
+        span.className = 'ta-title-chunk'
+        span.textContent = text
+        return span
+      }))
       parts.status.textContent = label
       parts.status.hidden = !label
       renderVoices()
-      const playable = hasTrack(state) && !state.loading
+      const playable = isPlayable(state)
       parts.prev.disabled = !canPrev(state) || state.loading
       parts.next.disabled = !canNext(state) || state.loading
       parts.play.disabled = !playable
@@ -350,10 +393,10 @@
       if (media.paused) play()
       else media.pause()
     })
-    parts.voices.addEventListener('click', event => {
-      const button = event.target.closest('[data-voice]')
-      if (!button || button.disabled) return
-      const next = selectVoice(state, button.dataset.voice)
+    // 换声音：按比例保留播放进度，正在播就接着播，并记住这次的选择。
+    parts.voiceSelect.addEventListener('change', () => {
+      if (parts.voiceSelect.disabled) return
+      const next = selectVoice(state, parts.voiceSelect.value)
       if (next === state) return
       const wasPlaying = !audio().paused
       state = next
