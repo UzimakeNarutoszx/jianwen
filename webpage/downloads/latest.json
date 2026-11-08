@@ -1,6 +1,6 @@
 {
-  "versionName": "1.1.0",
-  "versionCode": 110,
-  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.0.apk",
-  "notes": "今日朗读改版：播放器重新排版，声音改为下拉选择，修正朗读时数字读错。"
+  "versionName": "1.1.1",
+  "versionCode": 111,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.1.apk",
+  "notes": "更新包体积减至 19 MB（原 24 MB），下载时显示百分比进度；今日朗读改版：播放器重新排版，声音改为下拉选择，修正朗读时数字读错。"
 }
