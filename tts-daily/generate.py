@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""今日朗读：逐句合成 4 种声音的 mp3，写 manifest.json（格式见 docs/today-audio-contract.md）。
+"""今日朗读：逐句合成 2 种声音的 mp3，写 manifest.json（格式见 docs/today-audio-contract.md）。
 
 流程：GET /api/v1/content/today → 逐篇 GET /api/v1/content/articles/{id} → 拼朗读文本
-（去 markdown 和 URL）→ 按 。！？； 切句、每段 ≤80 字 → 每句单独合成 → 句间 0.25s、
-段落间 0.6s 静音 → ffmpeg 拼接转 mp3（单声道 24kHz 64kbps）→ ffprobe 读时长写 manifest。
+（去 markdown 和 URL）→ 数字转中文读法（textnorm，2360 → 两千三百六十）→
+按 。！？； 切句、每段 ≤80 字 → 每句单独合成 → 用本地 Qwen3-ASR 回听自检
+（相似度 < 0.85 或数字读丢就换种子重读，最多 3 次）→ 句间 0.25s、段落间 0.6s 静音 →
+ffmpeg 拼接转 mp3（单声道 24kHz 64kbps）→ ffprobe 读时长写 manifest。
 
-jianwen 用 1.7B Base 模型做 ICL 克隆，其余三个用 0.6B CustomVoice。每种模型只加载一次。
-缓存键 = 文本 + 声音 + 模型 + 流程版本，文本和声音没变就跳过；单个声音失败只记日志。
+jianwen 用 1.7B Base 模型做 ICL 克隆，dylan 用 0.6B CustomVoice。每种模型只加载一次。
+缓存键 = 文本 + 声音 + 流程版本，文本和声音没变就跳过；单个声音失败只记日志。
 
 用法:
-  tts-daily/generate.py                          # 今天（Asia/Shanghai 06:00 换日）全部文章 4 个声音
+  tts-daily/generate.py                          # 今天（Asia/Shanghai 06:00 换日）全部文章全部声音
   tts-daily/generate.py --limit-articles 1 --max-sentences 3   # 调试：只做第一篇前 3 句
   tts-daily/generate.py --from-json /tmp/today-full.json       # 离线：用本地 JSON 代替 API
+  tts-daily/generate.py --no-asr                 # 跳过 ASR 自检（只做数字规范化）
 （脚本会自己切到 ~/.local/share/qwen3-tts/venv/bin/python 执行。）
 """
 import argparse
@@ -30,6 +33,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import textnorm  # noqa: E402  数字规范化（纯标准库，系统 python 也能导入）
+import asr_check  # noqa: E402  Qwen3-ASR 回听自检（模型懒加载，缺缓存时自动降级）
+
 VENV_PY = Path.home() / ".local/share/qwen3-tts/venv/bin/python"
 BASE_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"
 CUSTOM_MODEL = "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit"
@@ -51,8 +58,12 @@ SENT_GAP, SECTION_GAP = 0.25, 0.6
 MAX_CHARS = 80
 SR = 24000
 PAD = 0.03  # 去静音后两端各留 30ms，避免咬掉字头
-VERSION = "v1"  # 改动合成流程就 +1，旧缓存自动失效
+VERSION = "v2"  # 改动合成流程就 +1，旧缓存自动失效（v2：数字先规范化再合成）
 TZ = ZoneInfo("Asia/Shanghai")
+# ASR 自检：相似度 ≥ ASR_PASS 且数字都在 → 通过；< ASR_DROP 的句子/声音不发出去
+ASR_PASS, ASR_DROP = 0.85, 0.70
+ASR_TRIES = 3  # 每句最多重读次数（换种子），取分数最高的一次
+ASR_RESEED = 1000  # 重读时给固定种子加偏移：1000/2000/3000…，0 是第一条尝试
 
 
 def ensure_runtime():
@@ -140,13 +151,13 @@ def article_sections(article):
 
 
 def build_sentences(article, max_sentences=None):
-    """返回 [(text, gap_after)]，最后一个 gap 为 None。"""
+    """返回 [(text, gap)]，text 已做数字规范化（阿拉伯数字 → 中文读法）；最后一个 gap 为 None。"""
     rows = []  # [(text, is_section_start)]
     for section in article_sections(article):
         first = True
         for block in section:
             for sent in split_sentences(block):
-                rows.append((sent, first))
+                rows.append((textnorm.normalize(sent), first))  # 数字转汉字后再切句长
                 first = False
     if max_sentences:
         rows = rows[:max_sentences]
@@ -248,8 +259,8 @@ class Synth:
             log(f"加载完成 {model_id}（{time.time() - t0:.1f}s）")
         return self.models[name]
 
-    def synth(self, text, voice, raw_path):
-        """合成一句到 raw_path（模型原始采样率 wav）。"""
+    def synth(self, text, voice, raw_path, seed=0):
+        """合成一句到 raw_path（模型原始采样率 wav）。seed 用于自检不过时换种子重读。"""
         if voice == "jianwen":
             model = self.model("base", BASE_MODEL)
             kw = dict(lang_code="Chinese", max_tokens=1200, temperature=.65,
@@ -259,7 +270,7 @@ class Synth:
             kw = dict(voice=CUSTOM_SPEAKER[voice], lang_code="Chinese",
                       max_tokens=max(240, min(1024, len(text) * 10)), temperature=.65)
         mx, np, sf = self.mx, self.np, self.sf
-        mx.random.seed(42)  # 固定种子，同一句每次都一样，缓存才有意义
+        mx.random.seed(42 + seed)  # 固定种子，同一句同一 seed 每次都一样，缓存才有意义
         chunks, rate = [], SR
         for result in model.generate(text=text, **kw):
             mx.eval(result.audio)
@@ -290,26 +301,108 @@ def silence_wav(cache, seconds, np, sf):
     return path
 
 
-def make_mp3(sentences, voice, synth, cache, mp3_path, timing):
-    """逐句合成（带缓存）→ 拼静音 → mp3。返回 (耗时秒, 合成句数)。"""
-    parts, n_synth, t_spent = [], 0, 0.0
-    for text, gap in sentences:
+def synth_sentence(text, voice, synth, cache, asr):
+    """合成一句到缓存 wav，并用 ASR 回听自检。
+
+    通过标准：相似度 ≥ ASR_PASS 且原文数字都在转写里。不过就换种子重读，最多 ASR_TRIES 次，
+    留分数最高的一次；每次都不过则返回最高分，由调用方决定是否丢弃整个声音。
+    返回 dict(wav, score, missing, seed, hyp, cached)，score 为 None 表示 ASR 不可用（跳过自检）。
+    """
+    digest = hashlib.sha256(f"{text}|{voice}|{VERSION}".encode()).hexdigest()[:16]
+    wav = cache / f"{digest}.wav"
+    side = cache / f"{digest}.qa.json"
+    if wav.exists() and side.exists():
+        try:
+            qa = json.loads(side.read_text(encoding="utf-8"))
+            return {**qa, "wav": wav, "cached": True}
+        except (ValueError, OSError):
+            pass  # 侧车坏了就重算
+    best = None
+    for attempt in range(ASR_TRIES):
+        cand = cache / f"{digest}.try{attempt}.wav"
+        raw = cache / f"{digest}.raw.wav"
+        synth.synth(text, voice, raw, seed=attempt * ASR_RESEED)
+        run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-ar", SR, "-ac", 1,
+             "-c:a", "pcm_s16le", cand])
+        raw.unlink(missing_ok=True)
+        trim_pad(cand, synth.np, synth.sf)
+        if not asr.available:
+            best = {"score": None, "missing": [], "seed": attempt * ASR_RESEED, "hyp": ""}
+            cand.replace(wav)
+            break
+        try:
+            score, missing, hyp = asr.score(text, cand)
+        except Exception as exc:  # 单句转写失败不让整篇挂掉
+            log(f"    {voice} 自检异常（{type(exc).__name__}: {exc}），保留本次结果")
+            best = {"score": None, "missing": [], "seed": attempt * ASR_RESEED, "hyp": ""}
+            cand.replace(wav)
+            break
+        cur = (score, -len(missing))
+        if best is None or cur > (best["score"] or 0, -len(best["missing"])):
+            if wav.exists():
+                wav.unlink()
+            cand.replace(wav)
+            best = {"score": round(score, 3), "missing": missing,
+                    "seed": attempt * ASR_RESEED, "hyp": hyp}
+        else:
+            cand.unlink(missing_ok=True)
+        if score >= ASR_PASS and not missing:
+            break
+        if attempt + 1 < ASR_TRIES:
+            log(f"    {voice} {score:.2f} 未过（缺数字={missing}），换种子重读 {text[:18]}")
+    side.write_text(json.dumps(best, ensure_ascii=False), encoding="utf-8")
+    return {**best, "wav": wav, "cached": False}
+
+
+def read_qa(sentences, voice, cache):
+    """命中整篇缓存时，从每句的侧车文件（.qa.json）回收自检明细。"""
+    rows = []
+    for text, _ in sentences:
         digest = hashlib.sha256(f"{text}|{voice}|{VERSION}".encode()).hexdigest()[:16]
-        wav = cache / f"{digest}.wav"
-        if not wav.exists():
-            raw = cache / f"{digest}.raw.wav"
-            t0 = time.time()
-            synth.synth(text, voice, raw)
-            run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-ar", SR, "-ac", 1,
-                 "-c:a", "pcm_s16le", wav])
-            trim_pad(wav, synth.np, synth.sf)
-            raw.unlink(missing_ok=True)
-            dt = time.time() - t0
+        side = cache / f"{digest}.qa.json"
+        try:
+            qa = json.loads(side.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            qa = {"score": None, "missing": [], "seed": 0}
+        rows.append({"text": text, "score": qa.get("score"),
+                     "missing": qa.get("missing") or [], "seed": qa.get("seed", 0)})
+    return rows
+
+
+def voice_ok(qa):
+    """整篇是否可发布。
+
+    平均分 < ASR_PASS，或 ASR_DROP 以下的句子达到 max(2, 10%) 就丢弃这个声音。
+    门槛取「至少 2 句」而不是「1 句」：ASR 自己也有同音字误听（把「警示」听成「定收」），
+    一两句的偶发误判不该让整篇没声音；真读坏了（数字乱读）会成片低分。
+    没有分数（ASR 不可用）视为通过——自检是加分项，不该让流水线整体停摆。
+    """
+    scored = [q for q in qa if q["score"] is not None]
+    if not scored:
+        return True
+    bad = sum(1 for q in scored if q["score"] < ASR_DROP)
+    if bad >= max(2, len(scored) // 10):
+        return False
+    return sum(q["score"] for q in scored) / len(scored) >= ASR_PASS
+
+
+def make_mp3(sentences, voice, synth, cache, mp3_path, timing, asr):
+    """逐句合成（带缓存 + 自检）→ 拼静音 → mp3。返回 (耗时秒, 合成句数, 逐句自检明细)。"""
+    parts, n_synth, t_spent, qa = [], 0, 0.0, []
+    for text, gap in sentences:
+        t0 = time.time()
+        row = synth_sentence(text, voice, synth, cache, asr)
+        dt = time.time() - t0
+        if not row["cached"]:
             n_synth += 1
             t_spent += dt
             timing.append((len(text), dt))
-            log(f"    {voice} {len(text):>2}字 {dt:5.2f}s  {text[:24]}")
-        parts.append(wav)
+            flag = "-" if row["score"] is None else (
+                "OK" if row["score"] >= ASR_PASS and not row["missing"] else "NG")
+            shown = "-" if row["score"] is None else f"{row['score']:.2f}"
+            log(f"    {voice} {len(text):>2}字 {dt:5.2f}s {shown:>5} {flag}  {text[:24]}")
+        qa.append({"text": text, "score": row["score"], "missing": row["missing"], "seed": row["seed"]})
+        parts.append(row["wav"])
         if gap:
             parts.append(silence_wav(cache, gap, synth.np, synth.sf))
     listfile = cache / f"list-{mp3_path.stem}-{hashlib.sha256(str(mp3_path).encode()).hexdigest()[:8]}.txt"
@@ -318,7 +411,7 @@ def make_mp3(sentences, voice, synth, cache, mp3_path, timing):
     run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", listfile,
          "-af", post_filter(voice), "-ar", "24000", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "64k", mp3_path])
     listfile.unlink(missing_ok=True)
-    return t_spent, n_synth
+    return t_spent, n_synth, qa
 
 
 def main():
@@ -329,6 +422,7 @@ def main():
     ap.add_argument("--from-json", help="本地文章 JSON（列表或 {articles:[...]}），代替 API")
     ap.add_argument("--limit-articles", type=int, default=0)
     ap.add_argument("--max-sentences", type=int, default=0, help="调试：每篇最多合成前 N 句")
+    ap.add_argument("--no-asr", action="store_true", help="跳过 ASR 回听自检（只做数字规范化）")
     ap.add_argument("--out", type=Path, default=HERE / "out")
     args = ap.parse_args()
 
@@ -348,6 +442,13 @@ def main():
     cache.mkdir(parents=True, exist_ok=True)
 
     synth = Synth()
+    asr = asr_check.AsrChecker()
+    if args.no_asr:
+        asr.available = False
+        asr.reason = "--no-asr"
+        log("按 --no-asr 跳过 ASR 自检，只做数字规范化")
+    elif asr.load() is None:
+        log(f"警告：ASR 不可用（{asr.reason}），本次跳过自检，只做数字规范化")
     if "jianwen" in voices and not synth.ref:
         log("缺克隆参考音频，跳过 jianwen，其余声音照常生成")
         voices = [v for v in voices if v != "jianwen"]
@@ -355,7 +456,8 @@ def main():
             raise SystemExit("没有可用的声音")
 
     timing = []
-    entries, failed = [], 0
+    entries, failed, dropped = [], 0, []
+    qa_report = {"date": args.date, "pass": ASR_PASS, "drop": ASR_DROP, "articles": []}
     t_start = time.time()
     for pos, art in enumerate(articles):
         aid = art.get("article_id") or art.get("id")
@@ -364,7 +466,7 @@ def main():
             continue
         sentences = build_sentences(art, args.max_sentences or None)
         log(f"[{pos + 1}/{len(articles)}] {aid} 共 {len(sentences)} 句 / {sum(len(t) for t, _ in sentences)} 字")
-        audio = {}
+        audio, art_qa = {}, {"article_id": aid, "title": art.get("title") or "", "voices": {}}
         for voice in voices:
             mp3 = day_dir / aid / f"{voice}.mp3"
             keyfile = day_dir / aid / f".{voice}.key"
@@ -373,22 +475,41 @@ def main():
             try:
                 if mp3.exists() and keyfile.exists() and keyfile.read_text() == key:
                     log(f"    {voice} 命中缓存 {mp3.name}")
+                    qa = read_qa(sentences, voice, cache)
                 else:
-                    spent, n = make_mp3(sentences, voice, synth, cache, mp3, timing)
-                    keyfile.write_text(key)
+                    spent, n, qa = make_mp3(sentences, voice, synth, cache, mp3, timing, asr)
                     log(f"    {voice} 完成 {n} 句合成 {spent:.1f}s → {mp3}")
+                if not voice_ok(qa):
+                    avg = sum(q["score"] or 0 for q in qa) / max(len(qa), 1)
+                    mp3.unlink(missing_ok=True)
+                    keyfile.unlink(missing_ok=True)
+                    dropped.append((aid, voice, round(avg, 3)))
+                    log(f"    {voice} 自检整体不过（平均 {avg:.2f}），本篇不发布该声音")
+                    art_qa["voices"][voice] = qa
+                    continue
+                keyfile.write_text(key)  # 缓存命中也补写，保证上面的判定下次还能复核
                 st = probe_stream(mp3)
-                audio[voice] = {"url": f"/uploads/tts/{args.date}/{aid}/{voice}.mp3",
+                # ?v= 取内容哈希前 10 位：重合成后 URL 变化，浏览器/App 不会继续用旧缓存。
+                audio[voice] = {"url": f"/uploads/tts/{args.date}/{aid}/{voice}.mp3?v={key[:10]}",
                                 "duration": round(probe_duration(mp3), 1)}
+                art_qa["voices"][voice] = qa
                 log(f"    {voice} {audio[voice]['duration']}s "
                     f"{st.get('sample_rate')}Hz {st.get('channels')}ch {st.get('bit_rate')}bps")
             except Exception as exc:  # 单个声音失败只记日志，不中断整体
                 failed += 1
                 traceback.print_exc()
                 log(f"    {voice} 失败：{type(exc).__name__}: {exc}")
+        qa_report["articles"].append(art_qa)
         if audio:
             entries.append({"article_id": aid, "title": art.get("title") or "",
                             "position": pos, "audio": audio})
+    # 自检报告放 out/qa/，不放进 out/<date>/ —— 那个目录会被 upload.sh 整个 rsync 到服务器，
+    # 服务器上的目录布局要严格按 docs/today-audio-contract.md。
+    qa_dir = args.out / "qa"
+    qa_dir.mkdir(parents=True, exist_ok=True)
+    qa_path = qa_dir / f"{args.date}.json"
+    qa_report["dropped"] = [{"article_id": a, "voice": v, "score": s} for a, v, s in dropped]
+    qa_path.write_text(json.dumps(qa_report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
     manifest = {
         "date": args.date,
@@ -403,7 +524,14 @@ def main():
     elapsed = time.time() - t_start
     total_chars = sum(c for c, _ in timing)
     avg = (sum(d for _, d in timing) / len(timing)) if timing else 0.0
-    log(f"完成：{len(entries)} 篇 / {len(timing)} 句新合成 / 失败 {failed} 个声音 / 总 {elapsed:.1f}s")
+    log(f"完成：{len(entries)} 篇 / {len(timing)} 句新合成 / 失败 {failed} 个声音 / "
+        f"丢弃 {len(dropped)} 个声音 / 总 {elapsed:.1f}s")
+    scores = [q["score"] for art in qa_report["articles"] for rows in art["voices"].values()
+              for q in rows if q["score"] is not None]
+    if scores:
+        low = sum(1 for s in scores if s < ASR_PASS)
+        log(f"自检：{len(scores)} 句，平均 {sum(scores) / len(scores):.3f}，"
+            f"低于 {ASR_PASS} 的 {low} 句；明细 → {qa_path}")
     if timing:
         log(f"实测：平均每句 {avg:.2f}s（{total_chars} 字，{total_chars / max(sum(d for _, d in timing), .01):.1f} 字/秒）")
         # 整篇估算：一篇≈62 句，一天 5 篇，4 个声音

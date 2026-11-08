@@ -53,7 +53,7 @@ export function checkForAppUpdate({ force = false } = {}) {
   if (!force && !shouldCheck()) return
   markChecked()
   requestManifest().then(manifest => {
-    const currentCode = versionCode('102')
+    const currentCode = versionCode('110')
     const latestCode = versionCode(manifest.versionCode)
     if (typeof manifest.apkUrl !== 'string' || !manifest.apkUrl.startsWith(UPDATE_APK_PREFIX) || latestCode <= currentCode) return
     uni.showModal({

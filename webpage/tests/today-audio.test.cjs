@@ -1,5 +1,7 @@
 // Run: node webpage/tests/today-audio.test.cjs
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
 const audio = require('../js/today-audio.js')
 
 function manifest(overrides = {}) {
@@ -67,6 +69,63 @@ function manifest(overrides = {}) {
   assert.equal(options.find(item => item.id === 'vivian').active, true)
 }
 
+// 音色下拉：option 只列这篇能播的声音，选中项跟 state.voice 一致，切换按比例保留进度由 DOM 层负责。
+{
+  const first = audio.createTodayAudioState(manifest(), 'vivian')
+  const firstSelect = audio.voiceSelect(first)
+  assert.equal(firstSelect.disabled, false, '有音频时下拉可用')
+  assert.equal(firstSelect.empty, false)
+  assert.deepEqual(firstSelect.options.map(item => item.id), ['jianwen', 'vivian'], '第一篇能播 jianwen / vivian，只列这两个')
+  assert.deepEqual(firstSelect.options.map(item => item.label), ['见闻', '周报'], 'option 文案取 voices 里的 label')
+  assert.equal(firstSelect.value, 'vivian', '保存的声音可用时下拉停在该声音')
+  assert.deepEqual(firstSelect.options.filter(item => item.selected).map(item => item.id), ['vivian'], '只有一个 option 是选中态')
+  assert.deepEqual(audio.voiceChoices(first).map(item => item.id), ['jianwen', 'vivian'])
+
+  const third = audio.setIndex(first, 2)
+  const thirdSelect = audio.voiceSelect(third)
+  assert.deepEqual(thirdSelect.options.map(item => item.id), ['vivian'], '第三篇只有 vivian，option 数量为 1')
+  assert.equal(thirdSelect.value, 'vivian')
+  assert.equal(thirdSelect.disabled, false)
+
+  const second = audio.setIndex(audio.createTodayAudioState(manifest(), ''), 1)
+  assert.deepEqual(audio.voiceSelect(second).options.map(item => item.id), ['jianwen', 'dylan'], '第二篇能播 jianwen / dylan')
+
+  // 清单未就绪 / 正在加载：select 禁用，且保留全部声音名让用户看到有哪些声音。
+  const pending = audio.createTodayAudioState({ date: '2026-11-08', ready: false, voices: manifest().voices, articles: [] }, 'vivian')
+  const pendingSelect = audio.voiceSelect(pending)
+  assert.equal(pendingSelect.disabled, true, 'ready:false 时音色下拉禁用')
+  assert.equal(pendingSelect.options.length, 4, 'ready:false 时仍列出声音表里的全部声音')
+  assert.equal(audio.voiceSelect(audio.withLoading(pending, true)).disabled, true, '加载中下拉禁用')
+  assert.equal(audio.voiceSelect(audio.withLoading(first, true)).disabled, true, '加载中即使有音频也禁用下拉')
+
+  const noAudio = audio.createTodayAudioState(manifest({ articles: [{ article_id: 'x', title: '无音频', position: 0, audio: {} }] }), '')
+  const noAudioSelect = audio.voiceSelect(noAudio)
+  assert.equal(noAudioSelect.empty, true, '这篇没有任何声音时标记 empty')
+  assert.equal(noAudioSelect.disabled, true, '没有可播声音时下拉禁用')
+  assert.deepEqual(noAudioSelect.options, [])
+
+  assert.equal(audio.isPlayable(first), true)
+  assert.equal(audio.isPlayable(pending), false, 'ready:false 时播放按钮与进度条同样不可用')
+  assert.equal(audio.isPlayable(noAudio), false)
+  assert.equal(audio.isPlayable(audio.withLoading(first, true)), false, '加载中不可播放')
+}
+
+// DOM 骨架：音色是原生 select（不再是 role=radio 按钮排），标签、进度与无障碍属性都在。
+{
+  const source = fs.readFileSync(path.join(__dirname, '../js/today-audio.js'), 'utf8')
+  const skeleton = source.slice(source.indexOf('const SKELETON'), source.indexOf('function mount'))
+  assert.match(skeleton, /<select[^>]*data-el="voice-select"/, '音色用原生 select')
+  assert.match(skeleton, /<label[^>]*for="today-audio-voice"[^>]*>声音<\/label>/, 'select 有「声音」label')
+  assert.match(skeleton, /<select[^>]*id="today-audio-voice"/, 'label 的 for 指向 select 的 id')
+  assert.doesNotMatch(skeleton, /role="radio"/, '不再有 role=radio 的音色按钮')
+  assert.doesNotMatch(skeleton, /ta-voices/, '旧的音色按钮容器已移除')
+  assert.match(skeleton, /class="ta-progress"/, '进度条独占一行')
+  assert.match(skeleton, /aria-valuetext="0:00 \/ 0:00"/, '进度条保留 aria-valuetext')
+  assert.match(skeleton, /data-act="prev"[^>]*aria-label="上一篇"/, '上一篇 aria-label')
+  assert.match(skeleton, /data-act="next"[^>]*aria-label="下一篇"/, '下一篇 aria-label')
+  assert.match(skeleton, /data-act="play"[^>]*aria-label="播放朗读"/, '播放按钮 aria-label')
+}
+
 // ready:false / 请求失败：状态提示生成中，控件全部不可用。
 {
   for (const raw of [{ date: '2026-11-08', ready: false, voices: [{ id: 'jianwen', label: '见闻' }], articles: [] }, null, {}, { ready: true, articles: [] }]) {
@@ -110,6 +169,13 @@ function manifest(overrides = {}) {
   assert.equal(state.articles[0].audio.dylan.duration, 0)
   assert.equal(state.voice, 'dylan')
   assert.equal(state.voices.length, audio.DEFAULT_VOICES.length, 'voices 非法时用默认真实声音表')
+}
+
+// 标题按中文标点切段，换行只落在标点后，不会把「启动」劈成两半。
+{
+  assert.deepEqual(audio.titleChunks('二十一大代表选举启动，2360名代表怎么选'), ['二十一大代表选举启动，', '2360名代表怎么选'])
+  assert.deepEqual(audio.titleChunks('无标点标题'), ['无标点标题'])
+  assert.deepEqual(audio.titleChunks(''), [])
 }
 
 console.log('今日朗读：切换边界、声音回退、ready:false、进度与脏数据校验通过。')

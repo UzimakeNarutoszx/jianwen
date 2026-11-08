@@ -26,12 +26,12 @@ async function check(manifest, confirm = false, enabled = true) {
 }
 
 test('only newer releases from the approved HTTPS source are offered', async () => {
-  const url = 'https://updates.example.com/apk/jianwen-1.0.3.apk'
-  assert.equal((await check({ versionCode: 102, apkUrl: url })).modals.length, 0)
-  assert.equal((await check({ versionCode: 103, apkUrl: 'http://example.com/app.apk' })).modals.length, 0)
-  assert.equal((await check({ versionCode: 103, apkUrl: 'https://updates.example.com.evil.invalid/apk/app.apk' })).modals.length, 0)
-  assert.equal((await check({ versionCode: 103, apkUrl: url })).modals.length, 1)
-  assert.equal((await check({ versionCode: 103, apkUrl: url })).downloads.length, 0)
-  assert.deepEqual((await check({ versionCode: 103, apkUrl: url }, true)).downloads, [url])
-  assert.equal((await check({ versionCode: 103, apkUrl: url }, true, false)).requests.length, 0)
+  const url = 'https://updates.example.com/apk/jianwen-1.1.0.apk'
+  assert.equal((await check({ versionCode: 110, apkUrl: url })).modals.length, 0)
+  assert.equal((await check({ versionCode: 111, apkUrl: 'http://example.com/app.apk' })).modals.length, 0)
+  assert.equal((await check({ versionCode: 111, apkUrl: 'https://updates.example.com.evil.invalid/apk/app.apk' })).modals.length, 0)
+  assert.equal((await check({ versionCode: 111, apkUrl: url })).modals.length, 1)
+  assert.equal((await check({ versionCode: 111, apkUrl: url })).downloads.length, 0)
+  assert.deepEqual((await check({ versionCode: 111, apkUrl: url }, true)).downloads, [url])
+  assert.equal((await check({ versionCode: 111, apkUrl: url }, true, false)).requests.length, 0)
 })

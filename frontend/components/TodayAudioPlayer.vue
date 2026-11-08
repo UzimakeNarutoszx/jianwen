@@ -8,22 +8,32 @@
       </text>
     </view>
 
-    <text v-if="title" class="audio-title">{{ title }}</text>
-    <text v-if="statusText" class="audio-status">{{ statusText }}</text>
+    <view class="audio-title-block">
+      <!-- 中文没有空格可断：按标点切段，每段整体换行，避免把「怎么选」劈开。 -->
+      <view v-if="title" class="audio-title">
+        <text v-for="(part, i) in titleParts" :key="i" class="audio-title-chunk">{{ part }}</text>
+      </view>
+      <text v-if="statusText" class="audio-status">{{ statusText }}</text>
+    </view>
 
-    <view v-if="voices.length > 1" class="audio-voices" role="radiogroup" aria-label="选择朗读声音">
-      <button
-        v-for="voice in voices"
-        :key="voice.id"
-        :class="['audio-voice', voice.active ? 'is-active' : '', voice.available ? '' : 'is-muted']"
-        :disabled="!voice.available || disabled"
-        :aria-label="`${voice.label}${voice.available ? '' : '（这篇没有）'}`"
-        :aria-checked="voice.active"
-        role="radio"
-        @click="chooseVoice(voice.id)"
+    <view class="audio-voice-row">
+      <text class="audio-voice-label">声音</text>
+      <picker
+        class="audio-voice-picker"
+        mode="selector"
+        :range="voiceLabels"
+        :value="voiceIndex"
+        :disabled="voiceLocked"
+        @change="onVoiceChange"
       >
-        <text>{{ voice.label }}</text>
-      </button>
+        <view
+          :class="['audio-voice-trigger', voiceLocked ? 'is-locked' : '']"
+          :aria-label="`朗读声音：${voiceLabel}`"
+        >
+          <text class="audio-voice-name">{{ voiceLabel }}</text>
+          <text class="audio-icon audio-caret">▾</text>
+        </view>
+      </picker>
     </view>
 
     <view class="audio-controls">
@@ -37,7 +47,7 @@
         :aria-label="playing ? '暂停朗读' : '播放朗读'"
         @click="togglePlay"
       >
-        <text class="audio-play-icon">{{ playing ? '❚❚' : '▶' }}</text>
+        <text class="audio-icon audio-play-icon">{{ playing ? '❚❚' : '▶' }}</text>
       </button>
       <button class="audio-skip" :disabled="!nextEnabled" aria-label="下一篇" @click="goNext">
         <text class="audio-skip-text">下一篇</text>
@@ -45,8 +55,7 @@
       </button>
     </view>
 
-    <view class="audio-track">
-      <text class="audio-time">{{ currentLabel }}</text>
+    <view class="audio-progress">
       <slider
         class="audio-slider"
         :value="sliderValue"
@@ -61,7 +70,10 @@
         @changing="onSeeking"
         @change="onSeek"
       />
-      <text class="audio-time">{{ durationLabel }}</text>
+      <view class="audio-times">
+        <text class="audio-time">{{ currentLabel }}</text>
+        <text class="audio-time">{{ durationLabel }}</text>
+      </view>
     </view>
   </view>
 </template>
@@ -110,8 +122,30 @@ export default {
   },
   computed: {
     voices() { return voiceOptions(this.state) },
+    // 下拉只列这篇有音频的声音；一个都没有时退回完整清单，好让标签仍能显示当前声音。
+    selectableVoices() {
+      const available = this.voices.filter(voice => voice.available)
+      return available.length ? available : this.voices
+    },
+    voiceLabels() { return this.selectableVoices.map(voice => voice.label) },
+    voiceIndex() {
+      const index = this.selectableVoices.findIndex(voice => voice.active)
+      return index < 0 ? 0 : index
+    },
+    voiceLabel() {
+      const current = this.selectableVoices.find(voice => voice.active) || this.selectableVoices[0]
+      return current ? current.label : '默认声音'
+    },
+    // 只有一个可播声音（或控件禁用）时，下拉照常显示，但不弹选择面板。
+    voiceLocked() { return this.disabled || this.voices.filter(voice => voice.available).length <= 1 },
     track() { return currentTrack(this.state) },
     title() { return this.track ? this.track.title : '' },
+    // 中文标题没有空格可断：先按标点切段，每段整体换行，避免把「怎么选」劈开（与网站 titleChunks 一致）。
+    titleParts() {
+      const text = String(this.title || '').trim()
+      if (!text) return []
+      return text.match(/[^，、：；？！]+[，、：；？！]?/g) || [text]
+    },
     positionLabel() { return this.track ? String(this.track.index + 1) : '0' },
     totalLabel() { return String(this.state.articles.length) },
     statusText() { return this.playError || statusLabel(this.state, this.loading) },
@@ -258,6 +292,12 @@ export default {
       uni.setStorageSync(VOICE_STORAGE_KEY, this.state.voice)
       this.applyTrack(true)
     },
+    // picker 的 @change 给的是下拉序号，换成声音 id 再走 chooseVoice（同一套存储与续播逻辑）。
+    onVoiceChange(event) {
+      const index = Number((event.detail && event.detail.value) || 0)
+      const voice = this.selectableVoices[index]
+      if (voice) this.chooseVoice(voice.id)
+    },
     onSeeking(event) {
       this.seeking = true
       const value = Number((event.detail && event.detail.value) || 0)
@@ -311,7 +351,7 @@ export default {
 .today-audio {
   display: flex;
   flex-direction: column;
-  gap: 22rpx;
+  gap: 26rpx;
   padding: 30rpx 32rpx 32rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.88);
   border-radius: 28rpx;
@@ -319,6 +359,7 @@ export default {
   box-shadow: 0 24rpx 60rpx rgba(31, 47, 58, 0.1);
 }
 
+/* 顶行：小标题 + 篇数 */
 .audio-head {
   display: flex;
   align-items: center;
@@ -344,9 +385,26 @@ export default {
   font-weight: 600;
 }
 
+/* 标题 + 状态：单独一块，和上下行都拉开距离 */
+.audio-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-top: 6rpx;
+}
+
+/* 每段 inline-block：换行只发生在标点处，词不会被劈开 */
+.audio-title-chunk {
+  display: inline-block;
+}
+
 .audio-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   color: #122231;
-  font-size: 32rpx;
+  font-size: 34rpx;
   font-weight: 600;
   line-height: 1.45;
   text-wrap: pretty;
@@ -359,48 +417,74 @@ export default {
   text-wrap: pretty;
 }
 
-.audio-voices {
+/* 声音：左文字 + 右下拉 */
+.audio-voice-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
 }
 
-.audio-voice {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56rpx;
-  margin: 0;
-  padding: 0 22rpx;
-  border: 0;
-  border-radius: 999rpx;
-  background: rgba(31, 95, 122, 0.08);
-  color: #43606E;
+.audio-voice-label {
+  flex: none;
+  color: #6C7880;
   font-size: 24rpx;
-  line-height: 1;
+  letter-spacing: 1rpx;
+}
+
+.audio-voice-picker {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 62%;
+}
+
+/* 触发区做成下拉框的样子：浅底、圆角、内边距，右侧箭头 */
+.audio-voice-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+  min-width: 220rpx;
+  min-height: 60rpx;
+  padding: 0 20rpx;
+  border-radius: 16rpx;
+  background: rgba(31, 95, 122, 0.07);
+  box-shadow: 0 0 0 1rpx rgba(31, 95, 122, 0.08), 0 6rpx 16rpx rgba(31, 47, 58, 0.05);
   transition: background 140ms ease, box-shadow 140ms ease;
 }
 
-.audio-voice::after {
-  border: 0;
+.audio-voice-trigger.is-locked {
+  background: rgba(108, 120, 128, 0.06);
+  box-shadow: 0 0 0 1rpx rgba(108, 120, 128, 0.07);
 }
 
-.audio-voice.is-active {
-  background: rgba(31, 95, 122, 0.16);
+.audio-voice-name {
+  overflow: hidden;
   color: #1F5F7A;
+  font-size: 25rpx;
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.audio-voice.is-muted {
-  color: #9AA7AF;
-  background: rgba(108, 120, 128, 0.08);
+.audio-voice-trigger.is-locked .audio-voice-name {
+  color: #5C6C75;
+  font-weight: 400;
 }
 
+.audio-caret {
+  color: #7C8B95;
+  font-size: 22rpx;
+}
+
+/* 控制行：三个按钮水平居中，间距明显 */
 .audio-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22rpx;
+  gap: 44rpx;
+  margin-top: 8rpx;
 }
 
 .audio-skip {
@@ -427,6 +511,7 @@ export default {
   background: rgba(108, 120, 128, 0.06);
 }
 
+/* 图标统一光学对齐：相对文字下移 0.125em，由这个类统一控制 */
 .audio-icon {
   position: relative;
   top: 0.125em;
@@ -438,15 +523,15 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 96rpx;
-  height: 96rpx;
+  width: 112rpx;
+  height: 112rpx;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 999rpx;
   background: linear-gradient(135deg, #1F5F7A, #143E52);
   color: #F7FAF8;
-  box-shadow: 0 14rpx 32rpx rgba(20, 62, 82, 0.22);
+  box-shadow: 0 16rpx 36rpx rgba(20, 62, 82, 0.24);
   transition: box-shadow 140ms ease, transform 140ms ease;
 }
 
@@ -461,22 +546,27 @@ export default {
 }
 
 .audio-play-icon {
-  position: relative;
-  top: 0.125em;
-  font-size: 30rpx;
-  line-height: 1;
+  font-size: 34rpx;
 }
 
-.audio-track {
+/* 进度条独占一行，时间在下方两端 */
+.audio-progress {
   display: flex;
-  align-items: center;
-  gap: 16rpx;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-top: 4rpx;
 }
 
 .audio-slider {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   margin: 0;
+}
+
+.audio-times {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4rpx;
 }
 
 .audio-time {
@@ -498,11 +588,19 @@ export default {
 
 .is-dark .audio-count,
 .is-dark .audio-status,
-.is-dark .audio-time {
+.is-dark .audio-time,
+.is-dark .audio-voice-label {
   color: #B6C2CC;
+  font-weight: 240;
 }
 
 .is-dark .audio-title {
+  color: #F4F7FA;
+  font-weight: 360;
+}
+
+/* 分段是 text 子元素：暗色下显式给同色同字重，避免个别端不继承 */
+.is-dark .audio-title-chunk {
   color: #F4F7FA;
   font-weight: 360;
 }
@@ -512,21 +610,29 @@ export default {
   font-weight: 360;
 }
 
-.is-dark .audio-voice {
+/* 暗色下拉：靠明度差分层，不用边框 */
+.is-dark .audio-voice-trigger {
   background: rgba(126, 184, 209, 0.1);
-  color: #B6C2CC;
-  font-weight: 240;
+  box-shadow: 0 0 0 1rpx rgba(126, 184, 209, 0.14), 0 6rpx 16rpx rgba(0, 0, 0, 0.18);
 }
 
-.is-dark .audio-voice.is-active {
-  background: rgba(126, 184, 209, 0.2);
+.is-dark .audio-voice-trigger.is-locked {
+  background: rgba(126, 184, 209, 0.05);
+  box-shadow: 0 0 0 1rpx rgba(126, 184, 209, 0.08);
+}
+
+.is-dark .audio-voice-name {
   color: #E4EFF5;
   font-weight: 360;
 }
 
-.is-dark .audio-voice.is-muted {
-  background: rgba(126, 184, 209, 0.05);
-  color: #7C8B95;
+.is-dark .audio-voice-trigger.is-locked .audio-voice-name {
+  color: #8B9AA4;
+  font-weight: 240;
+}
+
+.is-dark .audio-caret {
+  color: #8B9AA4;
 }
 
 .is-dark .audio-skip {
