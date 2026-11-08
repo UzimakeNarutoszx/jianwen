@@ -102,8 +102,8 @@
     try {
       response = await fetch(`${baseUrl()}${path}`, Object.assign(requestOptions, { headers }))
     } catch (error) {
-      if (error && error.name === 'AbortError') throw new Error(`请求超时：${path}`)
-      throw new Error(`无法连接见闻服务，请确认后端已在 ${baseUrl()} 启动。`)
+      if (error && error.name === 'AbortError') throw new Error('连接超时，请稍后重试。')
+      throw new Error('暂时无法连接，请检查网络后重试。')
     } finally {
       clearTimeout(timeoutId)
     }
@@ -164,9 +164,19 @@
   window.markArticleRead = markArticleRead
   window.jianwenApi = {
     baseUrl,
+    articleUpdateLabel(article) {
+      const value = article.updated_at || article.published_date || ''
+      const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|T| )/.exec(value)
+      if (!match) return ''
+      const [, year, month, day] = match.map(Number)
+      const date = new Date(Date.UTC(year, month - 1, day))
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return ''
+      return `${month}月${day}日更新`
+    },
     weeklyReport: week => authRequest(`/api/v1/profile/weekly-report${week ? `?week_start=${encodeURIComponent(week)}` : ''}`, { cache: 'no-store' }),
     readingActivity: data => authRequest('/api/v1/profile/reading-activity', { method: 'POST', body: JSON.stringify(data), keepalive: true }),
     today: () => publicRequest('/api/v1/content/today'),
+    todayAudio: () => publicRequest('/api/v1/content/today/audio', { cache: 'no-store' }),
     personalizedToday: () => authRequest('/api/v1/content/today/personalized'),
     dailyQuote: date => publicRequest(`/api/v1/content/daily-quote${date ? `?date=${encodeURIComponent(date)}` : ''}`),
     categories: () => publicRequest('/api/v1/content/categories'),

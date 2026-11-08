@@ -1,11 +1,11 @@
 from datetime import datetime
 import logging
-from zoneinfo import ZoneInfo
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import desc, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -14,7 +14,7 @@ from app.models.content import ClassicBook, ClassicBookChapter, ContentArticle
 from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic, UserReadingPosition
 from app.models.user import User
 from app.models.reading import ArticleReadingDay, ReadingInterval
-from app.services.daily_articles import ensure_daily_articles
+from app.services.daily_articles import ensure_daily_articles, get_content_date
 from app.schemas.profile import (
     AiUsageRecordRequest,
     AiUsageRecordResponse,
@@ -68,13 +68,28 @@ def save_reading_position(
     ).first()
     if record is None:
         record = UserReadingPosition(user_id=current_user.id, book_id=book_id)
+    _apply_reading_position(record, payload)
+    db.add(record)
+    try:
+        db.commit()
+    except IntegrityError:
+        # 并发请求同时插入同一 (user, book)：回滚后改更新已有行，不返回 500。
+        db.rollback()
+        record = db.query(UserReadingPosition).filter(
+            UserReadingPosition.user_id == current_user.id, UserReadingPosition.book_id == book_id
+        ).first()
+        if record is None:
+            raise
+        _apply_reading_position(record, payload)
+        db.commit()
+    db.refresh(record)
+    return record
+
+
+def _apply_reading_position(record: UserReadingPosition, payload: ReadingPositionRequest) -> None:
     record.chapter_id = payload.chapter_id
     record.scroll_progress = payload.scroll_progress
     record.updated_at = datetime.now()
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return record
 
 
 def _profile_response(db: Session, user: User) -> ProfileResponse:
@@ -136,6 +151,7 @@ def _today_checklist_item(article: ContentArticle, viewed_article_ids: set[str])
         image=article.image,
         relation=article.relation,
         viewed=article.article_id in viewed_article_ids,
+        updated_at=article.updated_at,
     )
 
 
@@ -184,10 +200,18 @@ def save_follow_topics(
     db: Session = Depends(get_db),
 ) -> list[str]:
     topics = _clean_topics(payload.topics)
-    db.query(UserFollowTopic).filter(UserFollowTopic.user_id == current_user.id).delete()
-    for index, topic in enumerate(topics):
-        db.add(UserFollowTopic(user_id=current_user.id, topic=topic, sort_order=index))
-    db.commit()
+    # 并发保存时另一个请求可能刚插入了同一 (user, topic)：重试一次，改成更新顺序。
+    for attempt in range(2):
+        db.query(UserFollowTopic).filter(UserFollowTopic.user_id == current_user.id).delete()
+        for index, topic in enumerate(topics):
+            db.add(UserFollowTopic(user_id=current_user.id, topic=topic, sort_order=index))
+        try:
+            db.commit()
+            break
+        except IntegrityError:
+            db.rollback()
+            if attempt:
+                raise
     return topics
 
 
@@ -312,7 +336,18 @@ def save_favorite(
         record = UserFavoriteArticle(user_id=current_user.id, article_id=payload.article_id)
     _apply_article_payload(record, payload, db)
     db.add(record)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 并发请求同时插入同一 (user, article) 时以唯一约束为准：回滚后改更新已有行。
+        db.rollback()
+        record = db.query(UserFavoriteArticle).filter(
+            UserFavoriteArticle.user_id == current_user.id, UserFavoriteArticle.article_id == payload.article_id
+        ).first()
+        if record is None:
+            raise
+        _apply_article_payload(record, payload, db)
+        db.commit()
     db.refresh(record)
     return record
 
@@ -364,7 +399,8 @@ def save_history(
         record = UserBrowsingHistory(user_id=current_user.id, article_id=payload.article_id)
     _apply_article_payload(record, payload, db)
     record.visited_at = datetime.now()
-    day = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    # 阅读清单按内容日期（06:00 换日）归档，和 /today 的文章组保持同一天。
+    day = get_content_date()
     daily = db.query(ArticleReadingDay).filter_by(
         user_id=current_user.id, article_id=payload.article_id, content_date=day
     ).with_for_update().first()

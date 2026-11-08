@@ -28,8 +28,16 @@ function requestManifest() {
 }
 
 function downloadAndOpen(url, versionName) {
-  uni.showLoading({ title: '正在下载更新', mask: true })
-  uni.downloadFile({
+  // 带宽有限，整包要一分钟：必须让用户看到进度，而不是一个静止的「正在下载」。
+  let lastPercent = -1
+  const showPercent = percent => {
+    if (percent === lastPercent) return
+    lastPercent = percent
+    // showLoading 连调只会改标题；同一百分比重复调用会闪烁，所以先判重。
+    uni.showLoading({ title: `正在下载 ${percent}%`, mask: true })
+  }
+  showPercent(0)
+  const task = uni.downloadFile({
     url,
     success: result => {
       if (result.statusCode !== 200 || !result.tempFilePath) {
@@ -44,6 +52,14 @@ function downloadAndOpen(url, versionName) {
     fail: () => uni.showToast({ title: '下载失败，请稍后重试', icon: 'none' }),
     complete: () => uni.hideLoading()
   })
+  try {
+    if (task && typeof task.onProgressUpdate === 'function') {
+      task.onProgressUpdate(res => {
+        const percent = res && res.progress > 0 ? Math.min(99, Math.round(res.progress)) : 0
+        showPercent(percent)
+      })
+    }
+  } catch {}
 }
 
 export function checkForAppUpdate({ force = false } = {}) {
@@ -53,7 +69,7 @@ export function checkForAppUpdate({ force = false } = {}) {
   if (!force && !shouldCheck()) return
   markChecked()
   requestManifest().then(manifest => {
-    const currentCode = versionCode('102')
+    const currentCode = versionCode('111')
     const latestCode = versionCode(manifest.versionCode)
     if (typeof manifest.apkUrl !== 'string' || !manifest.apkUrl.startsWith(UPDATE_APK_PREFIX) || latestCode <= currentCode) return
     uni.showModal({

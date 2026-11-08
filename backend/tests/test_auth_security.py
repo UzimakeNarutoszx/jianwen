@@ -212,6 +212,119 @@ class SendSmsRateLimitTests(LimiterTestBase):
         self.assertEqual(SMS_CODE_PHONE_ATTEMPTS.limit, 5)
 
 
+class SendSmsOrderingTests(SendSmsRateLimitTests):
+    """限流必须在注册状态检查之前：否则 409/404 可被用来枚举号码。"""
+
+    def test_ip_limit_wins_over_the_registration_check(self) -> None:
+        with self.Session() as db:
+            create_user(db, phone=PHONE, nickname="Tester", password="secret12")
+        for index in range(SMS_IP.limit):
+            limiter.record(ratelimit.sms_ip_key("10.9.9.9"), SMS_IP)
+
+        local = SimpleNamespace(
+            SMS_PROVIDER="local", SMS_DEV_CODE="123456", ALIYUN_DYPNS_VALID_TIME=300, is_development=True
+        )
+        with self.Session() as db, \
+             unittest.mock.patch.object(auth, "send_sms") as sender, \
+             unittest.mock.patch.object(auth, "settings", local):
+            with self.assertRaises(HTTPException) as raised:
+                auth.send_sms_code(SendSmsRequest(phone=PHONE, scene="register"), FakeRequest("10.9.9.9"), db)
+
+        # 已注册号码在限流生效后只能看到 429，看不到 409。
+        self.assertEqual(raised.exception.status_code, 429)
+        sender.assert_not_called()
+
+    def test_phone_interval_wins_over_the_registration_check(self) -> None:
+        with self.Session() as db:
+            create_user(db, phone=PHONE, nickname="Tester", password="secret12")
+        limiter.record(ratelimit.sms_phone_key(PHONE), SMS_PHONE_INTERVAL)
+
+        local = SimpleNamespace(
+            SMS_PROVIDER="local", SMS_DEV_CODE="123456", ALIYUN_DYPNS_VALID_TIME=300, is_development=True
+        )
+        with self.Session() as db, unittest.mock.patch.object(auth, "settings", local):
+            with self.assertRaises(HTTPException) as raised:
+                auth.send_sms_code(SendSmsRequest(phone=PHONE, scene="register"), FakeRequest(), db)
+
+        self.assertEqual(raised.exception.status_code, 429)
+
+    def test_registered_number_still_gets_409_without_limits(self) -> None:
+        with self.Session() as db:
+            create_user(db, phone=PHONE, nickname="Tester", password="secret12")
+
+        local = SimpleNamespace(
+            SMS_PROVIDER="local", SMS_DEV_CODE="123456", ALIYUN_DYPNS_VALID_TIME=300, is_development=True
+        )
+        with self.Session() as db, \
+             unittest.mock.patch.object(auth, "settings", local), \
+             unittest.mock.patch.object(auth, "send_sms"):
+            with self.assertRaises(HTTPException) as raised:
+                auth.send_sms_code(SendSmsRequest(phone=PHONE, scene="register"), FakeRequest(), db)
+        self.assertEqual(raised.exception.status_code, 409)
+
+
+class ForgotPasswordRateLimitTests(LimiterTestBase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.engine = create_engine(
+            "sqlite+pysqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+        self.local_settings = SimpleNamespace(
+            SMS_PROVIDER="local", SMS_DEV_CODE="123456", ALIYUN_DYPNS_VALID_TIME=300
+        )
+
+    def tearDown(self) -> None:
+        Base.metadata.drop_all(self.engine)
+        self.engine.dispose()
+        super().tearDown()
+
+    def _reset(self, phone: str = PHONE, host: str = "127.0.0.1"):
+        with self.Session() as db:
+            return auth.forgot_password(
+                ForgotPasswordRequest(phone=phone, new_password="new-password", sms_code="123456"),
+                FakeRequest(host),
+                db,
+            )
+
+    def test_ip_limit_blocks_the_registration_lookup(self) -> None:
+        for index in range(SMS_IP.limit):
+            limiter.record(ratelimit.sms_ip_key("10.3.3.3"), SMS_IP)
+        with self.assertRaises(HTTPException) as raised:
+            self._reset(phone=OTHER_PHONE, host="10.3.3.3")
+        # 未注册号码在限流生效时只看到 429，看不到 404。
+        self.assertEqual(raised.exception.status_code, 429)
+
+    def test_unknown_number_is_404_without_limits(self) -> None:
+        with self.assertRaises(HTTPException) as raised:
+            self._reset(phone=OTHER_PHONE)
+        self.assertEqual(raised.exception.status_code, 404)
+
+    def test_repeated_reset_requests_are_capped_per_phone(self) -> None:
+        with self.Session() as db:
+            create_user(db, phone=PHONE, nickname="Tester", password="old-password")
+        # 每一次都耗尽 60 秒的手机号窗口，第二次必须被挡住。
+        for _ in range(SMS_PHONE_DAILY.limit):
+            limiter.record(ratelimit.sms_phone_key(PHONE), SMS_PHONE_INTERVAL)
+        limiter.reset(ratelimit.sms_phone_key(PHONE))
+        limiter.record(ratelimit.sms_phone_key(PHONE), SMS_PHONE_INTERVAL)
+        for _ in range(SMS_PHONE_DAILY.limit):
+            limiter.record(ratelimit.sms_phone_daily_key(PHONE), SMS_PHONE_DAILY)
+
+        with self.Session() as db, unittest.mock.patch.object(auth, "settings", self.local_settings):
+            with self.assertRaises(HTTPException) as raised:
+                auth.forgot_password(
+                    ForgotPasswordRequest(phone=PHONE, new_password="new-password", sms_code="123456"),
+                    FakeRequest(),
+                    db,
+                )
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertIn("上限", raised.exception.detail)
+
+
 class SmsPurposeTests(LimiterTestBase):
     def setUp(self) -> None:
         super().setUp()
@@ -318,6 +431,20 @@ class SmsPurposeTests(LimiterTestBase):
             with self.assertRaises(sms.SmsServiceError) as raised:
                 sms.verify_code_for_purpose(db, PHONE, "123456", sms.PURPOSE_REGISTER)
         self.assertEqual(raised.exception.code, sms.CODE_PURPOSE_MISMATCH)
+
+    def test_aliyun_provider_also_rejects_an_unissued_code(self) -> None:
+        """没有 issue 记录时，任何 provider 都不能放行（阿里云也要拒绝）。"""
+        aliyun_settings = SimpleNamespace(
+            SMS_PROVIDER="aliyun", SMS_DEV_CODE="123456", ALIYUN_DYPNS_VALID_TIME=300
+        )
+        with self.Session() as db, \
+             unittest.mock.patch.object(sms, "settings", aliyun_settings), \
+             unittest.mock.patch.object(sms, "check_sms_code") as provider_check:
+            with self.assertRaises(sms.SmsServiceError) as raised:
+                sms.verify_code_for_purpose(db, PHONE, "123456", sms.PURPOSE_REGISTER)
+        self.assertEqual(raised.exception.code, sms.CODE_PURPOSE_MISMATCH)
+        # 连远程校验都不该发起：没有 issue 记录就没有可验证的验证码。
+        provider_check.assert_not_called()
 
     def test_issue_outside_the_ttl_no_longer_counts(self) -> None:
         with self.Session() as db, self._target():

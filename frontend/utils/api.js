@@ -534,3 +534,12 @@ export function getWeeklyCatalog() {
 export function getChangelog() {
   return apiRequest({ url: '/public/data/changelog.json', data: { _t: Date.now() } })
 }
+
+// 今日朗读：无需登录；url 是站内相对路径，播放前用 buildFileUrl 拼成绝对地址。
+export function getTodayAudio() {
+  return apiRequest({ url: '/api/v1/content/today/audio', data: { _t: Date.now() } })
+}
+
+export function todayAudioUrl(path) {
+  return buildFileUrl(path || '')
+}

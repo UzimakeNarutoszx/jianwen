@@ -159,8 +159,21 @@ def is_pinned(row: BreakingNews, now: datetime | None = None) -> bool:
 def active_breaking_news(db: Session, now: datetime | None = None) -> list[BreakingNews]:
     """当前应置顶的会议，最新的在前。只读，绝不联网。"""
     current = local_now(now)
-    visible = [row for row in db.query(BreakingNews).all() if is_pinned(row, current)]
+    canonical = {}
+    for row in sorted(db.query(BreakingNews).all(), key=lambda item: (item.start_date, item.id)):
+        key = _unique_meeting_name(row.event_name, row.event_type) or f"row:{row.id}"
+        canonical.setdefault(key, row)
+    visible = [row for row in canonical.values() if is_pinned(row, current)]
     return sorted(visible, key=lambda row: (row.start_date, row.id), reverse=True)
+
+
+def _unique_meeting_name(name: str, event_type: str) -> str | None:
+    """届次或年份明确的会议名称可作为同一会议的稳定标识。"""
+    if event_type in ("中央全会", "全国党代会", "全国人代会") or event_type in YEARLY_EVENT_TYPES:
+        return name
+    if event_type == "全国政协会议" and "次会议" in name:
+        return name
+    return None
 
 
 def card_payload(row: BreakingNews, now: datetime | None = None) -> dict:
@@ -336,25 +349,32 @@ def confirm_event(text: str, reference: date) -> dict | None:
     只有“决定召开 / 将于近期召开”这类没有具体日期的预告不算确认；单日确认
     只在同一句里既有会议名又只有一个日期时才成立，避免电头日期造成误判。
     """
-    cleaned = _clean(text)
+    # 电头里的日期不是会议日期：新华社/人民网/本报/中新网四种写法都要先剥掉。
+    cleaned = re.sub(r"(?:新华社|人民网|本报|中新网)[^。]{0,30}?\d{1,2}月\d{1,2}日电\s*", "", _clean(text))
     if not cleaned:
         return None
     meeting = _find_meeting(cleaned, reference)
     if meeting is None:
         return None
-    span = find_date_span(cleaned, reference)
-    if span is None:
-        single = None
-        for sentence in _sentence_split(cleaned):
-            if _find_meeting(sentence, reference) is None:
+    span = None
+    for sentence in _sentence_split(cleaned):
+        for event_type, pattern in MEETING_PATTERNS:
+            match = pattern.search(sentence)
+            if match is None or _event_name_from_match(event_type, match, reference) != meeting[0]:
                 continue
-            single = find_single_date(sentence, reference) or find_day_only_date(sentence, reference)
-            if single is not None:
+            if not re.search(r"(?:开幕|闭幕|举行|召开)", sentence[match.end():]):
+                continue
+            span = find_date_span(sentence, reference)
+            if span is None:
+                single = find_single_date(sentence, reference) or find_day_only_date(sentence, reference)
+                if single is not None:
+                    span = (single, None)
+            if span is not None:
                 break
-        if single is None:
-            return None
-        # 只知道开幕或闭幕日时，结束日期留空（未知可空）。
-        span = (single, None)
+        if span is not None:
+            break
+    if span is None:
+        return None
     start, end = span
     event_name, event_type = meeting
     if event_type in YEARLY_EVENT_TYPES:
@@ -593,6 +613,24 @@ def seed_breaking_news(db: Session) -> bool:
     return True
 
 
+def _merge_meeting_dates(row: BreakingNews, start_date: date, end_date: date | None, event_name: str) -> None:
+    """把新报道的日期并进已有卡片，但绝不让区间反过来。
+
+    误报会先写入一个错的开始日（例如只确认到闭幕日的 10-31），后续正确报道
+    （10-26 至 10-29）按会议名并到同一行：有完整区间，或开始日更早时一起更新
+    开始日、结束日和 ``event_key``。任何会让 end_date < start_date 的取值都跳过。
+    """
+    new_start = start_date if start_date < row.start_date or end_date is not None else row.start_date
+    new_end = end_date if end_date is not None else row.end_date
+    if new_end is not None and new_end < new_start:
+        return
+    if new_start != row.start_date:
+        row.start_date = new_start
+        # 同一场会议的去重键由会议名 + 开始日期派生，开始日变了要一起改。
+        row.event_key = event_key(event_name or row.event_name, new_start)
+    row.end_date = new_end
+
+
 def refresh_breaking_news(
     db: Session, now: datetime | None = None, records: list[dict] | None = None
 ) -> int:
@@ -608,7 +646,27 @@ def refresh_breaking_news(
             continue
         end_date = item.get("end_date") if isinstance(item.get("end_date"), date) else None
         key = event_key(event_name, start_date)
+        type_key = _unique_meeting_name(event_name, _clean(item.get("event_type")))
         row = db.query(BreakingNews).filter(BreakingNews.event_key == key).first()
+        if row is None and type_key:
+            # 已有卡片可能先记住了错的开始日（误报），去重键对不上但仍是同一场会议：
+            # 第一时间窗内的行优先，其次取开始日最早的那一行。
+            candidates = (
+                db.query(BreakingNews)
+                .filter(BreakingNews.event_name == event_name)
+                .order_by(BreakingNews.start_date, BreakingNews.id)
+                .all()
+            )
+            row = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if candidate.start_date - timedelta(days=UNKNOWN_END_DAYS)
+                    <= start_date
+                    <= last_meeting_day(candidate.start_date, candidate.end_date)
+                ),
+                None,
+            ) or (candidates[0] if candidates else None)
         if row is None:
             # 报道只确认到闭幕日时开始日期会落在会期内：并回同一场会议的已有卡片，
             # 仍然按「会议名 + 开始日期」去重，不新增第二张卡片。
@@ -637,8 +695,7 @@ def refresh_breaking_news(
                 )
             )
         else:
-            if end_date is not None and row.end_date != end_date:
-                row.end_date = end_date
+            _merge_meeting_dates(row, start_date, end_date, event_name)
             row.status = meeting_status(row.start_date, row.end_date, current)
         # Production sessions disable autoflush; make this item visible to the
         # next source record while keeping the whole refresh transactional.
