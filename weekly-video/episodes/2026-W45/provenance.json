@@ -1,0 +1,32 @@
+{
+  "episode": "2026-W45",
+  "cutoff": "2026-11-07T18:30:00+08:00",
+  "basis": "本期内容来自本地 Git 提交记录、项目 README、docs/MEDIA.md 与 webpage/downloads/latest.json；未将未公开开发内容写成已上线功能。",
+  "records": [
+    "d7005cd",
+    "3ee57cf"
+  ],
+  "note": "本期为产品工作回看，不包含未经核实的外部新闻。",
+  "music": {
+    "title": "雨",
+    "artistTag": "昔日烬",
+    "rightsBasis": "User explicitly confirmed in this task on 2026-10-17 that 憩、柱、雨、岚、终 are their originals and authorized their use. See music-library.json. Earlier CLAUDE_HANDOFF.md entry 2026-10-11 also identifies 雨 as user-original. No public-domain or CC license claim.",
+    "sourceSnapshot": "music/雨.mp3",
+    "sourceSha256": "39e5ff4da91a1ae9f66dfbdb61ad204bbff3ffa56a25c1de97e98f5c515c01e8",
+    "narrationSha256": "6f5ca62d9b19511efdec0ddd90c28f3276d43ba95b8016ae7fcebe188d410864",
+    "mix": {
+      "loopCrossfadeSeconds": 3,
+      "fadeInSeconds": 3,
+      "fadeOutSeconds": 5,
+      "musicTargetLUFS": -30,
+      "speechDucking": true,
+      "mixTargetLUFS": -16,
+      "mixTruePeakCeilingDb": -1.5
+    },
+    "output": {
+      "file": "soundtrack-c63f1e1f16c4.m4a",
+      "sha256": "c63f1e1f16c499d7bf64f79596b678e0a72d3b0b8278156aae94854fce0cf3be",
+      "credit": "原创配乐《雨》 · 昔日烬"
+    }
+  }
+}

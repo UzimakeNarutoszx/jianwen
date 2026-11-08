@@ -51,7 +51,7 @@ export function checkForAppUpdate({ force = false, manual = false } = {}) {
   if (!force && !shouldCheck()) return Promise.resolve({ status: 'skipped' })
   markChecked()
   return requestManifest().then(manifest => {
-    const currentCode = versionCode('104')
+    const currentCode = versionCode('110')
     const latestCode = versionCode(manifest.versionCode)
     if (typeof manifest.apkUrl !== 'string' || !manifest.apkUrl.startsWith(APK_PREFIX)) {
       if (manual) uni.showToast({ title: '更新清单不可用', icon: 'none' })

@@ -1,6 +1,6 @@
 {
-  "versionName": "1.0.4",
-  "versionCode": 104,
-  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.0.4.apk",
-  "notes": "今日页新增每日文章朗读：两种声音可选，听完即算读完。"
+  "versionName": "1.1.0",
+  "versionCode": 110,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.0.apk",
+  "notes": "今日朗读改版：播放器重新排版，声音改为下拉选择，修正朗读时数字读错。"
 }

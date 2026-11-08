@@ -23,10 +23,10 @@ async function check(manifest, confirm = false) {
 }
 
 test('only newer releases from the approved HTTPS source are offered', async () => {
-  const url = 'http://8.147.110.194/downloads/jianwen-1.0.4.apk'
-  assert.equal((await check({ versionCode: 104, apkUrl: url })).modals.length, 0)
-  assert.equal((await check({ versionCode: 104, apkUrl: 'https://example.com/app.apk' })).modals.length, 0)
-  assert.equal((await check({ versionCode: 105, apkUrl: url })).modals.length, 1)
-  assert.equal((await check({ versionCode: 105, apkUrl: url })).downloads.length, 0)
-  assert.deepEqual((await check({ versionCode: 105, apkUrl: url }, true)).downloads, [url])
+  const url = 'http://8.147.110.194/downloads/jianwen-1.1.0.apk'
+  assert.equal((await check({ versionCode: 110, apkUrl: url })).modals.length, 0)
+  assert.equal((await check({ versionCode: 110, apkUrl: 'https://example.com/app.apk' })).modals.length, 0)
+  assert.equal((await check({ versionCode: 111, apkUrl: url })).modals.length, 1)
+  assert.equal((await check({ versionCode: 111, apkUrl: url })).downloads.length, 0)
+  assert.deepEqual((await check({ versionCode: 111, apkUrl: url }, true)).downloads, [url])
 })

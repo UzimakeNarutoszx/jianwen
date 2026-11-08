@@ -210,6 +210,70 @@
       "video": "assets/weekly-video/2026-W44/episode.mp4",
       "poster": "assets/weekly-video/2026-W44/cover.jpg",
       "captions": "assets/weekly-video/2026-W44/captions.vtt"
+    },
+    {
+      "id": "2026-W45",
+      "number": 4,
+      "title": "从公开展示，到 Android 1.0.2",
+      "description": "一次公开展示整理、一次 Android 版本发布，以及本周见闻产品工作的回看。",
+      "weekStart": "2026-11-02",
+      "weekEnd": "2026-11-08",
+      "cutoff": "2026-11-07T18:30:00+08:00",
+      "durationSeconds": 60.93333333333333,
+      "chapters": [
+        {
+          "title": "片头导读",
+          "seconds": 0.0
+        },
+        {
+          "title": "本周重点文章",
+          "seconds": 8.1
+        },
+        {
+          "title": "本周见闻更新",
+          "seconds": 29.633333333333333
+        },
+        {
+          "title": "大事总结",
+          "seconds": 41.43333333333333
+        },
+        {
+          "title": "片尾来源",
+          "seconds": 50.63333333333333
+        }
+      ],
+      "articles": [],
+      "sources": [
+        {
+          "title": "Release Android 1.0.2",
+          "url": "https://github.com/UzimakeNarutoszx/jianwen/commit/d7005cd",
+          "date": "2026-11-07"
+        },
+        {
+          "title": "Document deployed product with real screenshots and original promo film",
+          "url": "https://github.com/UzimakeNarutoszx/jianwen/commit/3ee57cf",
+          "date": "2026-11-01"
+        },
+        {
+          "title": "见闻 Android 版本清单",
+          "url": "webpage/downloads/latest.json",
+          "date": "2026-11-07"
+        },
+        {
+          "title": "见闻项目 README 与素材说明",
+          "url": "README.md",
+          "date": "2026-11-01"
+        }
+      ],
+      "durationTarget": {
+        "min": 50,
+        "max": 70
+      },
+      "status": "published",
+      "publishedAt": "2026-11-08T09:37:40.256142+08:00",
+      "video": "assets/weekly-video/2026-W45/episode.mp4",
+      "poster": "assets/weekly-video/2026-W45/cover.jpg",
+      "captions": "assets/weekly-video/2026-W45/captions.vtt"
     }
   ],
   "upcoming": null

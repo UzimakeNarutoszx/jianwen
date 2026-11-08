@@ -1,0 +1,25 @@
+{
+  "id": "2026-W45",
+  "number": 4,
+  "title": "从公开展示，到 Android 1.0.2",
+  "description": "一次公开展示整理、一次 Android 版本发布，以及本周见闻产品工作的回看。",
+  "weekStart": "2026-11-02",
+  "weekEnd": "2026-11-08",
+  "cutoff": "2026-11-07T18:30:00+08:00",
+  "durationTarget": {"min": 50, "max": 70},
+  "articles": [],
+  "sources": [
+    {"title": "Release Android 1.0.2", "url": "https://github.com/UzimakeNarutoszx/jianwen/commit/d7005cd", "date": "2026-11-07"},
+    {"title": "Document deployed product with real screenshots and original promo film", "url": "https://github.com/UzimakeNarutoszx/jianwen/commit/3ee57cf", "date": "2026-11-01"},
+    {"title": "见闻 Android 版本清单", "url": "webpage/downloads/latest.json", "date": "2026-11-07"},
+    {"title": "见闻项目 README 与素材说明", "url": "README.md", "date": "2026-11-01"}
+  ],
+  "slides": [
+    {"chapter": "片头导读", "title": "把一周，串起来。", "lines": ["每周视频 · 第 4 期", "2026.11.02 — 11.08", "采编截至 11 月 7 日"], "narration": "欢迎收看见闻每周视频。本期回看十一月二日至八日：先看公开展示，再看 Android 1.0.2。", "source": "见闻编辑整理 · 2026-11-07"},
+    {"chapter": "本周重点文章", "title": "先把产品，公开讲清楚。", "lines": ["真实云端界面截图", "公开处理版宣传片", "素材边界写进说明"], "narration": "本周先补齐公开展示：README 换成云端实际截图，加入宣传片海报和链接，并在素材说明中写清展示内容、授权边界与去敏范围。", "source": "提交 3ee57cf · 2026-11-01"},
+    {"chapter": "本周重点文章", "title": "展示材料，也要有出处。", "lines": ["截图对应拍摄时状态", "视频保留原音轨说明", "不把展示素材当作源码许可"], "narration": "整理不只是把页面放出来，也要说明来源和限制：截图记录拍摄状态，视频说明音频与去敏处理，展示素材不等于源码许可。", "source": "docs/MEDIA.md · 公开素材说明"},
+    {"chapter": "本周见闻更新", "title": "Android 1.0.2，正式发布。", "lines": ["11 月 7 日 · versionCode 102", "新增自动检查更新", "公开下载清单同步"], "narration": "第二项工作是 Android 1.0.2 发布：应用定期检查版本清单，发现新版本提示下载，公开下载清单同步到 1.0.2。", "source": "提交 d7005cd · 2026-11-07"},
+    {"chapter": "大事总结", "title": "更新体验，落到具体页面。", "lines": ["文章显示更新日期", "加载失败可重试", "每周页沿用统一状态视图"], "narration": "发布还修正了几处体验：文章显示更新日期，加载失败提供统一重试入口，每周页面沿用同一套状态视图。", "source": "提交 d7005cd · 前端改动记录"},
+    {"chapter": "片尾来源", "title": "带着依据，继续做。", "lines": ["公开展示已补齐", "Android 1.0.2 已发布", "提交记录与素材说明随本期保存"], "narration": "这一周，产品展示更完整，Android 更新链路也落到公开版本。提交记录、版本清单和素材说明随本期保存。这里是见闻，我们下期再见。", "source": "见闻每周视频 · 第 4 期 · 来源随期归档"}
+  ]
+}
