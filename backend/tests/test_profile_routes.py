@@ -1,4 +1,5 @@
 import unittest
+from datetime import date, datetime, timedelta
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -6,15 +7,62 @@ from unittest.mock import Mock, patch
 from fastapi import HTTPException
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.v1 import profile
 from app.db.base import Base
-from app.models.content import ContentArticle
-from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFavoriteArticle, UserFollowTopic
+from app.models.content import ClassicBook, ClassicBookChapter, ContentArticle
+from app.models.profile import (
+    UserAiUsageRecord,
+    UserBrowsingHistory,
+    UserFavoriteArticle,
+    UserFollowTopic,
+    UserReadingPosition,
+)
+from app.models.reading import ArticleReadingDay
 from app.models.user import User
-from app.schemas.profile import ArticleRecordRequest, FollowTopicsRequest, ProfileUpdateRequest
+from app.schemas.profile import (
+    ArticleRecordRequest,
+    FollowTopicsRequest,
+    ProfileUpdateRequest,
+    ReadingPositionRequest,
+    ReadingPositionResponse,
+)
+
+
+class _MissFirstQuery:
+    """指定模型上的第一次查询故意返回“没有记录”，模拟并发插入窗口。
+
+    只有 upsert 里“先查”的那一次要落空，参数校验和之后的重查都必须看到真实数据。
+    """
+
+    def __init__(self, session, model) -> None:
+        self.original = session.query
+        self.model = model
+        self.pending = True
+
+    def __call__(self, *entities, **kwargs):
+        query = self.original(*entities, **kwargs)
+        if self.pending and entities and entities[0] is self.model:
+            self.pending = False
+            return _EmptyQuery(query)
+        return query
+
+
+class _EmptyQuery:
+    def __init__(self, query) -> None:
+        self.query = query
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def with_for_update(self):
+        return self
+
+    def first(self):
+        return None
 
 
 class ProfileRouteTests(unittest.TestCase):
@@ -149,6 +197,115 @@ class ProfileRouteTests(unittest.TestCase):
         self.assertEqual(created.id, updated.id)
         self.assertEqual(total, 1)
         self.assertEqual(updated.title, "New")
+
+    def test_history_day_uses_the_content_date_that_rolls_over_at_six(self) -> None:
+        # 05:30 仍属于前一天的内容日期，阅读清单不能记到自然日上。
+        with self.Session() as db:
+            user = self._create_user(db)
+            with patch.object(
+                profile, "get_content_date", return_value=date(2026, 11, 7)
+            ) as content_date:
+                profile.save_history(ArticleRecordRequest(article_id="a1"), current_user=user, db=db)
+            content_date.assert_called_once_with()
+            stored = [row.content_date for row in db.query(ArticleReadingDay).all()]
+
+        self.assertEqual(stored, [date(2026, 11, 7)])
+
+    def test_concurrent_favorite_insert_is_resolved_by_reloading(self) -> None:
+        """并发插入撞唯一约束时不能 500，应回滚后更新已有行。"""
+        with self.Session() as db:
+            user = self._create_user(db)
+            # 另一个请求已经插入了同一 (user, article)，但本次请求的第一次查询没看到它。
+            db.add(UserFavoriteArticle(user_id=user.id, article_id="a1", title="Other"))
+            db.commit()
+
+            with patch.object(db, "query", side_effect=_MissFirstQuery(db, UserFavoriteArticle)):
+                record = profile.save_favorite(
+                    ArticleRecordRequest(article_id="a1", title="Updated"), current_user=user, db=db
+                )
+
+            rows = db.query(UserFavoriteArticle).all()
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(record.title, "Updated")
+
+    def test_concurrent_reading_position_insert_is_resolved_by_reloading(self) -> None:
+        with self.Session() as db:
+            user = self._create_user(db)
+            db.add(ClassicBook(book_id="book", title="Book"))
+            db.flush()
+            chapter = ClassicBookChapter(book_id="book", title="One", chapter_order=1)
+            db.add(chapter)
+            db.commit()
+            # 另一个请求已经写入了同一 (user, book) 的进度。
+            db.add(
+                UserReadingPosition(
+                    user_id=user.id,
+                    book_id="book",
+                    chapter_id=chapter.id,
+                    scroll_progress=10,
+                    updated_at=datetime.now(),
+                )
+            )
+            db.commit()
+
+            with patch.object(db, "query", side_effect=_MissFirstQuery(db, UserReadingPosition)):
+                record = profile.save_reading_position(
+                    "book",
+                    ReadingPositionRequest(chapter_id=chapter.id, scroll_progress=77),
+                    current_user=user,
+                    db=db,
+                )
+
+            rows = db.query(UserReadingPosition).all()
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(record.scroll_progress, 77)
+
+    def test_concurrent_follow_topics_insert_is_retried(self) -> None:
+        with self.Session() as db:
+            user = self._create_user(db)
+            db.add(UserFollowTopic(user_id=user.id, topic="就业", sort_order=0))
+            db.commit()
+
+            original_commit = db.commit
+            state = {"failed": False}
+
+            def commit_with_one_conflict():
+                # 第一次提交模拟另一个请求抢先写入了同一 (user, topic)。
+                if not state["failed"]:
+                    state["failed"] = True
+                    raise IntegrityError("insert", {}, Exception("duplicate"))
+                return original_commit()
+
+            with patch.object(db, "commit", side_effect=commit_with_one_conflict):
+                topics = profile.save_follow_topics(
+                    FollowTopicsRequest(topics=["就业", "住房"]), current_user=user, db=db
+                )
+
+            stored = [
+                row.topic
+                for row in db.query(UserFollowTopic).order_by(UserFollowTopic.sort_order, UserFollowTopic.id).all()
+            ]
+
+        self.assertEqual(topics, ["就业", "住房"])
+        self.assertEqual(stored, ["就业", "住房"])
+
+    def test_reading_position_output_is_timezone_aware(self) -> None:
+        with self.Session() as db:
+            user = self._create_user(db)
+            db.add(ClassicBook(book_id="book", title="Book"))
+            db.flush()
+            chapter = ClassicBookChapter(book_id="book", title="One", chapter_order=1)
+            db.add(chapter)
+            db.commit()
+
+            record = profile.save_reading_position(
+                "book", ReadingPositionRequest(chapter_id=chapter.id, scroll_progress=40), current_user=user, db=db
+            )
+            response = ReadingPositionResponse.model_validate(record)
+
+        self.assertEqual(response.updated_at.utcoffset(), timedelta(hours=8))
 
 
 if __name__ == "__main__":

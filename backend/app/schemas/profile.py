@@ -1,6 +1,10 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+CONTENT_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -92,6 +96,7 @@ class TodayChecklistItemResponse(BaseModel):
     image: str | None = None
     relation: str | None = None
     viewed: bool = False
+    updated_at: datetime | None = None
 
 
 class TodayChecklistResponse(BaseModel):
@@ -111,3 +116,15 @@ class ReadingPositionResponse(ReadingPositionRequest):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("updated_at")
+    @classmethod
+    def _shanghai_timestamp(cls, value: datetime) -> datetime:
+        """库里存的是无时区的上海时间，输出时补上 +08:00。
+
+        reader.js 把没有偏移量的时间当 UTC 解析，补上偏移才能显示成本地时间；
+        已经带时区的值按上海时间换算，不做二次偏移。
+        """
+        if value.tzinfo is None:
+            return value.replace(tzinfo=CONTENT_TIMEZONE)
+        return value.astimezone(CONTENT_TIMEZONE)

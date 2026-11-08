@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI 问问 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20261031-1">
-  <link rel="stylesheet" href="../css/pages/jianwen-ask.css?v=20261031-2">
+  <link rel="stylesheet" href="../css/site.css?v=20261108-1">
+  <link rel="stylesheet" href="../css/pages/jianwen-ask.css?v=20261108-1">
 
-  <link rel="stylesheet" href="../css/ask.css?v=20261024-2">
-<link rel="stylesheet" href="../css/editorial.css?v=20261024-2">
+  <link rel="stylesheet" href="../css/ask.css?v=20261108-1">
+<link rel="stylesheet" href="../css/editorial.css?v=20261108-1">
 <link rel="icon" href="../assets/agents.png?v=agents-1" type="image/png">
 </head>
 <body data-page="jianwen-ask">
@@ -43,6 +43,14 @@
       <p id="ask-live" class="visually-hidden" role="status" aria-live="polite"></p>
     </section>
 
+    <section id="ask-followups" class="ask-followups" hidden aria-label="下一步可以问">
+      <h2>下一步可以问</h2>
+      <div class="prompt-grid">
+        <button type="button" class="prompt-chip" data-question="讲简单点">讲简单点</button>
+        <button type="button" class="prompt-chip" data-question="和我有关吗？">和我有关吗？</button>
+        <button type="button" class="prompt-chip" data-question="依据在哪里？">依据在哪里？</button>
+      </div>
+    </section>
     <form id="ask-form" class="ask-dock" novalidate>
       <span id="ai-quota-dock" class="ai-quota-dock" role="status" aria-live="polite">今日剩余额度：加载中</span>
       <input id="ask-input" aria-label="你的问题" required maxlength="4000" autocomplete="off" placeholder="例如：这件事和我有什么关系？">
@@ -54,8 +62,8 @@
     <p class="ask-note">提交问题即表示你理解：AI 回答可能不完整，应以原始资料和权威渠道为准。</p>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20261031-1"></script>
-  <script src="../js/api-browser.js?v=20261031-2"></script>
-  <script src="../js/ask.js?v=20261031-2"></script>
+  <script src="../js/site.js?v=20261108-1"></script>
+  <script src="../js/api-browser.js?v=20261108-1"></script>
+  <script src="../js/ask.js?v=20261108-1"></script>
 </body>
 </html>

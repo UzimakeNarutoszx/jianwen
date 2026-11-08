@@ -116,6 +116,8 @@
       </view>
     </view>
 
+    <TodayAudioPlayer ref="todayAudio" class="today-audio-slot" :dark-mode="darkMode" @listened="onAudioListened" />
+
     <view class="article-list">
       <view class="article-section-head">
         <text class="section-eyebrow">TODAY FILES</text>
@@ -157,7 +159,7 @@
             <image class="foot-arrow" src="/static/icons/icon-arrow-right.png" mode="aspectFit" />
           </view>
         </view>
-        <text v-if="item.updateLabel" class="article-update-date">{{ item.updateLabel }}</text>
+        <view v-if="item.updateLabel" class="article-update-row"><text class="article-update-date">{{ item.updateLabel }}</text></view>
       </view>
     </view>
 
@@ -169,17 +171,18 @@
 </template>
 
 <script>
-import { buildFileUrl, getDailyQuote, getMajorEvents, getRemoteTodayChecklist, getTodayContent } from '@/utils/api.js'
+import { buildFileUrl, getDailyQuote, getMajorEvents, getRemoteTodayChecklist, getTodayContent, saveRemoteHistory } from '@/utils/api.js'
 import { formatToday } from '@/utils/date.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
-import { getReadArticleIds } from '@/utils/user-data.js'
+import { addArticleHistory, getReadArticleIds, markArticleRead } from '@/utils/user-data.js'
 import StateView from '@/components/StateView.vue'
+import TodayAudioPlayer from '@/components/TodayAudioPlayer.vue'
 
 // 60 秒内回到页面不重拉，避免 tab 切换反复打接口。
 const RELOAD_INTERVAL_MS = 60000
 
 export default {
-  components: { StateView },
+  components: { StateView, TodayAudioPlayer },
   data() {
     return {
       majorEvent: null,
@@ -261,7 +264,26 @@ export default {
   onPullDownRefresh() {
     this.loadContent().finally(() => uni.stopPullDownRefresh())
   },
+  // 页面隐藏/卸载时朗读必须停掉：子组件里的 onHide/onUnload 不会被 uni 调用到。
+  onHide() {
+    const player = this.$refs.todayAudio
+    if (player && typeof player.stopAudio === 'function') player.stopAudio()
+  },
+  onUnload() {
+    const player = this.$refs.todayAudio
+    if (player && typeof player.stopAudio === 'function') player.stopAudio()
+  },
   methods: {
+    // 听完今日朗读的一篇 = 读完：与打开详情页同样记已读、写本地/远端阅读历史。
+    onAudioListened({ articleId }) {
+      const article = this.articles.find(item => String(item.articleId || item.id) === String(articleId))
+      if (!article || article.viewed) return
+      markArticleRead(article.id)
+      if (String(article.articleId) !== String(article.id)) markArticleRead(article.articleId)
+      addArticleHistory(article.id, article)
+      if (uni.getStorageSync('jianwen_auth_token')) saveRemoteHistory(article.articleId || article.id, article).catch(() => {})
+      article.viewed = true
+    },
     // 大事报道：失败就不显示，不影响今日内容。
     loadMajorEvent() {
       getMajorEvents()
@@ -911,6 +933,11 @@ export default {
   gap: 34rpx;
 }
 
+.today-audio-slot {
+  display: block;
+  margin-bottom: 52rpx;
+}
+
 .article-section-head {
   display: flex;
   flex-direction: column;
@@ -1077,6 +1104,10 @@ export default {
   padding: 28rpx 34rpx 0;
   margin-top: 30rpx;
   border-top: 1rpx solid rgba(31,95,122,0.1);
+}
+
+.article-update-row {
+  padding: 0 34rpx 30rpx;
 }
 
 .source-line {

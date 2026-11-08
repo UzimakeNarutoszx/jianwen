@@ -122,6 +122,7 @@ import {
   uploadMyAvatar
 } from '@/utils/api.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
+import { checkForAppUpdate } from '@/utils/app-updater.js'
 
 const LOCAL_TOPICS_KEY = 'jianwen_follow_topics'
 
@@ -195,7 +196,10 @@ export default {
           ]
         }
       ]
-      groups.push({ title: '关于见闻', desc: '产品动态', items: [{ key: 'changelog', label: '更新日志', type: 'link' }] })
+      groups.push({ title: '关于见闻', desc: '产品动态', items: [
+        { key: 'checkUpdate', label: '检查更新', type: 'link', desc: '检查是否有新的 App 安装包' },
+        { key: 'changelog', label: '更新日志', type: 'link' }
+      ] })
       groups.push({
         title: '账号',
         desc: this.authUser ? '登录状态' : '云端同步',
@@ -363,6 +367,10 @@ export default {
         return
       }
       const pageMap = { changelog: '/pages/settings/changelog', fontSize: '/pages/settings/font-size', legal: '/pages/settings/legal', sources: '/pages/settings/sources' }
+      if (item.key === 'checkUpdate') {
+        checkForAppUpdate({ force: true, manual: true })
+        return
+      }
       if (item.key === 'login') {
         uni.navigateTo({ url: '/pages/auth/login' })
         return

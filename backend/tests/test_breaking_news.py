@@ -85,6 +85,16 @@ class BreakingNewsTestCase(unittest.TestCase):
 
 
 class EventRecognitionTests(BreakingNewsTestCase):
+    def test_followup_reports_do_not_supply_meeting_dates(self) -> None:
+        samples = (
+            "新华社北京11月6日电 中央宣讲团成员11月6日在分管领域宣讲党的二十届五中全会精神。",
+            "新华社北京10月31日电 近日，世界多国政党政要热烈祝贺中国共产党二十届五中全会胜利召开。",
+            "新华社北京10月30日电 不断开创新时代管党治党新局面——论学习贯彻党的二十届五中全会精神。",
+        )
+        for text in samples:
+            with self.subTest(text=text):
+                self.assertIsNone(breaking_news.confirm_event(text, date(2026, 11, 6)))
+
     def test_event_name_and_dates_are_recognised_from_official_text(self) -> None:
         info = breaking_news.confirm_event(
             "中国共产党第二十届中央委员会第五次全体会议26日上午在北京开幕，会议于10月26日至29日在北京举行。",
@@ -200,6 +210,16 @@ class WhitelistTests(BreakingNewsTestCase):
 
 
 class BehaviourTests(BreakingNewsTestCase):
+    def test_old_duplicate_followup_is_not_pinned_as_a_new_meeting(self) -> None:
+        with self.Session() as db:
+            breaking_news.refresh_breaking_news(db, now=datetime(2026, 10, 29), records=[self._record(end_date=date(2026, 10, 29))])
+            duplicate = self._record(start_date=date(2026, 11, 6), title="宣讲五中全会精神")
+            breaking_news.refresh_breaking_news(db, now=datetime(2026, 11, 6), records=[duplicate])
+            self.assertEqual(db.query(BreakingNews).count(), 1)
+            db.add(BreakingNews(event_key="legacy", event_name=duplicate["event_name"], event_type="中央全会", start_date=date(2026, 11, 6), status="进行中", title=duplicate["title"], source_name="新华社", source_url=duplicate["source_url"]))
+            db.commit()
+            self.assertEqual(breaking_news.active_breaking_news(db, datetime(2026, 11, 7, 12)), [])
+
     def _record(self, **overrides) -> dict:
         record = {
             "event_name": "中国共产党第二十届中央委员会第五次全体会议",
@@ -356,6 +376,100 @@ class BehaviourTests(BreakingNewsTestCase):
             breaking_news.refresh_breaking_news(db, now=datetime(2026, 10, 26, 12), records=[self._record()])
             self.assertFalse(breaking_news.seed_breaking_news(db))
             self.assertEqual(db.query(BreakingNews).count(), 1)
+
+
+class DatelineTests(unittest.TestCase):
+    """电头日期不是会议日期：新华社/人民网/本报/中新网四种写法都要剥掉。"""
+
+    def test_other_dateline_prefixes_do_not_supply_meeting_dates(self) -> None:
+        samples = (
+            "人民网北京10月31日电 各国政党政要热烈祝贺中国共产党二十届五中全会胜利召开。",
+            "本报北京10月31日电 各地干部群众热议党的二十届五中全会精神。",
+            "中新网北京10月31日电 国际社会积极评价二十届五中全会。",
+            "新华社北京10月31日电 各界热烈祝贺中国共产党二十届五中全会胜利召开。",
+        )
+        for text in samples:
+            with self.subTest(text=text):
+                self.assertIsNone(breaking_news.confirm_event(text, date(2026, 11, 6)))
+
+
+class MergeTests(BreakingNewsTestCase):
+    """按会议名并到已有行时，开始日期也要跟着修正。"""
+
+    def _record(self, **overrides) -> dict:
+        record = {
+            "event_name": "中国共产党第二十届中央委员会第五次全体会议",
+            "event_type": "中央全会",
+            "start_date": date(2026, 10, 26),
+            "end_date": date(2026, 10, 29),
+            "title": "二十届五中全会在北京开幕",
+            "summary": "会议于10月26日至29日在北京举行。",
+            "source_name": "新华社",
+            "source_url": "https://www.news.cn/politics/20261026/abc/c.html",
+        }
+        record.update(overrides)
+        return record
+
+    def test_full_range_corrects_a_wrong_start_date(self) -> None:
+        # 先来一条只确认到闭幕日的误报（开始日 10-31），再来正确报道（10-26 至 10-29）。
+        with self.Session() as db:
+            breaking_news.refresh_breaking_news(
+                db,
+                now=datetime(2026, 10, 31, 12),
+                records=[self._record(start_date=date(2026, 10, 31), end_date=None)],
+            )
+            breaking_news.refresh_breaking_news(db, now=datetime(2026, 10, 31, 13), records=[self._record()])
+
+            row = db.query(BreakingNews).one()
+            self.assertEqual(row.start_date, date(2026, 10, 26))
+            self.assertEqual(row.end_date, date(2026, 10, 29))
+            self.assertEqual(
+                row.event_key,
+                breaking_news.event_key("中国共产党第二十届中央委员会第五次全体会议", date(2026, 10, 26)),
+            )
+            self.assertEqual(row.status, breaking_news.STATUS_CLOSED)
+
+    def test_earlier_start_date_is_taken_without_an_end_date(self) -> None:
+        with self.Session() as db:
+            breaking_news.refresh_breaking_news(
+                db,
+                now=datetime(2026, 10, 29, 12),
+                records=[self._record(start_date=date(2026, 10, 28), end_date=None)],
+            )
+            breaking_news.refresh_breaking_news(
+                db, now=datetime(2026, 10, 29, 13), records=[self._record(start_date=date(2026, 10, 26), end_date=None)]
+            )
+
+            row = db.query(BreakingNews).one()
+            self.assertEqual(row.start_date, date(2026, 10, 26))
+            self.assertIsNone(row.end_date)
+
+    def test_later_start_date_without_end_date_is_ignored(self) -> None:
+        with self.Session() as db:
+            breaking_news.refresh_breaking_news(
+                db, now=datetime(2026, 10, 26, 12), records=[self._record(start_date=date(2026, 10, 26), end_date=None)]
+            )
+            breaking_news.refresh_breaking_news(
+                db, now=datetime(2026, 10, 27, 12), records=[self._record(start_date=date(2026, 10, 27), end_date=None)]
+            )
+
+            row = db.query(BreakingNews).one()
+            self.assertEqual(row.start_date, date(2026, 10, 26))
+
+    def test_update_that_would_reverse_the_range_is_skipped(self) -> None:
+        with self.Session() as db:
+            breaking_news.refresh_breaking_news(
+                db, now=datetime(2026, 10, 31, 12), records=[self._record(start_date=date(2026, 10, 31), end_date=None)]
+            )
+            # 只带结束日、且结束日早于现有开始日 → 整条跳过，状态保持进行中。
+            breaking_news.refresh_breaking_news(
+                db, now=datetime(2026, 10, 31, 13), records=[self._record(start_date=date(2026, 10, 31), end_date=date(2026, 10, 29))]
+            )
+
+            row = db.query(BreakingNews).one()
+            self.assertEqual(row.start_date, date(2026, 10, 31))
+            self.assertIsNone(row.end_date)
+            self.assertEqual(row.status, breaking_news.STATUS_ONGOING)
 
 
 class FetchTests(BreakingNewsTestCase):

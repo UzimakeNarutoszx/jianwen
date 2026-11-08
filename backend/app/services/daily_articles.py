@@ -38,6 +38,8 @@ MAX_SECTION_LENGTH = 300
 ARTICLE_SECTION_COUNT = 3
 SOURCE_TIMEOUT_SECONDS = 10
 SCHEDULER_POLL_SECONDS = 60
+# 同一内容日期最多尝试生成 3 次，失败后不再无限重试（否则每 5 分钟打一次源站和 AI）。
+DAILY_REFRESH_MAX_ATTEMPTS = 3
 # 重大会议抓取不需要每分钟一次，按小时节流即可。
 BREAKING_NEWS_REFRESH_MINUTES = 60
 SOURCE_LIST_URLS = (
@@ -199,6 +201,17 @@ def scheduled_daily_article_refresh() -> bool:
         )
 
 
+def daily_set_is_complete(content_date: date) -> bool:
+    """当日已经存下一整组文章时不再重抓，避免白天中途把当天文章换掉。"""
+    try:
+        with SessionLocal() as db:
+            return len(_daily_articles_for_date(db, content_date)) >= DAILY_ARTICLE_COUNT
+    except Exception:
+        # 查不出来就当作没存好，让正常的生成流程去处理。
+        logger.exception("Failed to check the daily article set for %s", content_date)
+        return False
+
+
 def start_daily_article_scheduler() -> None:
     global _scheduler_thread
     if _scheduler_thread is not None and _scheduler_thread.is_alive():
@@ -215,8 +228,11 @@ def stop_daily_article_scheduler() -> None:
 
 def _daily_article_scheduler_loop() -> None:
     # Polling also recovers from reloads, sleep/wake, and a missed exact 06:00
-    # wake-up. A failed refresh remains eligible on the next poll.
+    # wake-up. A failed refresh is retried only a bounded number of times:
+    # an unbounded retry would hit the sources and the AI every poll and could
+    # still replace the article set in the middle of the day.
     processed_date: date | None = None
+    attempts = 0
     last_breaking_news_at: datetime | None = None
     while not _scheduler_stop_event.is_set():
         # 重大会议置顶跟随同一次轮询刷新，但按小时节流；它自己兜住所有异常，
@@ -229,18 +245,37 @@ def _daily_article_scheduler_loop() -> None:
             last_breaking_news_at = now
         current_date = get_content_date()
         if current_date != processed_date:
+            if daily_set_is_complete(current_date):
+                # 当天已经存好一整组：不再重抓，否则白天中途可能把当日文章换掉。
+                processed_date = current_date
+                attempts = 0
+                continue
+            if attempts >= DAILY_REFRESH_MAX_ATTEMPTS:
+                # 已经试满 3 次：放掉当天，等下一个内容日期再试。
+                processed_date = current_date
+                attempts = 0
+                continue
+            attempts += 1
             try:
                 complete = scheduled_daily_article_refresh()
             except Exception:
                 logger.exception("Scheduled daily article refresh failed for %s", current_date)
-                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS):
-                    break
+                complete = False
+            if complete:
+                processed_date = current_date
+                attempts = 0
                 continue
-            if not complete:
-                if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS * 5):
-                    break
+            if attempts >= DAILY_REFRESH_MAX_ATTEMPTS:
+                logger.warning(
+                    "Giving up daily article refresh for %s after %s attempt(s)",
+                    current_date,
+                    attempts,
+                )
+                processed_date = current_date
+                attempts = 0
                 continue
-            processed_date = current_date
+            if _scheduler_stop_event.wait(SCHEDULER_POLL_SECONDS * 5):
+                break
             continue
 
         wait_seconds = min(
