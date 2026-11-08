@@ -2,13 +2,11 @@
 
 一个面向阅读、信息理解与公共议题学习的应用：把今日文章、可靠来源、AI 追问和个人阅读周报连接起来。
 
-[访问已部署产品](http://8.147.110.194/jianwen/index.html?v=20261031-1) · [Android 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk) · [v4 宣传视频](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-promo-v4-public.mp4) · [素材说明](docs/MEDIA.md)
+[访问已部署产品](http://8.147.110.194/jianwen/index.html?v=20261031-1) · [Android 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk) · [素材说明](docs/MEDIA.md)
 
 ![云端今日阅读实际界面](docs/media/cloud-today.png)
 
-> 展示截图来自云端实际页面，呈现拍摄时的内容与界面状态，不代表新闻事实已经核实。宣传视频使用真实 v4 成片的公开处理版：30 秒、1080 × 1920、保留音频；画面中真人照片所在局部区域已遮挡。截图、海报和视频仅供项目展示，不纳入源码 MIT 许可。
-
-[![见闻 v4 宣传视频海报，点击观看](docs/media/jianwen-poster-public.jpg)](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-promo-v4-public.mp4)
+> 展示截图来自云端实际页面，呈现拍摄时的内容与界面状态，不代表新闻事实已经核实。截图仅供项目展示，不纳入源码 MIT 许可。
 
 ## 可以做什么
 
@@ -29,7 +27,7 @@
 backend/       FastAPI、SQLAlchemy、认证、内容与阅读统计接口，以及回归测试
 frontend/      Vue 3 / uni-app 页面、组件、工具、Android 配置与测试
 webpage/       独立网页、阅读器、AI 对话和周报实现
-docs/          云端实际界面截图、宣传片海报、复现脚本与公开说明
+docs/          云端实际界面截图、复现脚本与公开说明
 ```
 
 这是从原始项目整理的独立公开版，保留核心应用源码，不包含 Git 历史、服务器配置、内部交接文档、数据库、用户上传、日志、账号资料、签名材料和生产环境变量。个人介绍与角色背景已改为中性文案；编辑配图改为几何占位图。每周节目目录为空，需要自行添加具有合法使用权的内容。
@@ -91,7 +89,7 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory webpage
 
 [下载见闻 1.0.1 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk)（约 18.7 MiB）。这是对原始 Android 包进行脱敏、替换展示素材后，以全新通用证书重新签名的预览包；不是从本仓库执行原生完整编译产生的正式版。
 
-- 已移除包内构建签名配置、开发者字段、原渠道账号标识与原服务器地址；宣传片改为本仓库无声界面导览。
+- 已移除包内构建签名配置、开发者字段、原渠道账号标识与原服务器地址。
 - APK 对齐及签名验证通过，DEX、原生库和其余归档文件进行了字符串检查；未进行真机或模拟器安装验证。
 - 后端默认指向不可用的示例域名 `https://api.example.invalid`，因此在线内容、账号登录与 AI 请求默认不可用；此包用于检查客户端外观与打包产物。完整使用应按源码配置自己的服务并重新构建。
 - 包名仍为 `com.jianwen.app`，签名与原始版本不同；安装前可能需要卸载原版，卸载会清除本机应用数据，请先自行备份。原始包不包含在公开版中。
@@ -115,4 +113,4 @@ node --test tests/*.test.mjs
 
 ## 许可与内容边界
 
-自有源码采用 [MIT License](LICENSE)。展示截图、宣传片海报与视频不纳入该源码许可。第三方依赖、库文件、字体、平台运行时及内容资料各自遵循原许可证，见 [第三方说明](THIRD_PARTY_NOTICES.md)。MIT 不授予第三方文章、名著译文、新闻素材或商标的权利；接入和分发内容前请单独核对来源与授权。AI 回答可能不准确，应回到原始来源核实。
+自有源码采用 [MIT License](LICENSE)。展示截图不纳入该源码许可。第三方依赖、库文件、字体、平台运行时及内容资料各自遵循原许可证，见 [第三方说明](THIRD_PARTY_NOTICES.md)。MIT 不授予第三方文章、名著译文、新闻素材或商标的权利；接入和分发内容前请单独核对来源与授权。AI 回答可能不准确，应回到原始来源核实。
