@@ -12,6 +12,10 @@ from app.models.content import ContentArticle, DailyArticleSet
 from app.services import daily_articles
 
 
+# 调度循环的 wait 最多被调用这么多次后就让循环退出（否则测试会一直转）。
+MAX_WAITS = 4
+
+
 class DailyArticleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = create_engine(
@@ -280,6 +284,83 @@ class ReadOnlyDailyArticleTests(unittest.TestCase):
                 articles = daily_articles.generate_daily_articles(db, selected_date)
 
         self.assertEqual(articles, [])
+
+
+class SchedulerRetryTests(unittest.TestCase):
+    """调度线程：每个内容日期最多试 3 次，且不覆盖已存好的当日文章组。"""
+
+    def setUp(self) -> None:
+        self.engine = create_engine(
+            "sqlite+pysqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+        self.calls: list[int] = []
+
+    def tearDown(self) -> None:
+        Base.metadata.drop_all(self.engine)
+        self.engine.dispose()
+
+    def _run_loop(self, refresh) -> None:
+        """跑调度循环，wait 最多被调用 MAX_WAITS 次后让循环自己退出。
+
+        refresh 返回 True 时循环不再轮询同一日期，只能靠 wait 的次数兜底退出，
+        否则测试会一直转。unsure 的失败路径也一样。
+        """
+
+        def fake_wait(seconds: float) -> bool:
+            waits.append(seconds)
+            return len(waits) >= MAX_WAITS
+
+        waits: list[float] = []
+        with patch.object(daily_articles, "SessionLocal", self.Session), \
+             patch.object(daily_articles, "get_content_date", return_value=date(2026, 7, 3)), \
+             patch.object(daily_articles, "scheduled_breaking_news_refresh", return_value=0), \
+             patch.object(daily_articles, "scheduled_daily_article_refresh", side_effect=refresh), \
+             patch.object(daily_articles._scheduler_stop_event, "is_set", return_value=False), \
+             patch.object(daily_articles._scheduler_stop_event, "wait", side_effect=fake_wait):
+            daily_articles._daily_article_scheduler_loop()
+
+    def test_failed_refresh_is_attempted_at_most_three_times(self) -> None:
+        def failing() -> bool:
+            self.calls.append(1)
+            return False
+
+        self._run_loop(failing)
+
+        self.assertEqual(len(self.calls), daily_articles.DAILY_REFRESH_MAX_ATTEMPTS)
+
+    def test_complete_refresh_is_attempted_once(self) -> None:
+        def complete() -> bool:
+            self.calls.append(1)
+            return True
+
+        self._run_loop(complete)
+
+        self.assertEqual(len(self.calls), 1)
+
+    def test_existing_complete_set_is_not_regenerated(self) -> None:
+        with self.Session() as db:
+            for index in range(1, 6):
+                db.add(ContentArticle(article_id=f"stored-{index}", title=f"Stored {index}"))
+            db.flush()
+            db.add_all(
+                [
+                    DailyArticleSet(content_date=date(2026, 7, 3), article_id=f"stored-{index}", position=index)
+                    for index in range(1, 6)
+                ]
+            )
+            db.commit()
+
+        def should_not_run() -> bool:
+            self.calls.append(1)
+            return False
+
+        self._run_loop(should_not_run)
+
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":

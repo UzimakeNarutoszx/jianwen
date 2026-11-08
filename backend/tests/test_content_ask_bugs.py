@@ -214,6 +214,66 @@ class StreamAnswerDetachedSessionTests(unittest.TestCase):
         self.assertEqual(used.count, 0)
 
 
+class StreamRefundTests(unittest.TestCase):
+    """扣费后建上下文失败要退款，且退回到扣费当天的那一行。"""
+
+    def setUp(self) -> None:
+        self.engine = create_engine(
+            "sqlite+pysqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+        with self.Session() as db:
+            user = User(phone="13900002222", nickname="Stream", password_hash="hash")
+            db.add(user)
+            db.commit()
+            self.user_id = user.id
+
+    def tearDown(self) -> None:
+        Base.metadata.drop_all(self.engine)
+        self.engine.dispose()
+
+    def test_context_failure_refunds_the_question(self) -> None:
+        request_db = self.Session()
+        try:
+            user = request_db.get(User, self.user_id)
+            with patch.object(content, "stream_ask", return_value=iter(["第一段"])), \
+                 patch.object(content, "settings", SimpleNamespace(AI_DAILY_QUESTION_LIMIT=5)), \
+                 patch.object(content, "SessionLocal", self.Session), \
+                 patch.object(content, "_build_ask_context", side_effect=RuntimeError("context exploded")):
+                with self.assertRaises(RuntimeError):
+                    content.stream_answer_question(
+                        AiAnswerRequest(question="政策怎么查"), db=request_db, current_user=user
+                    )
+        finally:
+            request_db.close()
+
+        with self.Session() as db:
+            used = db.query(UserAiDailyUsage).one()
+        self.assertEqual(used.count, 0)
+
+    def test_refund_targets_the_day_the_question_was_charged(self) -> None:
+        charge_day = date(2026, 11, 7)
+        with self.Session() as db:
+            db.add(UserAiDailyUsage(user_id=self.user_id, usage_date=charge_day, count=1))
+            db.commit()
+
+        with patch.object(content, "SessionLocal", self.Session):
+            # 退款发生在 06:00 换日之后，仍要退回到扣费当天。
+            with patch.object(content, "today_cn", return_value=date(2026, 11, 8)):
+                content._refund_ai_quota(self.user_id, charge_day)
+            with patch.object(content, "today_cn", return_value=date(2026, 11, 8)):
+                content._refund_ai_quota(self.user_id)
+
+        with self.Session() as db:
+            rows = {row.usage_date: row.count for row in db.query(UserAiDailyUsage).all()}
+        self.assertEqual(rows[charge_day], 0)
+        # 不传日期时退回“今天”，扣费那天的行不会被误退。
+        self.assertNotIn(date(2026, 11, 8), rows)
+
+
 class AskContextTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = create_engine(
