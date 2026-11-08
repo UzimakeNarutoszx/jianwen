@@ -60,7 +60,7 @@ test('website renders shared data with all filters, counts and month anchors', a
     const expectedItems = data.entries.flatMap(entry => entry.groups.flatMap(group => group.items)).filter(item => active === 'all' || item.types.includes(active))
     assert.ok(nodes.count.textContent.includes(`${expectedItems.length} 条更新`))
     assert.equal(filters.find(filter => filter.attrs['aria-current']).dataset.filter, active)
-    assert.deepEqual(nodes.months.children.map(link => link.href), ['#month-2026-10', '#month-2026-09'])
+    assert.deepEqual(nodes.months.children.map(link => link.href), ['#month-2026-11', '#month-2026-10', '#month-2026-09'])
     const articles = nodes.entries.children.flatMap(section => section.children[1].children)
     const items = articles.flatMap(article => article.children[1].children.filter(node => node.tag === 'ul').flatMap(node => node.children))
     assert.equal(items.length, expectedItems.length)
