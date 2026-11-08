@@ -157,7 +157,7 @@
   try {
     article = await window.jianwenApi.article(articleId)
     const topic = article.topic || article.category || '见闻'
-    const source = article.sources || article.source || '见闻整理'
+    const source = [article.sources || article.source || '见闻整理', jianwenApi.articleUpdateLabel(article)].filter(Boolean).join(' · ')
     const readTime = article.read_time || article.readTime || '约 5 分钟'
 
     document.title = `${article.title} · 见闻`

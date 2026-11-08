@@ -1,4 +1,5 @@
-const UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/UzimakeNarutoszx/jianwen/main/webpage/downloads/latest.json'
+const UPDATE_MANIFEST_URL = 'http://8.147.110.194/downloads/latest.json'
+const APK_PREFIX = 'http://8.147.110.194/downloads/'
 const UPDATE_CHECK_KEY = 'jianwen_update_checked_at'
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000
 
@@ -45,14 +46,21 @@ function downloadAndOpen(url, versionName) {
   })
 }
 
-export function checkForAppUpdate({ force = false } = {}) {
+export function checkForAppUpdate({ force = false, manual = false } = {}) {
   // #ifdef APP-PLUS
-  if (!force && !shouldCheck()) return
+  if (!force && !shouldCheck()) return Promise.resolve({ status: 'skipped' })
   markChecked()
-  requestManifest().then(manifest => {
-    const currentCode = versionCode('102')
+  return requestManifest().then(manifest => {
+    const currentCode = versionCode('104')
     const latestCode = versionCode(manifest.versionCode)
-    if (typeof manifest.apkUrl !== 'string' || !manifest.apkUrl.startsWith('https://raw.githubusercontent.com/UzimakeNarutoszx/jianwen/main/apk/') || latestCode <= currentCode) return
+    if (typeof manifest.apkUrl !== 'string' || !manifest.apkUrl.startsWith(APK_PREFIX)) {
+      if (manual) uni.showToast({ title: '更新清单不可用', icon: 'none' })
+      return { status: 'invalid' }
+    }
+    if (latestCode <= currentCode) {
+      if (manual) uni.showToast({ title: '当前已是最新版本', icon: 'none' })
+      return { status: 'latest', versionCode: currentCode }
+    }
     uni.showModal({
       title: `见闻 ${manifest.versionName || '有新版本'}`,
       content: manifest.notes || '发现新版本，是否立即下载？',
@@ -60,6 +68,10 @@ export function checkForAppUpdate({ force = false } = {}) {
       cancelText: '稍后再说',
       success: result => { if (result.confirm) downloadAndOpen(manifest.apkUrl, manifest.versionName) }
     })
-  }).catch(() => {})
+    return { status: 'update-available', versionCode: latestCode }
+  }).catch(error => {
+    if (manual) uni.showToast({ title: '检查更新失败，请稍后重试', icon: 'none' })
+    return { status: 'error', error }
+  })
   // #endif
 }

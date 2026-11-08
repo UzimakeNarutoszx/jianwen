@@ -77,6 +77,8 @@
   refreshQuota()
   function renderAnswer() {
     const visibleAnswer = requestActive ? displayedAnswer : answer
+    const followups = $('ask-followups')
+    if (followups) followups.hidden = !visibleAnswer
     if (!output.querySelector) {
       output.innerHTML = `<article class="answer-message"><p class="answer-label">AI 问问</p><div class="answer-copy">${markdown(visibleAnswer)}</div></article>`
       return
@@ -206,6 +208,13 @@
     startReveal()
   }
   document.querySelector('.prompt-grid').addEventListener('click', event => { const b = event.target.closest('.prompt-chip'); if (!b || requestActive) return; input.value = b.dataset.question || b.textContent.trim(); input.focus() })
+  const followupSection = $('ask-followups')
+  if (followupSection) followupSection.addEventListener('click', event => {
+    const button = event.target.closest('.prompt-chip')
+    if (!button || requestActive) return
+    input.value = button.dataset.question
+    input.focus()
+  })
   async function loadPrompts() {
     try {
       const data = await window.jianwenApi.askBootstrap(); const prompts = Array.isArray(data.prompts) ? data.prompts.slice(0,3) : []

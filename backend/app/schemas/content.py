@@ -28,6 +28,7 @@ class ContentArticleListResponse(BaseModel):
     relation: str | None = None
     viewed: bool = False
     published_date: date | None = None
+    updated_at: datetime | None = None
 
 
 class ContentArticleDetailResponse(ContentArticleListResponse):
@@ -177,3 +178,34 @@ class BreakingNewsResponse(BaseModel):
     image: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class TodayAudioVoiceResponse(BaseModel):
+    """朗读可选声音；顺序即前端显示顺序，第一个为默认。"""
+
+    id: str
+    label: str
+
+
+class TodayAudioTrackResponse(BaseModel):
+    """某篇文章某个声音的音频：url 是站内相对路径，duration 单位为秒。"""
+
+    url: str
+    duration: float | None = None
+
+
+class TodayAudioArticleResponse(BaseModel):
+    article_id: str
+    title: str
+    position: int = 0
+    audio: dict[str, TodayAudioTrackResponse] = Field(default_factory=dict)
+
+
+class TodayAudioResponse(BaseModel):
+    """GET /content/today/audio 的响应；ready=false 时前端显示「今日朗读生成中」。"""
+
+    date: date
+    ready: bool = False
+    voices: list[TodayAudioVoiceResponse] = Field(default_factory=list)
+    articles: list[TodayAudioArticleResponse] = Field(default_factory=list)
+    generated_at: str | None = None

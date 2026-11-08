@@ -47,3 +47,6 @@ backups/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Daily read-aloud audio and caches (generated locally, uploaded to server)
+tts-daily/out/

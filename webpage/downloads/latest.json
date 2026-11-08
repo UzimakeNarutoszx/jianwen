@@ -1,6 +1,6 @@
 {
-  "versionName": "1.0.2",
-  "versionCode": 102,
-  "apkUrl": "https://raw.githubusercontent.com/UzimakeNarutoszx/jianwen/main/apk/jianwen-1.0.2.apk",
-  "notes": "更新文章日期、加载提示和问问体验。"
+  "versionName": "1.0.4",
+  "versionCode": 104,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.0.4.apk",
+  "notes": "今日页新增每日文章朗读：两种声音可选，听完即算读完。"
 }

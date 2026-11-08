@@ -87,12 +87,7 @@ def send_sms_code(
     request: Request,
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    user = get_user_by_phone(db, payload.phone)
-    if payload.scene in ("register", "register_login") and user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="手机号已注册")
-    if payload.scene == "reset_password" and not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="手机号未注册")
-
+    # 限流必须先做：否则 409/404 的注册状态检查可以被无限次调用，用来枚举号码。
     ip = client_ip(request)
     if limiter.is_limited(sms_ip_key(ip), SMS_IP):
         raise _too_many_requests(SMS_IP_LIMITED_DETAIL)
@@ -100,6 +95,12 @@ def send_sms_code(
         raise _too_many_requests(SMS_TOO_FREQUENT_DETAIL)
     if limiter.is_limited(sms_phone_daily_key(payload.phone), SMS_PHONE_DAILY):
         raise _too_many_requests("今日验证码发送次数已达上限，请明天再试")
+
+    user = get_user_by_phone(db, payload.phone)
+    if payload.scene in ("register", "register_login") and user:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="手机号已注册")
+    if payload.scene == "reset_password" and not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="手机号未注册")
 
     try:
         send_sms(payload.phone, payload.scene)
@@ -163,13 +164,35 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     return AuthResponse(access_token=create_access_token(user.id, user.token_version), user=user)
 
 
+def _forgot_password_limits(ip: str, phone: str) -> None:
+    """Reset-request limits, shared by the route and callers without a request."""
+    if limiter.is_limited(sms_ip_key(ip), SMS_IP):
+        raise _too_many_requests(SMS_IP_LIMITED_DETAIL)
+    if limiter.is_limited(sms_phone_daily_key(phone), SMS_PHONE_DAILY):
+        raise _too_many_requests("今日验证码发送次数已达上限，请明天再试")
+    # 故意不查 60 秒的手机号发送窗口：刚收到的验证码正是用来重设密码的，
+    # 若这里也限流，正常用户在 send-sms 后的第一次重置就会被挡住。
+
+
 @router.post("/forgot-password", response_model=MessageResponse)
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> MessageResponse:
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request = None,
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    # 与 send-sms 同样的顺序：先限流，再查号码是否存在，否则 404 可被用来枚举。
+    # 老调用方把 db 当成第二个位置参数传进来，按参数类型还原，不当成请求。
+    if isinstance(request, Session):
+        request, db = None, request
+    _forgot_password_limits(client_ip(request) if request is not None else "unknown", payload.phone)
+
     user = get_user_by_phone(db, payload.phone)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="手机号未注册")
 
     _verify_sms_code(db, payload.phone, payload.sms_code, PURPOSE_RESET)
+    # 失败的校验不占发送窗口；成功时才记一次，避免被当成“验证码已发送”后立刻挡人。
+    limiter.record(sms_phone_key(payload.phone), SMS_PHONE_INTERVAL)
 
     reset_password(db, user, payload.new_password)
     return MessageResponse(message="密码已重置，请重新登录")

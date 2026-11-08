@@ -1,5 +1,7 @@
 from datetime import date, datetime
+import json
 import logging
+from pathlib import Path
 import re
 from typing import Annotated
 
@@ -46,6 +48,8 @@ from app.schemas.content import (
     DailyQuoteResponse,
     DiscoverContentResponse,
     TodayChecklistResponse,
+    TodayAudioArticleResponse,
+    TodayAudioResponse,
 )
 from services.ai import AIClientError, ask as ask_ai, ask_ajin, stream_ask
 
@@ -88,6 +92,7 @@ def _article_list_response(article: ContentArticle, viewed_article_ids: set[str]
         relation=article.relation,
         viewed=article.article_id in viewed_ids,
         published_date=published_date,
+        updated_at=article.updated_at,
     )
 
 
@@ -131,6 +136,45 @@ def _book_list_response(book: ClassicBook) -> ClassicBookListResponse:
 
 def _today_articles(db: Session) -> list[ContentArticle]:
     return read_daily_articles(db, get_content_date())[:5]
+
+
+# 声音顺序即前端显示顺序，第一个为默认；manifest 缺失时用它兜底。
+_TODAY_AUDIO_VOICES = (
+    {"id": "jianwen", "label": "见闻"},
+    {"id": "dylan", "label": "男声·京味"},
+)
+
+
+def _audio_voices(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    voices = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        voice_id = str(entry.get("id") or "").strip()
+        if voice_id:
+            voices.append({"id": voice_id, "label": str(entry.get("label") or voice_id)})
+    return voices
+
+
+def _audio_tracks(value: object) -> dict[str, dict]:
+    """只接受站内相对路径的音频；其他形态的 url 一律丢弃。"""
+    if not isinstance(value, dict):
+        return {}
+    tracks: dict[str, dict] = {}
+    for voice_id, track in value.items():
+        if not isinstance(track, dict):
+            continue
+        url = str(track.get("url") or "")
+        if not url.startswith("/uploads/"):
+            continue
+        duration = track.get("duration")
+        tracks[str(voice_id)] = {
+            "url": url,
+            "duration": float(duration) if isinstance(duration, (int, float)) else None,
+        }
+    return tracks
 
 
 def _viewed_article_ids(db: Session, user: User | None, article_ids: list[str]) -> set[str]:
@@ -296,11 +340,15 @@ def _record_stream_usage(user_id: int, question: str, answer: str, sources: str 
         logger.exception("Failed to record streamed AI usage for user %s", user_id)
 
 
-def _refund_ai_quota(user_id: int) -> None:
-    """Give the daily quota back when no answer reached the client."""
+def _refund_ai_quota(user_id: int, usage_date: date | None = None) -> None:
+    """Give the daily quota back when no answer reached the client.
+
+    ``usage_date`` is the day the question was charged on: a refund that ran
+    after the 06:00 rollover must still hit the original day's row.
+    """
     try:
         with SessionLocal() as db:
-            refund_ai_quota(db, user_id)
+            refund_ai_quota(db, user_id, usage_date)
     except Exception:
         logger.exception("Failed to refund AI quota for user %s", user_id)
 
@@ -412,6 +460,57 @@ def get_personalized_today(
     sorted_articles = _personalize_articles(articles, topics)
     viewed_ids = _viewed_article_ids(db, current_user, [article.article_id for article in sorted_articles])
     return _today_checklist_response(sorted_articles, viewed_ids)
+
+
+@router.get("/today/audio", response_model=TodayAudioResponse)
+def get_today_audio(db: Session = Depends(get_db)) -> TodayAudioResponse:
+    """今日朗读：只读 manifest，不生成音频，也不需要登录。
+
+    文件不存在或解析失败时返回 ready=false，前端显示「今日朗读生成中」，
+    不作为错误处理。日期只取自服务端 ``get_content_date()``，不接受外部输入，
+    因此不存在路径穿越。
+    """
+    content_date = get_content_date()
+    manifest_date = content_date.isoformat()
+    # manifest 在 <UPLOAD_DIR>/tts/<date>/manifest.json；date 由服务端算出来，不拼外部参数。
+    manifest_path = Path(settings.UPLOAD_DIR) / "tts" / manifest_date / "manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.info("Today audio manifest unavailable for %s", manifest_date)
+        return TodayAudioResponse(date=content_date, ready=False, voices=_TODAY_AUDIO_VOICES)
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("articles"), list):
+        logger.warning("Today audio manifest is malformed for %s", manifest_date)
+        return TodayAudioResponse(date=content_date, ready=False, voices=_TODAY_AUDIO_VOICES)
+
+    # 只保留属于当日文章集的条目，并按当日顺序排列；manifest 里的顺序不可信。
+    positions = {article.article_id: index for index, article in enumerate(_today_articles(db))}
+    articles: list[TodayAudioArticleResponse] = []
+    for entry in manifest["articles"]:
+        if not isinstance(entry, dict):
+            continue
+        article_id = str(entry.get("article_id") or "")
+        if article_id not in positions:
+            continue
+        articles.append(
+            TodayAudioArticleResponse(
+                article_id=article_id,
+                title=str(entry.get("title") or ""),
+                position=positions[article_id],
+                audio=_audio_tracks(entry.get("audio")),
+            )
+        )
+    articles.sort(key=lambda item: item.position)
+
+    manifest_voices = _audio_voices(manifest.get("voices"))
+    generated_at = manifest.get("generated_at")
+    return TodayAudioResponse(
+        date=content_date,
+        ready=True,
+        voices=manifest_voices or _TODAY_AUDIO_VOICES,
+        articles=articles,
+        generated_at=str(generated_at) if generated_at else None,
+    )
 
 
 @router.get("/articles", response_model=list[ContentArticleListResponse])
@@ -720,6 +819,7 @@ def answer_question(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="问题不能为空")
 
     _ensure_ai_quota(db, current_user)
+    quota_date = today_cn()
 
     try:
         result = ask_ai(question, context=_build_ask_context(db, payload.article_id, question))
@@ -739,7 +839,7 @@ def answer_question(
 
     if not result.text:
         # No answer was produced, so the question must not be charged.
-        refund_ai_quota(db, current_user.id)
+        refund_ai_quota(db, current_user.id, quota_date)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
 
     sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
@@ -770,6 +870,7 @@ def chat_with_ajin(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="问题不能为空")
 
     _ensure_ai_quota(db, current_user)
+    quota_date = today_cn()
     try:
         result = ask_ajin(question, history=payload.history)
     except AIClientError as exc:
@@ -780,7 +881,7 @@ def chat_with_ajin(
 
     if not result.text:
         # No answer was produced, so the question must not be charged.
-        refund_ai_quota(db, current_user.id)
+        refund_ai_quota(db, current_user.id, quota_date)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="阿烬没有返回有效回答")
 
     _save_ai_usage(db, current_user, question, result.text, "阿烬对话")
@@ -801,16 +902,23 @@ def stream_answer_question(
     # on ``current_user``, and the request-scoped session is closed before the
     # response body is streamed. Nothing below may touch the ORM instance.
     user_id = current_user.id
+    # 扣费记在这一天，退款也回到这一天（跨 06:00 换日后仍要退对行）。
+    quota_date = today_cn()
 
     _ensure_ai_quota(db, current_user)
-    context = _build_ask_context(db, payload.article_id, question)
+    try:
+        context = _build_ask_context(db, payload.article_id, question)
+    except Exception:
+        # 扣费已完成但上下文没建起来，问题不能算数。
+        _refund_ai_quota(user_id, quota_date)
+        raise
 
     used_sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
     try:
         stream = iter(stream_ask(question, context=context))
         first_chunk = next(stream)
     except StopIteration:
-        _refund_ai_quota(user_id)
+        _refund_ai_quota(user_id, quota_date)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
     except AIClientError as exc:
         logger.warning("Ark AI stream request failed: %s", exc)

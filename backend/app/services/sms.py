@@ -195,13 +195,15 @@ def verify_code_for_purpose(db: Session, phone: str, code: str, purpose: str) ->
         raise SmsServiceError("验证码错误次数过多，请重新获取验证码", CODE_ATTEMPTS_EXCEEDED)
 
     issued_purpose = issued_code_purpose(db, phone)
-    if issued_purpose is not None and issued_purpose != purpose:
+    # A code we never issued has no purpose at all, so it can never match:
+    # reject it for every provider instead of only for the local stub.
+    if issued_purpose is None:
+        raise SmsServiceError("验证码已失效，请重新获取", CODE_PURPOSE_MISMATCH)
+    if issued_purpose != purpose:
         raise SmsServiceError("验证码与当前操作不匹配，请重新获取", CODE_PURPOSE_MISMATCH)
 
     if settings.SMS_PROVIDER == "local":
-        # The stub code is static, so a code that was never issued is invalid.
-        if issued_purpose is None:
-            raise SmsServiceError("验证码已失效，请重新获取", CODE_PURPOSE_MISMATCH)
+        # The stub code is static, so only a recorded issue can be valid.
         valid = code == settings.SMS_DEV_CODE
     else:
         valid = check_sms_code(phone, code)
