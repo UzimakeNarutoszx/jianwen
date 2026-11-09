@@ -7,7 +7,7 @@
   const PENDING_TEXT = '今日朗读生成中'
   const DEFAULT_VOICES = [
     { id: 'jianwen', label: '见闻' },
-    { id: 'dylan', label: '男声·京味' }
+    { id: 'dylan', label: '男声' }
   ]
 
   function normalizeVoices(voices) {

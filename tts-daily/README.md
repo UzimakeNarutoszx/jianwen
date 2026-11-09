@@ -14,7 +14,8 @@
 | `tests/` | 单元测试（`unittest`，标准库即可，不依赖 mlx） |
 | `upload.sh` | rsync 到 `aliyun:/opt/jianwen/backend/uploads/tts/<date>/`，最后传 manifest；修权限、删 7 天前目录 |
 | `run.sh` | generate + upload，日志写 `logs/<date>.log`；当日已上传则直接退出 |
-| `com.jianwen.tts-daily.plist` | launchd 定时（每天 06:20、07:00） |
+| `com.jianwen.tts-daily.plist` | launchd 定时（每天 06:20、07:00）——**已停用**，仅作 Mac 回退 |
+| `server/` | 服务器端流水线（edge-tts + ffmpeg、systemd 定时），线上实际使用 |
 
 ## 数字读错的问题与修法
 
@@ -41,6 +42,45 @@
 服务器目录要严格按契约。
 
 改了合成流程或规范化规则，把 `generate.py` 里的 `VERSION` +1，旧句子缓存自动失效。
+
+## 服务器端流水线（当前线上方案，不再需要 Mac）
+
+2026-11-09 起，每日朗读改在阿里云服务器上生成，Mac 不必开机：
+
+- 代码：`server/generate_server.py`（文本清洗、数字规范化与 Mac 版一致，合成换成 edge-tts），
+  线上目录 `/opt/jianwen/tts/`，venv 里装 `edge-tts==7.3.1`，系统装 `ffmpeg`。
+- 声音：`jianwen` → `zh-CN-XiaoxiaoNeural`（+6%），`dylan` → `zh-CN-YunxiNeural`（+6%），
+  显示名分别为「见闻」「男声」。声音 id 不变，前端无需改动。
+- 输出：直接写 `/opt/jianwen/backend/uploads/tts/<date>/`，属主 `jianwen:jianwen`，
+  先落 mp3 最后写 manifest；只保留最近 7 个日期目录。
+- 定时：systemd `jianwen-tts.timer`，每天 06:20 / 07:00 / 08:00 / 09:00（Asia/Shanghai）各跑一次，
+  已成功（manifest 存在）就跳过；当天文章还没更新时按 article_id 里的日期跳过并退出，等下一班。
+- 日志：`/opt/jianwen/tts/logs/<date>.log`。
+
+```bash
+# 服务器上手动跑某天（已存在 manifest 时加 --force）
+/opt/jianwen/tts/run.sh 2026-11-09
+/opt/jianwen/tts/run.sh 2026-11-09 --force
+systemctl list-timers jianwen-tts.timer
+```
+
+部署/回滚：
+
+```bash
+# 部署（本地 → 服务器）
+scp tts-daily/server/generate_server.py tts-daily/server/textnorm.py root@8.147.110.194:/opt/jianwen/tts/
+scp tts-daily/server/run.sh root@8.147.110.194:/opt/jianwen/tts/
+# 定时器
+systemctl enable --now jianwen-tts.timer     # 停用：systemctl disable --now jianwen-tts.timer
+
+# 回退到 Mac 生成
+launchctl load ~/Library/LaunchAgents/com.jianwen.tts-daily.plist.disabled-20261109
+mv ~/Library/LaunchAgents/com.jianwen.tts-daily.plist.disabled-20261109 \
+   ~/Library/LaunchAgents/com.jianwen.tts-daily.plist
+```
+
+注意：edge-tts 是微软 Edge 朗读服务的非官方接口，2026-10 曾因 Sec-MS-GEC 轮换失效，
+本项目固定 7.3.1 并保留四班重试；若再次失效，可临时改回 Mac 版，或换 CosyVoice 等付费接口。
 
 ## 用法
 

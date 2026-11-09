@@ -4,7 +4,7 @@ export const VOICE_STORAGE_KEY = 'jianwen_tts_voice'
 
 export const DEFAULT_VOICES = [
   { id: 'jianwen', label: '见闻' },
-  { id: 'dylan', label: '男声·京味' }
+  { id: 'dylan', label: '男声' }
 ]
 
 export const PENDING_TEXT = '今日朗读生成中'

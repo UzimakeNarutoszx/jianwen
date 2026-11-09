@@ -10,8 +10,8 @@
 ## 声音 id（顺序即前端显示顺序，第一个为默认；vivian / uncle_fu 已于 2026-11-08 停用）
 | id | label | 生成方式 |
 |---|---|---|
-| `jianwen` | 见闻（默认） | Qwen3-TTS `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit` ICL 克隆；参考 `<VOICE_REF_DIR>/ref.wav` + `ref.txt` |
-| `dylan` | 男声·京味 | `mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit`，voice `dylan` |
+| `jianwen` | 见闻（默认） | edge-tts `zh-CN-XiaoxiaoNeural`（语速 +6%），服务器端生成 |
+| `dylan` | 男声 | edge-tts `zh-CN-YunxiNeural`（语速 +6%），服务器端生成 |
 
 ## manifest.json
 ```json
