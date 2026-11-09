@@ -1,0 +1,14 @@
+[Unit]
+Description=Jianwen daily TTS schedule (06:20 / 07:00 / 08:00 / 09:00 / 09:30 Asia/Shanghai)
+
+[Timer]
+OnCalendar=*-*-* 06:20:00 Asia/Shanghai
+OnCalendar=*-*-* 07:00:00 Asia/Shanghai
+OnCalendar=*-*-* 08:00:00 Asia/Shanghai
+OnCalendar=*-*-* 09:00:00 Asia/Shanghai
+OnCalendar=*-*-* 09:30:00 Asia/Shanghai
+Persistent=true
+Unit=jianwen-tts.service
+
+[Install]
+WantedBy=timers.target
