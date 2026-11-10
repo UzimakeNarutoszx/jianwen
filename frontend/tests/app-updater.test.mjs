@@ -6,18 +6,24 @@ import vm from 'node:vm'
 const source = (await readFile(new URL('../utils/app-updater.js', import.meta.url), 'utf8'))
   .replace('export function checkForAppUpdate', 'function checkForAppUpdate')
 
-async function check(manifest, confirm = false) {
-  const calls = { requests: [], modals: [], downloads: [], loading: [] }
+// 这份 JS 随 114 版 APK 一起发布；没有 plus 时按它兜底当前原生版本。
+const NATIVE = 114
+const APK = 'http://8.147.110.194/downloads/jianwen-1.1.4.apk'
+const WGT = 'http://8.147.110.194/downloads/jianwen-1.1.4.wgt'
+
+async function check(manifest, confirm = false, options = {}) {
+  const calls = { requests: [], modals: [], downloads: [], loading: [], waitingTitles: [], installed: [], restarted: 0, toasts: [] }
   const uni = {
-    getStorageSync: () => 0,
-    setStorageSync: () => {},
-    request: options => { calls.requests.push(options.url); options.success({ statusCode: 200, data: manifest }) },
-    showModal: options => { calls.modals.push(options); options.success({ confirm }) },
-    showLoading: options => { calls.loading.push(options && options.title) },
+    getStorageSync: key => (key === 'jianwen_wgt_version_code' ? (options.wgtInstalled || 0) : 0),
+    setStorageSync: (key, value) => { if (key === 'jianwen_wgt_version_code') calls.installed.push(value) },
+    request: options2 => { calls.requests.push(options2.url); options2.success({ statusCode: 200, data: manifest }) },
+    showModal: options2 => { calls.modals.push(options2); options2.success({ confirm }) },
+    showLoading: options2 => { calls.loading.push(options2 && options2.title) },
     hideLoading: () => {},
-    showToast: () => {},
-    downloadFile: options => {
-      calls.downloads.push(options.url)
+    showToast: options2 => { calls.toasts.push(options2 && options2.title) },
+    downloadFile: options2 => {
+      calls.downloads.push(options2.url)
+      options2.success({ statusCode: 200, tempFilePath: '/tmp/pkg' })
       // 模拟 uni 的下载任务对象：进度回调必须是可调用的。
       return {
         onProgressUpdate: handler => {
@@ -27,25 +33,61 @@ async function check(manifest, confirm = false) {
       }
     }
   }
-  const context = vm.createContext({ uni, Date, Number, Promise })
+  const context = vm.createContext({
+    uni,
+    Date,
+    Number,
+    Promise,
+    plus: {
+      nativeUI: { showWaiting: title => { calls.loading.push(title); return { setTitle: title => calls.waitingTitles.push(title), close: () => {} } } },
+      runtime: {
+        openFile: () => {},
+        // 安装器是异步的：成功回调必须真的被调用，否则测不到「装完自重启」。
+        install: (path, options2, success) => { success() },
+        restart: () => { calls.restarted += 1 }
+      }
+    }
+  })
   vm.runInContext(`${source}\ncheckForAppUpdate()`, context)
   await new Promise(resolve => setImmediate(resolve))
   return calls
 }
 
-test('only newer releases from the approved HTTPS source are offered', async () => {
-  const url = 'http://8.147.110.194/downloads/jianwen-1.1.1.apk'
-  // 当前安装的是 111：同版本不提示，来源不对不提示，更高版本才提示。
-  assert.equal((await check({ versionCode: 111, apkUrl: url })).modals.length, 0)
-  assert.equal((await check({ versionCode: 112, apkUrl: 'https://example.com/app.apk' })).modals.length, 0)
-  assert.equal((await check({ versionCode: 112, apkUrl: url })).modals.length, 1)
-  assert.equal((await check({ versionCode: 112, apkUrl: url })).downloads.length, 0)
-  assert.deepEqual((await check({ versionCode: 112, apkUrl: url }, true)).downloads, [url])
+test('only newer native releases from the approved source are offered', async () => {
+  // 同版本不提示，来源不对不提示，更高版本才提示。
+  assert.equal((await check({ versionCode: NATIVE, apkUrl: APK })).modals.length, 0)
+  assert.equal((await check({ versionCode: NATIVE + 1, apkUrl: 'https://example.com/app.apk' })).modals.length, 0)
+  assert.equal((await check({ versionCode: NATIVE + 1, apkUrl: APK })).modals.length, 1)
+  assert.equal((await check({ versionCode: NATIVE + 1, apkUrl: APK })).downloads.length, 0)
+  assert.deepEqual((await check({ versionCode: NATIVE + 1, apkUrl: APK }, true)).downloads, [APK])
 })
 
 test('download shows progress instead of a frozen loading toast', async () => {
-  const url = 'http://8.147.110.194/downloads/jianwen-1.1.1.apk'
-  const calls = await check({ versionCode: 112, apkUrl: url, versionName: '1.1.2' }, true)
-  assert.deepEqual(calls.downloads, [url])
-  assert.ok(calls.loading.some(title => /正在下载 42%/.test(String(title))), `loading: ${calls.loading}`)
+  const calls = await check({ versionCode: NATIVE + 1, apkUrl: APK, versionName: '1.1.3' }, true)
+  assert.deepEqual(calls.downloads, [APK])
+  assert.equal(calls.loading.length, 1, 'download should create only one loading indicator')
+  assert.ok(calls.waitingTitles.some(title => /正在下载 42%/.test(String(title))), `titles: ${calls.waitingTitles}`)
+})
+
+test('a resource package is installed and rebooted without a native upgrade', async () => {
+  const manifest = { versionCode: NATIVE, apkUrl: APK, wgtUrl: WGT, wgtVersionCode: 5, wgtBaseVersionCode: NATIVE }
+  const calls = await check(manifest, true)
+  // 原生版本没变：不走整包，只下资源包，装完自重启。
+  assert.deepEqual(calls.downloads, [WGT])
+  assert.deepEqual(calls.installed, [5])
+  assert.equal(calls.restarted, 1)
+})
+
+test('resource package is skipped when already installed, for another build, or from elsewhere', async () => {
+  const base = { versionCode: NATIVE, apkUrl: APK, wgtUrl: WGT, wgtVersionCode: 5, wgtBaseVersionCode: NATIVE }
+  assert.equal((await check(base, true, { wgtInstalled: 5 })).downloads.length, 0)
+  assert.equal((await check({ ...base, wgtBaseVersionCode: NATIVE - 1 }, true)).downloads.length, 0)
+  assert.equal((await check({ ...base, wgtUrl: 'https://example.com/app.wgt' }, true)).downloads.length, 0)
+})
+
+test('a native upgrade wins over a pending resource package', async () => {
+  const manifest = { versionCode: NATIVE + 1, apkUrl: APK, wgtUrl: WGT, wgtVersionCode: 9, wgtBaseVersionCode: NATIVE + 1 }
+  const calls = await check(manifest, true)
+  assert.deepEqual(calls.downloads, [APK])
+  assert.equal(calls.restarted, 0)
 })
