@@ -1,10 +1,6 @@
 {
-  "versionName": "1.1.2",
-  "versionCode": 112,
-  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.2.apk",
-  "notes": "修复：应用内更新没有安装权限，下载完成后无法唤起安装器；分类封面移出安装包，后续可走约 1 MB 的资源热更新。",
-  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.3.wgt",
-  "wgtVersionCode": 113,
-  "wgtBaseVersionCode": 112,
-  "wgtNotes": "资源补丁：朗读声音名称更新为「见闻」和「男声」。约 1.1 MB，安装后自动重启。"
+  "versionName": "1.1.4",
+  "versionCode": 114,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.4.apk",
+  "notes": "今日朗读支持锁屏和切后台继续播放；同时修复播放进度、切篇续播等细节。"
 }
