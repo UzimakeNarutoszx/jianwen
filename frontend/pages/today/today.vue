@@ -253,6 +253,8 @@ export default {
     }
   },
   onShow() {
+    const player = this.$refs.todayAudio
+    if (player && typeof player.enforceSilence === 'function') player.enforceSilence()
     this.todayText = formatToday()
     this.darkMode = !!uni.getStorageSync('jianwen_dark_mode')
     this.fontSize = uni.getStorageSync('jianwen_font_size') || 'standard'
