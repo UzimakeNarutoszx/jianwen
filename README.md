@@ -2,15 +2,13 @@
 
 一个面向阅读、信息理解与公共议题学习的应用：把今日文章、可靠来源、AI 追问和个人阅读周报连接起来。
 
-[访问已部署产品](http://8.147.110.194/jianwen/index.html?v=20261031-1) · [Android 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk) · [素材说明](docs/MEDIA.md)
+[访问已部署产品](https://jianwen.xin/) · [今日阅读](https://jianwen.xin/jianwen/) · [Android 1.1.4](https://jianwen.xin/downloads/jianwen-1.1.4.apk) · [素材说明](docs/MEDIA.md)
 
 ![云端今日阅读实际界面](docs/media/cloud-today.png)
 
 > 展示截图来自云端实际页面，呈现拍摄时的内容与界面状态，不代表新闻事实已经核实。截图仅供项目展示，不纳入源码 MIT 许可。
 
 ## 可以做什么
-
-源码已同步至 2026 年 11 月 7 日的 1.0.2 增量：文章更新日期、加载失败提示、分类滚动与问问布局改进，以及 Android 更新检查。下方可下载 APK 仍为经过单独审核的 **1.0.1 公开预览包**，不包含这些新增代码。
 
 - **今日阅读**：文章卡片、摘要、来源、阅读进度与每日金句。
 - **发现与阅读器**：主题分类、文章检索、名著章节阅读与位置同步。
@@ -84,7 +82,6 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory webpage
 | `CORS_ORIGINS` | 允许访问接口的前端来源 |
 | `ENVIRONMENT` | 本地开发为 `development`；生产设置 `production` |
 | `VITE_API_BASE_URL` | uni-app 客户端使用的 API 地址 |
-| `VITE_UPDATE_MANIFEST_URL` / `VITE_UPDATE_APK_PREFIX` | 可选更新清单与允许的 APK 下载路径，均需 HTTPS；默认留空禁用，路径前缀须以 `/` 结尾 |
 
 `AI_API_BASE_URL` 示例域名不可直接使用。未配置 AI 服务时，相关能力无法完整工作。本地验证码仅供开发，不应在公网启用。生产环境需要设置认证密钥、真实短信服务、严格跨域来源、HTTPS、上传限制和服务端日志策略。当前网页使用浏览器存储保存会话；部署时应评估 XSS 防护与会话设计。
 
