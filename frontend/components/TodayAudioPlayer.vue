@@ -212,8 +212,14 @@ export default {
       // #ifdef APP-PLUS
       // 后台播放：锁屏/切后台继续出声，带系统播放器标题与封面。
       const bgm = uni.getBackgroundAudioManager()
+      // 后台音频是全局单例，可能带着上次的 src 恢复播放；进页面先停住，等用户点播放。
+      try { bgm.stop() } catch (error) {}
       this.bindAudio(bgm)
       this.audio = bgm
+      this.playing = false
+      this.audioSrc = ''
+      this.pendingUrl = ''
+      this.pendingRatio = 0
       return bgm
       // #endif
       // #ifndef APP-PLUS
