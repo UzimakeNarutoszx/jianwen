@@ -130,7 +130,7 @@ function renderShell() {
 
   if (footer) {
     footer.className = 'site-footer'
-    footer.innerHTML = `<p>© 2026 见闻 · 个人门户</p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a><a href="${versionedPage(`${root}changelog.html`)}">更新日志</a></div>`
+    footer.innerHTML = `<p>© 2026 见闻 · 个人门户 · <a class="site-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026077702号-1</a></p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a><a href="${versionedPage(`${root}changelog.html`)}">更新日志</a></div>`
   }
 }
 
