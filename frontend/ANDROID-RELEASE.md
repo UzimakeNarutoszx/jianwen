@@ -2,10 +2,22 @@
 
 沿用 uni-app / HBuilderX 官方 App 云打包，不用 H5 构建结果冒充 APK。
 
-- 应用名：见闻；包名：`com.jianwen.app`；版本：`1.0.0` / `100`。
+- 应用名：见闻；包名：`com.jianwen.app`。
 - 本机 `.env.production` 已设 `VITE_API_BASE_URL=http://8.147.110.194`，该文件被 Git 忽略。其他机器打包前创建同名文件并填写这个公开 API 地址。
 - `AndroidManifest.xml` 与 `nativeResources/android/res/xml/jianwen_network_security_config.xml` 将明文网络限定到当前服务器 IP，其余地址只允许 HTTPS。以后迁移 HTTPS 时移除该例外。
 - manifest 移除了模板中的读取电话状态、账号、系统设置、日志、挂载与修改网络等权限；保留网络、头像拍照、旧安卓相册和播放唤醒需求。最终仍需检查云打包 APK 合并后的实际权限。
+
+## 当前版本
+
+当前发布版本 **1.1.4 / 114**（后台播放）。
+
+- 产物：`apk/jianwen-1.1.4.apk`（19,195,649 字节），发布在 `/downloads/` 下。
+- 版本清单：`webpage/downloads/latest.json`，决定 App 检查更新时看到什么。
+
+关键约束：
+
+- `scripts/finalize-android.py` 会移除若干运行时权限，但**必须保留** `android.permission.REQUEST_INSTALL_PACKAGES`。缺这条权限时，应用内更新下载完成后无法唤起系统安装器，用户只看到「什么都没发生」。脚本里已有构建期断言，不要删。
+- `webpage/downloads/latest.json` 的 `wgtBaseVersionCode` 必须等于当前原生 `versionCode`；原生版本一升，旧资源包立即失效。同时 `utils/app-updater.js` 的 `NATIVE_VERSION_CODE` 与 `manifest.json` 的 `versionCode` 必须一起提升。
 
 ## 当前打包状态
 
@@ -14,9 +26,9 @@
 1. `pack --config <本机私有配置路径>` 返回 `user not login`。
 2. `publish app --type appResource --project <frontend绝对路径>` 返回“项目的AppID不能为空”。
 
-上述登录与 AppID 问题已解决，当前应用标识为 `__UNI__8D7394F`。官方打包插件已安装；排除权限改为 HBuilderX 要求的 XML 格式后通过格式校验。重新生成 App 资源时，DCloud 明确拦截：当前账号及应用所有者尚未绑定手机号，需在 https://dev.dcloud.net.cn/pages/user/info 由用户完成绑定。尚无成功提交的云打包任务，也无 APK。
+上述登录与 AppID 问题已解决，当前应用标识为 `__UNI__8D7394F`。官方打包插件已安装；排除权限改为 HBuilderX 要求的 XML 格式后通过格式校验。DCloud 曾拦截「当前账号及应用所有者尚未绑定手机号」，该拦截后来也已解除。云打包与签名链路已经跑通，`apk/` 下留存 1.0.0、1.0.1、1.0.2、1.0.4、1.1.0、1.1.1、1.1.2、1.1.4 各版产物，当前发布版本见上文「当前版本」。
 
-用户已同意本轮 Google SDK / Google APIs ARM64 镜像许可。build-tools 36、Android 35 Google APIs ARM64 镜像及模拟器已安装，AVD `jianwen-api35` 已冷启动完成，adb 识别 `emulator-5554`。安装和功能验收仍需等待实际 APK；11 项前端单元测试通过不代表 Android 验收通过。
+用户已同意本轮 Google SDK / Google APIs ARM64 镜像许可。build-tools 36、Android 35 Google APIs ARM64 镜像及模拟器已安装，AVD `jianwen-api35` 已冷启动完成，adb 识别 `emulator-5554`。前端单元测试通过不代表 Android 验收通过。
 
 ## 签名与后续打包
 
