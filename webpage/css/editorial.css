@@ -120,3 +120,12 @@ body{font-weight:240}
 /* Keyboard focus is a fast shadow response across page-specific styles. */
 body :is(input,textarea,select,[contenteditable="true"]):focus-visible{outline:0;border-color:transparent;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:box-shadow .14s}
 body :is(button,a,[role="button"],[tabindex]):focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring),0 0 0 4px var(--focus-halo);transition:box-shadow .14s}
+
+/* 移动端顶部导航：单行横向滚动，不再折成三行；右侧渐隐提示可滑动 */
+@media(max-width:760px){
+  .site-header .site-nav{display:flex;flex-wrap:nowrap;justify-content:flex-start;align-items:center;gap:16px;padding:10px 0 4px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 18px),transparent 100%)}
+  .site-header .site-nav::-webkit-scrollbar{display:none}
+  .site-header .site-nav .nav-group{display:flex;flex-wrap:nowrap;gap:16px;padding:0;border:0;min-width:max-content}
+  .site-header .site-nav .nav-group+.nav-group{border:0;padding-top:0}
+  .site-header .site-nav a{white-space:nowrap;font-size:13px;padding:6px 2px}
+}
