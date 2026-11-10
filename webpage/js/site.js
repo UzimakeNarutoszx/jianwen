@@ -27,7 +27,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261108-1'
+const SITE_VERSION = '20261110-1'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -116,7 +116,7 @@ function renderShell() {
     const ajinNav = ajinPages.map(page => { const pagePath = page.href.split('#')[0]; return `<a href="${versionedPage(`${root}${page.href}`)}" ${!inJianwen && current === pagePath ? 'aria-current="page"' : ''}>${page.label}</a>` }).join('')
     const jianwenNav = jianwenPages.map(page => `<a href="${versionedPage(`${root}${page.href}`)}" ${inJianwen && isJianwenCurrent(page.key, current) ? 'aria-current="page"' : ''}>${page.label}</a>`).join('')
     const accountCurrent = inJianwen && isJianwenCurrent('account', current) ? ' aria-current="page"' : ''
-    header.innerHTML = `<div class="header-top"><a class="brand" href="${versionedPage(`${root}index.html`)}"><span class="brand-mark"><img src="${root}assets/agents.png?v=agents-1" alt=""></span><span>见闻 <small>JIANWEN</small></span></a><span class="header-caption">保持好奇，也保持思考。</span><a class="nav-account" href="${accountHref}"${accountCurrent}>${token ? '我的见闻' : '登录 / 注册'} <span aria-hidden="true">↗</span></a></div><nav class="site-nav" aria-label="全站导航"><div class="nav-group">${portalNav}</div><div class="nav-group">${jianwenNav}</div><div class="nav-group">${ajinNav}</div></nav>`
+    header.innerHTML = `<div class="header-top"><a class="brand" href="${versionedPage(`${root}index.html`)}"><span class="brand-mark"><img src="${root}assets/agents-96.png?v=agents-1" alt=""></span><span>见闻 <small>JIANWEN</small></span></a><span class="header-caption">保持好奇，也保持思考。</span><a class="nav-account" href="${accountHref}"${accountCurrent}>${token ? '我的见闻' : '登录 / 注册'} <span aria-hidden="true">↗</span></a></div><nav class="site-nav" aria-label="全站导航"><div class="nav-group">${portalNav}</div><div class="nav-group">${jianwenNav}</div><div class="nav-group">${ajinNav}</div></nav>`
     const main = document.querySelector('main')
     if (main && !document.querySelector('.skip-link')) {
       main.id ||= 'main-content'
@@ -162,10 +162,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261108-1'
+  apiScript.src = 'js/api-browser.js?v=20261110-1'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261108-1'
+    chatScript.src = 'js/ajin-chat.js?v=20261110-1'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)
