@@ -186,9 +186,7 @@ export default {
         })
     },
     // uni.createInnerAudioContext 每次换源都重新走一遍 src，进度按比例恢复。
-    ensureAudio() {
-      if (this.audio) return this.audio
-      const audio = uni.createInnerAudioContext()
+    bindAudio(audio) {
       audio.onPlay(() => { this.playing = true; this.playError = '' })
       audio.onPause(() => { this.playing = false })
       audio.onStop(() => { this.playing = false })
@@ -200,23 +198,65 @@ export default {
         const track = this.track
         if (track && this.playing && trackListen(this.listen, track.articleId, this.currentTime, this.duration)) this.announceListened(track)
       })
-      // 部分 App 运行时没有 onSeeking；拖动在 onSeek 里已重置锚点，这里只是兜底。
+      // 部分运行时没有 onSeeking；拖动在 onSeek 里已重置锚点，这里只是兜底。
       try { if (typeof audio.onSeeking === 'function') audio.onSeeking(() => resetListenAnchor(this.listen)) } catch (error) {}
       audio.onEnded(() => this.handleEnded())
       audio.onError(error => {
         this.playing = false
-        // 播放失败要让用户看到原因，而不是按钮按了没反应。
         this.playError = `播放失败${error && error.errCode ? `（${error.errCode}）` : ''}，请稍后重试`
         this.knownDuration = this.track ? this.track.duration : 0
       })
+    },
+    ensureAudio() {
+      if (this.audio) return this.audio
+      // #ifdef APP-PLUS
+      // 后台播放：锁屏/切后台继续出声，带系统播放器标题与封面。
+      const bgm = uni.getBackgroundAudioManager()
+      this.bindAudio(bgm)
+      this.audio = bgm
+      return bgm
+      // #endif
+      // #ifndef APP-PLUS
+      const audio = uni.createInnerAudioContext()
+      this.bindAudio(audio)
       this.audio = audio
       this.audioSrc = ''
       return audio
+      // #endif
     },
-    // 只改 src 不 play：真正出声要等用户点播放。
-    loadSource(audio, ratio) {
+    // 普通音频只改 src 不播放；App 后台音频设置 src 会自动播放，所以等到点播放时才设。
+    loadSource(audio, ratio, autoplay = false) {
       const track = this.track
       const url = track && track.url ? todayAudioUrl(track.url) : ''
+      if (this.isApp) {
+        audio.title = track ? track.title : '今日朗读'
+        audio.singer = '见闻'
+        audio.epname = '今日朗读'
+        if (!url) {
+          try { audio.stop() } catch (error) {}
+          this.audioSrc = ''
+          this.pendingUrl = ''
+          this.pendingRatio = 0
+          return
+        }
+        if (audio.src === url) {
+          this.audioSrc = url
+          if (ratio) { try { audio.seek(ratioToSeconds(ratio, audio.duration || track.duration)) } catch (error) {} }
+          return
+        }
+        if (!autoplay) {
+          try { audio.stop() } catch (error) {}
+          this.pendingUrl = url
+          this.pendingRatio = ratio || 0
+          return
+        }
+        const startAt = ratio ? ratioToSeconds(ratio, track.duration) : 0
+        if (startAt > 0) audio.startTime = startAt
+        audio.src = url
+        this.audioSrc = url
+        this.pendingUrl = ''
+        return
+      }
       if (audio.src === url && this.audioSrc === url) return
       // Android 原生播放器未设过 src 时 stop() 会抛错，导致后面的 src 赋值被跳过。
       if (this.audioSrc) { try { audio.stop() } catch (error) {} }
@@ -249,7 +289,7 @@ export default {
         return
       }
       const audio = this.ensureAudio()
-      this.loadSource(audio, ratio)
+      this.loadSource(audio, ratio, resume)
       if (resume) this.startPlayback(audio)
     },
     // Android 原生播放器刚设 src 时还在 prepare，立即 play() 会被丢弃；
@@ -271,6 +311,13 @@ export default {
       if (this.disabled) return
       const audio = this.ensureAudio()
       if (this.playing) { audio.pause(); return }
+      if (this.isApp) {
+        const url = this.track && this.track.url ? todayAudioUrl(this.track.url) : ''
+        if (!url) return
+        if (this.audioSrc !== url) this.loadSource(audio, this.pendingRatio || 0, true)
+        this.startPlayback(audio)
+        return
+      }
       // 上下文新建后（例如刚换过声音）src 可能还没设，播放前补一次。
       this.loadSource(audio, 0)
       this.startPlayback(audio)
@@ -337,10 +384,12 @@ export default {
       try {
         this.audio.pause()
         this.audio.stop()
-        this.audio.destroy()
+        if (!this.isApp) this.audio.destroy()
       } catch (error) {}
       this.audio = null
       this.audioSrc = ''
+      this.pendingUrl = ''
+      this.pendingRatio = 0
       this.playing = false
     }
   }

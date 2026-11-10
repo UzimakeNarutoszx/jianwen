@@ -205,7 +205,7 @@ export default {
       return '今天还没有新内容，晚点再来看看'
     },
     majorEventImage() {
-      return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/共产党.jpg')
+      return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/topic-default.jpg')
     },
     majorEventDates() {
       const item = this.majorEvent || {}
@@ -266,8 +266,13 @@ export default {
   },
   // 页面隐藏/卸载时朗读必须停掉：子组件里的 onHide/onUnload 不会被 uni 调用到。
   onHide() {
+    // #ifdef APP-PLUS
+    // 切后台/锁屏继续播放，由后台音频管理器接管；页面卸载时才停。
+    // #endif
+    // #ifndef APP-PLUS
     const player = this.$refs.todayAudio
     if (player && typeof player.stopAudio === 'function') player.stopAudio()
+    // #endif
   },
   onUnload() {
     const player = this.$refs.todayAudio

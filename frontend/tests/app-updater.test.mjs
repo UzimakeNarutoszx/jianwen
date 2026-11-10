@@ -6,10 +6,10 @@ import vm from 'node:vm'
 const source = (await readFile(new URL('../utils/app-updater.js', import.meta.url), 'utf8'))
   .replace('export function checkForAppUpdate', 'function checkForAppUpdate')
 
-// 这份 JS 随 112 版 APK 一起发布；没有 plus 时按它兜底当前原生版本。
-const NATIVE = 112
-const APK = 'http://8.147.110.194/downloads/jianwen-1.1.2.apk'
-const WGT = 'http://8.147.110.194/downloads/jianwen-1.1.2.wgt'
+// 这份 JS 随 114 版 APK 一起发布；没有 plus 时按它兜底当前原生版本。
+const NATIVE = 114
+const APK = 'http://8.147.110.194/downloads/jianwen-1.1.4.apk'
+const WGT = 'http://8.147.110.194/downloads/jianwen-1.1.4.wgt'
 
 async function check(manifest, confirm = false, options = {}) {
   const calls = { requests: [], modals: [], downloads: [], loading: [], waitingTitles: [], installed: [], restarted: 0, toasts: [] }
