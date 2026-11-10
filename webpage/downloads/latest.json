@@ -3,8 +3,8 @@
   "versionCode": 114,
   "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.4.apk",
   "notes": "今日朗读支持锁屏和切后台继续播放；同时修复播放进度、切篇续播等细节。",
-  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.5.wgt",
-  "wgtVersionCode": 115,
+  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.6.wgt",
+  "wgtVersionCode": 116,
   "wgtBaseVersionCode": 114,
-  "wgtNotes": "修复：打开应用后会自动开始播放朗读，现在改为等用户点播放再出声。约 1.1 MB，安装后自动重启。"
+  "wgtNotes": "修复：打开应用后会自动开始播放朗读。现在启动时会压住上次的后台播放，只有点播放才出声。约 1.1 MB，安装后自动重启。"
 }

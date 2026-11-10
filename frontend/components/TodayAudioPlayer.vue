@@ -163,11 +163,20 @@ export default {
     // 音频上下文不放进 data：它不可序列化，也没必要参与响应式。
     this.audio = null
     this.audioSrc = ''
+    this.pendingUrl = ''
+    this.pendingRatio = 0
+    this.userStarted = false
+    // 不依赖条件编译：App 端有 plus.runtime，H5 端没有。
+    try { this.isApp = typeof plus !== 'undefined' && !!plus.runtime } catch (error) { this.isApp = false }
+    // 后台音频单例可能带着上次的播放状态，进页面立即压住，等用户点播放。
+    if (this.isApp) this.enforceSilence()
     // 「听完即读完」判定器：非响应式，只用于判定，不参与渲染。
     this.listen = createListenTracker()
   },
   mounted() {
     this.loadManifest()
+    // 后台音频是原生单例：升级/重启后可能带着上次的播放状态，先压住。
+    if (this.isApp) { setTimeout(() => this.enforceSilence(), 300); setTimeout(() => this.enforceSilence(), 1200) }
   },
   methods: {
     loadManifest() {
@@ -294,6 +303,7 @@ export default {
         }
         return
       }
+      if (!this.userStarted && !resume) return
       const audio = this.ensureAudio()
       this.loadSource(audio, ratio, resume)
       if (resume) this.startPlayback(audio)
@@ -315,6 +325,7 @@ export default {
     },
     togglePlay() {
       if (this.disabled) return
+      this.userStarted = true
       const audio = this.ensureAudio()
       if (this.playing) { audio.pause(); return }
       if (this.isApp) {
@@ -384,6 +395,16 @@ export default {
       if (hasTrack(this.state)) this.ensureAudio().play()
     },
     // 页面隐藏或卸载时暂停并销毁，避免后台出声和内存泄漏。
+    // 用户没点过播放时，强制压住可能被原生恢复的后台播放。
+    enforceSilence() {
+      if (!this.isApp || this.userStarted || this.playing) return
+      try {
+        const bgm = uni.getBackgroundAudioManager()
+        bgm.stop()
+      } catch (error) {}
+      this.playing = false
+      this.currentTime = 0
+    },
     stopAudio() {
       clearTimeout(this.playRetry)
       if (!this.audio) return
@@ -394,6 +415,7 @@ export default {
       } catch (error) {}
       this.audio = null
       this.audioSrc = ''
+      this.userStarted = false
       this.pendingUrl = ''
       this.pendingRatio = 0
       this.playing = false
