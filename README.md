@@ -2,7 +2,7 @@
 
 一个面向阅读、信息理解与公共议题学习的应用：把今日文章、可靠来源、AI 追问和个人阅读周报连接起来。
 
-[访问已部署产品](http://8.147.110.194/jianwen/index.html?v=20261031-1) · [Android 公开预览 APK](https://github.com/UzimakeNarutoszx/personal-website-oss/releases/download/public-editions-2026-11-01/jianwen-1.0.1-public-preview.apk) · [素材说明](docs/MEDIA.md)
+[访问已部署产品](https://jianwen.xin/) · [今日阅读](https://jianwen.xin/jianwen/) · [Android 1.1.4](https://jianwen.xin/downloads/jianwen-1.1.4.apk) · [素材说明](docs/MEDIA.md)
 
 ![云端今日阅读实际界面](docs/media/cloud-today.png)
 
