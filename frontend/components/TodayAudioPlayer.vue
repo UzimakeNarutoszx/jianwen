@@ -166,6 +166,9 @@ export default {
     this.pendingUrl = ''
     this.pendingRatio = 0
     this.userStarted = false
+    this.wakeLock = null
+    this.watchdog = null
+    this.advancing = false
     // 不依赖条件编译：App 端有 plus.runtime，H5 端没有。
     try { this.isApp = typeof plus !== 'undefined' && !!plus.runtime } catch (error) { this.isApp = false }
     // 后台音频单例可能带着上次的播放状态，进页面立即压住，等用户点播放。
@@ -196,9 +199,9 @@ export default {
     },
     // uni.createInnerAudioContext 每次换源都重新走一遍 src，进度按比例恢复。
     bindAudio(audio) {
-      audio.onPlay(() => { this.playing = true; this.playError = '' })
-      audio.onPause(() => { this.playing = false })
-      audio.onStop(() => { this.playing = false })
+      audio.onPlay(() => { this.playing = true; this.playError = ''; this.acquireWakeLock(); this.startWatchdog() })
+      audio.onPause(() => { this.playing = false; this.releaseWakeLock() })
+      audio.onStop(() => { this.playing = false; this.releaseWakeLock(); this.stopWatchdog() })
       audio.onTimeUpdate(() => {
         if (this.seeking) return
         this.currentTime = audio.currentTime || 0
@@ -381,12 +384,54 @@ export default {
     announceListened(track) {
       this.$emit('listened', { articleId: track.articleId, title: track.title })
     },
+    // Android 锁屏后，WebView 的 JS 计时器可能被系统挂起：持一个 PARTIAL_WAKE_LOCK
+    // 让 CPU 保持醒着（屏幕仍可关闭），onEnded 与自动换集才能可靠触发。
+    isAndroid() {
+      try { return this.isApp && plus.os.name === 'Android' } catch (error) { return false }
+    },
+    acquireWakeLock() {
+      if (!this.isAndroid() || this.wakeLock) return
+      try {
+        const main = plus.android.runtimeMainActivity()
+        const Context = plus.android.importClass('android.content.Context')
+        const PowerManager = plus.android.importClass('android.os.PowerManager')
+        const pm = main.getSystemService(Context.POWER_SERVICE)
+        const lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, 'jianwen:tts')
+        lock.setReferenceCounted(false)
+        lock.acquire(6 * 60 * 60 * 1000)
+        this.wakeLock = lock
+      } catch (error) {}
+    },
+    releaseWakeLock() {
+      if (!this.wakeLock) return
+      try { if (this.wakeLock.isHeld()) this.wakeLock.release() } catch (error) {}
+      this.wakeLock = null
+    },
+    // 看门狗：万一 onEnded 没回调，播放到接近末尾时主动进入下一篇。
+    startWatchdog() {
+      if (!this.isApp || this.watchdog) return
+      this.watchdog = setInterval(() => {
+        if (!this.playing || this.seeking || this.advancing) return
+        const duration = Number(this.audio && this.audio.duration) || this.knownDuration || 0
+        const current = Number(this.audio && this.audio.currentTime) || this.currentTime || 0
+        if (duration > 3 && current >= duration - 0.6) this.handleEnded()
+      }, 2500)
+    },
+    stopWatchdog() {
+      if (this.watchdog) { clearInterval(this.watchdog); this.watchdog = null }
+    },
     handleEnded() {
+      // onEnded 偶发丢失（锁屏/后台时）由看门狗兜底，防止重复触发。
+      if (this.advancing) return
+      this.advancing = true
+      setTimeout(() => { this.advancing = false }, 2000)
       const track = this.track
       if (track && finishListen(this.listen, track.articleId, this.duration)) this.announceListened(track)
       const result = afterEnded(this.state)
       if (!result.play) {
         this.playing = false
+        this.releaseWakeLock()
+        this.stopWatchdog()
         return
       }
       this.state = result.state
@@ -407,6 +452,8 @@ export default {
     },
     stopAudio() {
       clearTimeout(this.playRetry)
+      this.releaseWakeLock()
+      this.stopWatchdog()
       if (!this.audio) return
       try {
         this.audio.pause()
