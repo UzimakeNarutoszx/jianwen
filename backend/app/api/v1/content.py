@@ -49,6 +49,8 @@ from app.schemas.content import (
     DiscoverContentResponse,
     TodayChecklistResponse,
     TodayAudioArticleResponse,
+    TodayAudioContinuousResponse,
+    TodayAudioSegmentResponse,
     TodayAudioResponse,
 )
 from services.ai import AIClientError, ask as ask_ai, ask_ajin, stream_ask
@@ -504,11 +506,43 @@ def get_today_audio(db: Session = Depends(get_db)) -> TodayAudioResponse:
 
     manifest_voices = _audio_voices(manifest.get("voices"))
     generated_at = manifest.get("generated_at")
+
+    # 连续音轨：只保留属于当日文章的片段，段内文章必须真实存在。
+    continuous: dict[str, TodayAudioContinuousResponse] = {}
+    raw_continuous = manifest.get("continuous")
+    if isinstance(raw_continuous, dict):
+        for voice_id, entry in raw_continuous.items():
+            if not isinstance(entry, dict) or not entry.get("url"):
+                continue
+            segments: list[TodayAudioSegmentResponse] = []
+            for segment in entry.get("segments") or []:
+                if not isinstance(segment, dict):
+                    continue
+                article_id = str(segment.get("article_id") or "")
+                if article_id not in positions:
+                    continue
+                try:
+                    start = float(segment.get("start"))
+                    end = float(segment.get("end"))
+                except (TypeError, ValueError):
+                    continue
+                if end <= start:
+                    continue
+                segments.append(TodayAudioSegmentResponse(article_id=article_id, start=start, end=end))
+            if segments:
+                duration = entry.get("duration")
+                continuous[str(voice_id)] = TodayAudioContinuousResponse(
+                    url=str(entry["url"]),
+                    duration=float(duration) if isinstance(duration, (int, float)) else None,
+                    segments=segments,
+                )
+
     return TodayAudioResponse(
         date=content_date,
         ready=True,
         voices=manifest_voices or _TODAY_AUDIO_VOICES,
         articles=articles,
+        continuous=continuous,
         generated_at=str(generated_at) if generated_at else None,
     )
 

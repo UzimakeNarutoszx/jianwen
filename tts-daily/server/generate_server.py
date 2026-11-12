@@ -276,6 +276,51 @@ def prune(out, keep=7):
         shutil.rmtree(d, ignore_errors=True)
 
 
+def build_continuous(day, date, records, voices):
+    """把当天各篇按顺序拼成每声音一条连续音轨，供熄屏/后台不依赖 JS 连播。"""
+    result = {}
+    for voice_id, label, voice_name, rate in voices:
+        parts, segments, cursor = [], [], 0.0
+        for rec in records:
+            info = (rec.get("audio") or {}).get(voice_id)
+            if not info:
+                continue
+            mp3 = day / rec["article_id"] / f"{voice_id}.mp3"
+            if not mp3.exists():
+                continue
+            try:
+                dur = float(info.get("duration") or 0) or probe_duration(mp3)
+            except Exception:
+                continue
+            if parts:
+                cursor += SECTION_GAP
+            segments.append({
+                "article_id": rec["article_id"],
+                "start": round(cursor, 1),
+                "end": round(cursor + dur, 1),
+            })
+            cursor += dur
+            parts.append(mp3)
+        if not parts:
+            continue
+        out = day / f"continuous-{voice_id}.mp3"
+        try:
+            if len(parts) == 1:
+                shutil.copyfile(parts[0], out)
+            else:
+                concat_mp3(parts, out)
+        except Exception as exc:  # noqa: BLE001  连续轨失败不影响单篇
+            log(f"continuous {voice_id} 生成失败：{exc}")
+            continue
+        result[voice_id] = {
+            "url": f"/uploads/tts/{date}/continuous-{voice_id}.mp3?v={digest(out)}",
+            "duration": probe_duration(out),
+            "segments": segments,
+        }
+        log(f"continuous {voice_id}: {result[voice_id]['duration']}s / {len(segments)} 篇")
+    return result
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default="")
@@ -284,6 +329,7 @@ def main():
     ap.add_argument("--voices", default=",".join(v[0] for v in VOICES))
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--no-prune", action="store_true")
+    ap.add_argument("--continuous-only", action="store_true", help="只根据已有单篇音频重建连续音轨")
     args = ap.parse_args()
 
     now = datetime.now(TZ)
@@ -295,6 +341,25 @@ def main():
     voices = [v for v in VOICES if v[0] in wanted]
     if not voices:
         raise SystemExit(f"未知声音 {args.voices}，可选：{[v[0] for v in VOICES]}")
+
+    if args.continuous_only:
+        if not manifest_path.exists():
+            log(f"{manifest_path} 不存在，无法只重建连续音轨")
+            return 1
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        records = manifest.get("articles") or []
+        used = {vid for rec in records for vid in (rec.get("audio") or {})}
+        continuous = build_continuous(day, date, records, [v for v in VOICES if v[0] in used])
+        if not continuous:
+            log("没有可拼接的音频")
+            return 1
+        manifest["continuous"] = continuous
+        tmp = day / "manifest.json.tmp"
+        tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        tmp.replace(manifest_path)
+        chown_tree(day)
+        log(f"连续音轨已写入 {manifest_path}")
+        return 0
 
     if manifest_path.exists() and not args.force:
         log(f"{manifest_path} 已存在，跳过（--force 可重做）")
@@ -335,12 +400,15 @@ def main():
         log("所有文章都失败，不写 manifest")
         return 3
 
+    continuous = build_continuous(day, date, records, voices)
     manifest = {
         "date": date,
         "generated_at": datetime.now(TZ).isoformat(timespec="seconds"),
         "voices": [{"id": v[0], "label": v[1]} for v in voices],
         "articles": records,
     }
+    if continuous:
+        manifest["continuous"] = continuous
     tmp = day / "manifest.json.tmp"
     tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     tmp.replace(manifest_path)

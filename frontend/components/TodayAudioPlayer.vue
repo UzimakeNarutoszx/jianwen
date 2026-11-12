@@ -117,7 +117,9 @@ export default {
       knownDuration: 0,
       sliderValue: 0,
       seeking: false,
-      playError: ''
+      playError: '',
+      continuousMap: null,
+      continuous: null
     }
   },
   computed: {
@@ -146,13 +148,20 @@ export default {
       if (!text) return []
       return text.match(/[^，、：；？！]+[，、：；？！]?/g) || [text]
     },
-    positionLabel() { return this.track ? String(this.track.index + 1) : '0' },
+    segmentIndex() {
+      if (!this.continuous) return this.track ? this.track.index : 0
+      const segments = this.continuous.segments || []
+      for (let i = segments.length - 1; i >= 0; i--) if (this.currentTime >= segments[i].start) return i
+      return 0
+    },
+    positionLabel() { return this.continuous ? String(this.segmentIndex + 1) : (this.track ? String(this.track.index + 1) : '0') },
     totalLabel() { return String(this.state.articles.length) },
     statusText() { return this.playError || statusLabel(this.state, this.loading) },
-    disabled() { return this.loading || !hasTrack(this.state) },
-    prevEnabled() { return !this.loading && canPrev(this.state) },
-    nextEnabled() { return !this.loading && canNext(this.state) },
+    disabled() { return this.loading || (!hasTrack(this.state) && !this.continuous) },
+    prevEnabled() { return !this.loading && (this.continuous ? this.segmentIndex > 0 : canPrev(this.state)) },
+    nextEnabled() { return !this.loading && (this.continuous ? this.segmentIndex < (this.continuous.segments || []).length - 1 : canNext(this.state)) },
     duration() {
+      if (this.continuous) return this.continuous.duration
       if (this.knownDuration > 0) return this.knownDuration
       return this.track ? this.track.duration : 0
     },
@@ -175,6 +184,7 @@ export default {
     if (this.isApp) this.enforceSilence()
     // 「听完即读完」判定器：非响应式，只用于判定，不参与渲染。
     this.listen = createListenTracker()
+    this.listenedSegments = new Set()
   },
   mounted() {
     this.loadManifest()
@@ -188,12 +198,16 @@ export default {
       getTodayAudio()
         .then(manifest => {
           this.state = createTodayAudioState(manifest, uni.getStorageSync(VOICE_STORAGE_KEY) || saved)
+          this.continuousMap = (manifest && manifest.continuous) || null
+          this.continuous = this.continuousMap ? (this.continuousMap[this.state.voice] || null) : null
           this.loading = false
           // 换源出错不能把已拿到的清单打回「生成中」：只记日志，用户点播放时会再加载一次。
           try { this.applyTrack(false) } catch (error) { console.error('[today-audio] applyTrack', error) }
         }, () => {
           // 生成中或请求失败都不报错，只显示「今日朗读生成中」。
           this.state = createTodayAudioState({ ready: false, articles: [] }, saved)
+          this.continuousMap = null
+          this.continuous = null
           this.loading = false
         })
     },
@@ -205,6 +219,12 @@ export default {
       audio.onTimeUpdate(() => {
         if (this.seeking) return
         this.currentTime = audio.currentTime || 0
+        if (this.continuous) {
+          this.knownDuration = this.continuous.duration
+          this.sliderValue = Math.round(progressRatio(this.currentTime, this.duration) * 1000)
+          if (this.playing) this.syncContinuous(this.currentTime)
+          return
+        }
         this.knownDuration = audio.duration > 0 ? audio.duration : this.knownDuration
         this.sliderValue = Math.round(progressRatio(this.currentTime, this.duration) * 1000)
         const track = this.track
@@ -241,6 +261,49 @@ export default {
       this.audioSrc = ''
       return audio
       // #endif
+    },
+    // 连续音轨：一个文件播完当天所有篇目，熄屏时由原生顺序播放，不依赖 JS 切歌。
+    loadContinuous(audio, seconds, autoplay) {
+      if (!this.continuous) return
+      const url = todayAudioUrl(this.continuous.url)
+      audio.title = this.track ? this.track.title : '今日朗读'
+      audio.singer = '见闻'
+      audio.epname = '今日朗读'
+      if (!autoplay) return
+      const at = Math.max(0, Math.min(Number(seconds) || 0, this.continuous.duration - 0.2))
+      if (at > 0) audio.startTime = at
+      audio.src = url
+      this.audioSrc = url
+      this.currentTime = at
+      this.knownDuration = this.continuous.duration
+      this.sliderValue = Math.round(progressRatio(at, this.continuous.duration) * 1000)
+    },
+    syncContinuous(seconds) {
+      const segments = this.continuous.segments || []
+      if (!segments.length) return
+      let index = 0
+      for (let i = segments.length - 1; i >= 0; i--) if (seconds >= segments[i].start) { index = i; break }
+      const segment = segments[index]
+      if (!segment) return
+      const position = this.state.articles.findIndex(item => item.articleId === segment.article_id)
+      if (position >= 0 && position !== this.state.index) {
+        this.state = Object.assign({}, this.state, { index: position })
+      }
+      // 熄屏期间 JS 可能被挂起，回到前台时把已经播过的篇目一次补齐。
+      for (const item of segments) {
+        if (seconds < item.end - 2 || this.listenedSegments.has(item.article_id)) continue
+        this.listenedSegments.add(item.article_id)
+        const article = this.state.articles.find(a => a.articleId === item.article_id)
+        this.$emit('listened', { articleId: item.article_id, title: article ? article.title : '' })
+      }
+    },
+    seekContinuous(seconds) {
+      if (!this.continuous) return
+      const at = Math.max(0, Math.min(Number(seconds) || 0, this.continuous.duration - 0.2))
+      this.currentTime = at
+      this.sliderValue = Math.round(progressRatio(at, this.continuous.duration) * 1000)
+      resetListenAnchor(this.listen)
+      if (this.audio && this.playing) { try { this.audio.seek(at) } catch (error) {} }
     },
     // 普通音频只改 src 不播放；App 后台音频设置 src 会自动播放，所以等到点播放时才设。
     loadSource(audio, ratio, autoplay = false) {
@@ -306,6 +369,11 @@ export default {
         }
         return
       }
+      if (this.continuous) {
+        this.knownDuration = this.continuous.duration
+        this.sliderValue = Math.round(progressRatio(this.currentTime, this.continuous.duration) * 1000)
+        return
+      }
       if (!this.userStarted && !resume) return
       const audio = this.ensureAudio()
       this.loadSource(audio, ratio, resume)
@@ -330,6 +398,12 @@ export default {
       if (this.disabled) return
       this.userStarted = true
       const audio = this.ensureAudio()
+      if (this.continuous) {
+        if (this.playing) { audio.pause(); return }
+        this.loadContinuous(audio, this.currentTime, true)
+        this.startPlayback(audio)
+        return
+      }
       if (this.playing) { audio.pause(); return }
       if (this.isApp) {
         const url = this.track && this.track.url ? todayAudioUrl(this.track.url) : ''
@@ -342,14 +416,18 @@ export default {
       this.loadSource(audio, 0)
       this.startPlayback(audio)
     },
-    goPrev() {
-      if (!this.prevEnabled) return
-      this.state = step(this.state, -1)
-      this.applyTrack(false)
-    },
-    goNext() {
-      if (!this.nextEnabled) return
-      this.state = step(this.state, 1)
+    goPrev() { this.goSegment(-1) },
+    goNext() { this.goSegment(1) },
+    goSegment(delta) {
+      if (this.continuous) {
+        const segments = this.continuous.segments || []
+        const target = segments[this.segmentIndex + delta]
+        if (!target) return
+        this.seekContinuous(target.start)
+        return
+      }
+      if (delta < 0 ? !this.prevEnabled : !this.nextEnabled) return
+      this.state = step(this.state, delta)
       this.applyTrack(false)
     },
     chooseVoice(voiceId) {
@@ -357,6 +435,15 @@ export default {
       if (next === this.state) return
       this.state = next
       uni.setStorageSync(VOICE_STORAGE_KEY, this.state.voice)
+      if (this.continuousMap) {
+        const at = this.currentTime
+        this.continuous = this.continuousMap[this.state.voice] || null
+        this.knownDuration = this.continuous ? this.continuous.duration : 0
+        this.sliderValue = this.continuous ? Math.round(progressRatio(at, this.continuous.duration) * 1000) : 0
+        if (this.continuous && this.audio && this.userStarted && this.playing) this.loadContinuous(this.audio, at, true)
+        else if (this.audio) this.audioSrc = ''
+        return
+      }
       this.applyTrack(true)
     },
     // picker 的 @change 给的是下拉序号，换成声音 id 再走 chooseVoice（同一套存储与续播逻辑）。
@@ -374,6 +461,11 @@ export default {
     onSeek(event) {
       const value = Number((event.detail && event.detail.value) || 0)
       const seconds = ratioToSeconds(value / 1000, this.duration)
+      if (this.continuous) {
+        this.seeking = false
+        this.seekContinuous(seconds)
+        return
+      }
       this.sliderValue = value
       this.currentTime = seconds
       this.seeking = false
@@ -409,7 +501,7 @@ export default {
     },
     // 看门狗：万一 onEnded 没回调，播放到接近末尾时主动进入下一篇。
     startWatchdog() {
-      if (!this.isApp || this.watchdog) return
+      if (!this.isApp || this.continuous || this.watchdog) return
       this.watchdog = setInterval(() => {
         if (!this.playing || this.seeking || this.advancing) return
         const duration = Number(this.audio && this.audio.duration) || this.knownDuration || 0
@@ -421,6 +513,19 @@ export default {
       if (this.watchdog) { clearInterval(this.watchdog); this.watchdog = null }
     },
     handleEnded() {
+      if (this.continuous) {
+        const segments = this.continuous.segments || []
+        const last = segments[segments.length - 1]
+        if (last && !this.listenedSegments.has(last.article_id)) {
+          this.listenedSegments.add(last.article_id)
+          const article = this.state.articles.find(item => item.articleId === last.article_id)
+          this.$emit('listened', { articleId: last.article_id, title: article ? article.title : '' })
+        }
+        this.playing = false
+        this.releaseWakeLock()
+        this.stopWatchdog()
+        return
+      }
       // onEnded 偶发丢失（锁屏/后台时）由看门狗兜底，防止重复触发。
       if (this.advancing) return
       this.advancing = true
@@ -441,6 +546,21 @@ export default {
     },
     // 页面隐藏或卸载时暂停并销毁，避免后台出声和内存泄漏。
     // 用户没点过播放时，强制压住可能被原生恢复的后台播放。
+    // 熄屏期间 JS 可能收不到 onPlay/onTimeUpdate：回前台时以原生播放器为准同步一次。
+    syncFromAudio() {
+      if (!this.audio) return
+      try {
+        const paused = this.audio.paused
+        const current = Number(this.audio.currentTime) || 0
+        if (current > 0) this.currentTime = current
+        if (this.continuous) {
+          this.knownDuration = this.continuous.duration
+          this.sliderValue = Math.round(progressRatio(this.currentTime, this.continuous.duration) * 1000)
+          this.syncContinuous(this.currentTime)
+        }
+        this.playing = paused === false
+      } catch (error) {}
+    },
     enforceSilence() {
       if (!this.isApp || this.userStarted || this.playing) return
       try {
