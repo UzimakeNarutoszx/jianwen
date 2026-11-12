@@ -39,7 +39,7 @@ for (const file of files) {
     vm.runInNewContext(`${source}\nrenderShell()`, context)
     assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
     for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
-      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261108-1', `${page}: every header link uses current version`)
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261110-2', `${page}: every header link uses current version`)
     }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)
