@@ -400,6 +400,8 @@ export default {
       const audio = this.ensureAudio()
       if (this.continuous) {
         if (this.playing) { audio.pause(); return }
+        // 播到结尾后再点播放，从当天开头重新开始。
+        if (this.currentTime >= this.continuous.duration - 1) this.currentTime = 0
         this.loadContinuous(audio, this.currentTime, true)
         this.startPlayback(audio)
         return
