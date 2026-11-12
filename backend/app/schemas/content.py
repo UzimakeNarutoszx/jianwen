@@ -201,6 +201,22 @@ class TodayAudioArticleResponse(BaseModel):
     audio: dict[str, TodayAudioTrackResponse] = Field(default_factory=dict)
 
 
+class TodayAudioSegmentResponse(BaseModel):
+    """连续音轨里某篇文章的起止秒数。"""
+
+    article_id: str
+    start: float
+    end: float
+
+
+class TodayAudioContinuousResponse(BaseModel):
+    """把当天所有篇目拼成一条的连续音轨，供熄屏/后台不依赖 JS 连播。"""
+
+    url: str
+    duration: float | None = None
+    segments: list[TodayAudioSegmentResponse] = Field(default_factory=list)
+
+
 class TodayAudioResponse(BaseModel):
     """GET /content/today/audio 的响应；ready=false 时前端显示「今日朗读生成中」。"""
 
@@ -208,4 +224,5 @@ class TodayAudioResponse(BaseModel):
     ready: bool = False
     voices: list[TodayAudioVoiceResponse] = Field(default_factory=list)
     articles: list[TodayAudioArticleResponse] = Field(default_factory=list)
+    continuous: dict[str, TodayAudioContinuousResponse] = Field(default_factory=dict)
     generated_at: str | None = None
