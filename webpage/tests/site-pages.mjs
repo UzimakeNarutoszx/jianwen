@@ -16,7 +16,7 @@ for (const file of files) {
   const html = await readFile(file, 'utf8')
   const shellScript = [...html.matchAll(/<script[^>]*src="([^"]*js\/site\.js[^"]*)"/g)]
   assert.equal(shellScript.length, 1, `${page}: one shared navigation script`)
-  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261108-1', `${page}: navigation script cache version`)
+  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261110-2', `${page}: navigation script cache version`)
   assert.equal((html.match(/data-site-header/g) || []).length, 1, `${page}: one common header`)
   assert.ok(html.includes('data-site-footer'), `${page}: footer`)
   assert.doesNotMatch(html, /avatar-contact\.html/, `${page}: retired pages`)
