@@ -63,7 +63,7 @@ a.major-event-card:focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring
   <script src="../js/site.js?v=20261110-2"></script>
   <script src="../js/api-browser.js?v=20261110-2"></script>
   <script src="../js/major-event.js?v=20261110-2"></script>
-  <script src="../js/today-audio.js?v=20261112-2"></script>
+  <script src="../js/today-audio.js?v=20261113-1"></script>
   <script>
     (async function () {
       const list = document.querySelector('#today-list')
@@ -110,10 +110,14 @@ a.major-event-card:focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring
         updateQuote(quoteResult)
 
         const localReadIds = window.getReadArticleIds()
-        const articles = (Array.isArray(todayResult) ? todayResult : (todayResult.articles || [])).slice(0, 5).map(item => ({
-          ...item,
-          viewed: Boolean(item.viewed || localReadIds.includes(item.article_id || item.id))
-        }))
+        const rawArticles = (Array.isArray(todayResult) ? todayResult : (todayResult.articles || [])).slice(0, 5)
+        const articles = rawArticles.map(item => {
+          const id = item.article_id || item.id
+          const localRead = localReadIds.includes(id)
+          // 本地已读但服务端没记录（当时断网/后端维护）：补一次历史，避免任务统计丢篇。
+          if (!item.viewed && localRead && hasToken) jianwenApi.saveHistory(id, item).catch(() => {})
+          return { ...item, viewed: Boolean(item.viewed || localRead) }
+        })
         const readCount = articles.filter(item => item.viewed).length
         const percentage = articles.length ? Math.round((readCount / articles.length) * 100) : 0
 

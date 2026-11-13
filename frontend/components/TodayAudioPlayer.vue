@@ -290,8 +290,10 @@ export default {
         this.state = Object.assign({}, this.state, { index: position })
       }
       // 熄屏期间 JS 可能被挂起，回到前台时把已经播过的篇目一次补齐。
+      // 按 90% 判定：段尾常有静音和 0.6s 间隔，卡 end-2 会漏记。
       for (const item of segments) {
-        if (seconds < item.end - 2 || this.listenedSegments.has(item.article_id)) continue
+        const threshold = item.start + (item.end - item.start) * 0.9
+        if (seconds < threshold || this.listenedSegments.has(item.article_id)) continue
         this.listenedSegments.add(item.article_id)
         const article = this.state.articles.find(a => a.articleId === item.article_id)
         this.$emit('listened', { articleId: item.article_id, title: article ? article.title : '' })

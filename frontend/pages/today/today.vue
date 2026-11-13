@@ -343,7 +343,14 @@ export default {
           result = await fallback()
         }
         if (version !== this.loadVersion) return
-        this.articles = result.articles || []
+        // 本地已读但服务端没记录（当时断网/后端维护）：补一次历史，避免任务统计丢篇。
+        const readIds = getReadArticleIds()
+        const loggedIn = Boolean(uni.getStorageSync('jianwen_auth_token'))
+        this.articles = (result.articles || []).map(item => {
+          const localRead = readIds.includes(item.id)
+          if (!item.viewed && localRead && loggedIn) saveRemoteHistory(item.articleId || item.id, item).catch(() => {})
+          return Object.assign({}, item, { viewed: Boolean(item.viewed || localRead) })
+        })
         this.banners = result.banners || []
         this.loadState = 'ready'
         this.lastLoadedAt = Date.now()
