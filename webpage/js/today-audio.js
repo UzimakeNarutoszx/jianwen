@@ -500,7 +500,9 @@
         syncProgress()
         if (!media.paused) {
           for (const segment of continuous.segments) {
-            if (media.currentTime < segment.end - 2 || listen.done[segment.articleId]) continue
+            // 按 90% 判定「听完」：段尾常有静音和 0.6s 间隔，卡 end-2 会漏记。
+            const threshold = segment.start + (segment.end - segment.start) * LISTEN_DONE_RATIO
+            if (media.currentTime < threshold || listen.done[segment.articleId]) continue
             listen.done[segment.articleId] = true
             const article = state.articles.find(item => item.articleId === segment.articleId)
             if (article) announceListened(article)
