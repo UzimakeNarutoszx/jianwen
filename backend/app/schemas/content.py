@@ -92,9 +92,30 @@ class AiAnswerRequest(BaseModel):
     article_id: str | None = None
 
 
+class AiCitation(BaseModel):
+    """一条可点击的原文依据：article_id/title 必填，quote 可为空。"""
+
+    article_id: str
+    title: str
+    quote: str | None = None
+
+
 class AiAnswerResponse(BaseModel):
     answer: str
     sources: str | None = None
+    citations: list[AiCitation] = Field(default_factory=list)
+
+
+class AiCitationsRequest(BaseModel):
+    """流式回答结束后，前端拿最终文本回查引用来源。"""
+
+    question: str = Field(..., min_length=1, max_length=4000)
+    answer: str = Field(..., min_length=1, max_length=200000)
+    article_id: str | None = None
+
+
+class AiCitationsResponse(BaseModel):
+    citations: list[AiCitation] = Field(default_factory=list)
 
 
 class AjinChatRequest(BaseModel):

@@ -19,6 +19,13 @@
         </view>
       </view>
 
+      <!-- 离线提示压成一行，不弹窗、不占阅读主流程。 -->
+      <view v-if="offlineNotice" class="offline-banner" role="status" aria-live="polite">
+        <text class="offline-dot"></text>
+        <text class="offline-text">{{ offlineNotice }}</text>
+        <text class="offline-retry" @click="loadContent()">重试</text>
+      </view>
+
       <view class="hero-copy-block">
         <text class="hero-kicker">DAILY BRIEFING</text>
         <text class="hero-title">今天和你有关的几件事</text>
@@ -172,7 +179,8 @@
 
 <script>
 import { buildFileUrl, getDailyQuote, getMajorEvents, getRemoteTodayChecklist, getTodayContent, saveRemoteHistory } from '@/utils/api.js'
-import { formatToday } from '@/utils/date.js'
+import { formatDateTime, formatToday } from '@/utils/date.js'
+import { FALLBACK_MAX_AGE_DAYS, dateKey, getOfflineCache } from '@/utils/offline.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { addArticleHistory, getReadArticleIds, markArticleRead } from '@/utils/user-data.js'
 import StateView from '@/components/StateView.vue'
@@ -196,7 +204,9 @@ export default {
       loadError: '',
       lastLoadedAt: 0,
       loadVersion: 0,
-      streakDays: 0
+      streakDays: 0,
+      // 非空表示当前列表来自离线缓存：{ date, savedAt }。
+      offlineInfo: null
     }
   },
   computed: {
@@ -204,6 +214,12 @@ export default {
       if (this.loadState === 'loading') return '正在整理今天值得知道的事'
       if (this.loadState === 'error') return this.loadError || '今日内容暂时加载失败，请稍后重试'
       return '今天还没有新内容，晚点再来看看'
+    },
+    offlineNotice() {
+      const info = this.offlineInfo
+      if (!info) return ''
+      const savedAt = info.savedAt ? formatDateTime(info.savedAt) : ''
+      return savedAt ? `离线内容 · 缓存于 ${savedAt}` : '离线内容 · 正在显示上次缓存的清单'
     },
     majorEventImage() {
       return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/topic-default.jpg')
@@ -317,15 +333,30 @@ export default {
       // #endif
     },
     async loadContent() {
-      this.loadMajorEvent()
       const version = ++this.loadVersion
       // 已有内容时刷新不退回 loading 占位，避免列表整块闪一下。
       const hasContent = this.articles.length > 0
+      // 已知断网就别等接口超时：直接读当天缓存。
+      const cache = getOfflineCache()
+      let network = ''
+      if (!hasContent && cache.supported()) {
+        network = await cache.networkType()
+        if (version !== this.loadVersion) return
+      }
+      this.loadMajorEvent()
       if (!hasContent) {
         this.loadState = 'loading'
         this.loadError = ''
       }
       this.loadDailyQuote()
+      if (!hasContent && network === 'none') {
+        const restored = await this.restoreOfflineContent()
+        if (version !== this.loadVersion) return
+        if (restored) return
+        this.loadState = 'error'
+        this.loadError = '当前没有网络，也没有可用的离线缓存'
+        return
+      }
       const fallback = async () => {
         const data = await getTodayContent()
         const readIds = getReadArticleIds()
@@ -358,9 +389,18 @@ export default {
         this.banners = result.banners || []
         this.loadState = 'ready'
         this.lastLoadedAt = Date.now()
+        this.offlineInfo = null
+        // 在线成功是唯一的缓存时机：拿到的是服务端当天最终的 5 篇清单。
+        this.cacheTodayContentOffline()
       } catch (error) {
         if (version !== this.loadVersion) return
-        // 已有内容时刷新失败保留旧列表，只提示；否则才切三态错误页。
+        // 接口失败/离线：先用当日缓存把 5 篇顶上，缓存也没有才落到错误页。
+        if (!hasContent) {
+          const restored = await this.restoreOfflineContent()
+          if (version !== this.loadVersion) return
+          if (restored) return
+        }
+        // 已有内容时刷新失败保留旧列表，只提示。
         if (hasContent) {
           uni.showToast({ title: error.message || '刷新失败，稍后再试', icon: 'none' })
           return
@@ -368,6 +408,41 @@ export default {
         this.loadState = 'error'
         this.loadError = error.message || '今日内容加载失败，请稍后重试'
       }
+    },
+    // 后台把在线清单落到 _doc/jianwen/offline/<date>/today.json；失败不打扰阅读。
+    cacheTodayContentOffline() {
+      if (!this.articles.length) return
+      const cache = getOfflineCache()
+      if (!cache.supported()) return
+      cache.saveChecklist({
+        date: dateKey(),
+        articles: this.articles,
+        banners: this.banners
+      }).catch(() => {})
+    },
+    // 离线回退：读“今天或之前最近一天”的缓存清单，跨零点也能读到内容。
+    async restoreOfflineContent() {
+      const cache = getOfflineCache()
+      if (!cache.supported()) return false
+      const result = await cache
+        .readLatestChecklist({ today: dateKey(), maxAgeDays: FALLBACK_MAX_AGE_DAYS })
+        .catch(() => null)
+      if (!result || !result.checklist || !result.checklist.articles.length) return false
+      const readIds = getReadArticleIds()
+      this.articles = result.checklist.articles.map(item =>
+        Object.assign({}, item, { viewed: Boolean(item.viewed || readIds.includes(item.id)) })
+      )
+      // 横幅大图没有单独缓存，离线时先不渲染，避免整块空白。
+      this.banners = []
+      this.loadState = 'ready'
+      this.loadError = ''
+      // 0 表示离线结果不参与 60s 节流，下次 onShow 仍会尝试联网刷新。
+      this.lastLoadedAt = 0
+      this.offlineInfo = {
+        date: result.checklist.date || result.date,
+        savedAt: result.checklist.savedAt || 0
+      }
+      return true
     },
     async loadDailyQuote() {
       try {
@@ -545,6 +620,46 @@ export default {
   font-size: 23rpx;
   line-height: 1.3;
   font-weight: 900;
+}
+
+/* 离线提示：靠 1~3% 明度差分层，不用黑框；一行文字，不打断阅读。 */
+.offline-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 16rpx 22rpx;
+  border-radius: 18rpx;
+  background: rgba(200, 155, 57, 0.1);
+  box-shadow: 0 8rpx 22rpx rgba(155, 115, 46, 0.08);
+}
+
+.offline-dot {
+  flex: 0 0 auto;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: #C89B39;
+  box-shadow: 0 0 14rpx rgba(200, 155, 57, 0.58);
+}
+
+.offline-text {
+  flex: 1;
+  min-width: 0;
+  color: #7C5C18;
+  font-size: 23rpx;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.offline-retry {
+  flex: 0 0 auto;
+  padding: 6rpx 10rpx;
+  color: #1F5F7A;
+  font-size: 23rpx;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .hero-copy-block {
@@ -1281,6 +1396,21 @@ export default {
 .dark-mode .quote-theme,
 .dark-mode .relation-label {
   background: rgba(212,170,78,0.14) !important;
+}
+
+.dark-mode .offline-banner {
+  background: rgba(212, 170, 78, 0.12) !important;
+  box-shadow: 0 8rpx 22rpx rgba(0, 0, 0, 0.18);
+}
+
+.dark-mode .offline-text {
+  color: #D4AA4E !important;
+  font-weight: 240;
+}
+
+.dark-mode .offline-retry {
+  color: #7EB8D1 !important;
+  font-weight: 360;
 }
 
 .dark-mode .quote-explain,

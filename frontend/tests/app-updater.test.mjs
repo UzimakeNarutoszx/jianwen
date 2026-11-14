@@ -6,8 +6,8 @@ import vm from 'node:vm'
 const source = (await readFile(new URL('../utils/app-updater.js', import.meta.url), 'utf8'))
   .replace('export function checkForAppUpdate', 'function checkForAppUpdate')
 
-// 这份 JS 随 114 版 APK 一起发布；没有 plus 时按它兜底当前原生版本。
-const NATIVE = 114
+// 与 utils/app-updater.js 的 NATIVE_VERSION_CODE 保持一致；这是 1.1.11 整包的原生版本。
+const NATIVE = 121
 const APK = 'http://8.147.110.194/downloads/jianwen-1.1.4.apk'
 const WGT = 'http://8.147.110.194/downloads/jianwen-1.1.4.wgt'
 

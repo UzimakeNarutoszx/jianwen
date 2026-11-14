@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import difflib
 import json
 import logging
 from pathlib import Path
@@ -35,6 +36,9 @@ from app.services.daily_articles import AI_ARTICLE_ID_PREFIX, get_content_date, 
 from app.schemas.content import (
     AiAnswerRequest,
     AiAnswerResponse,
+    AiCitation,
+    AiCitationsRequest,
+    AiCitationsResponse,
     AjinChatRequest,
     AiPromptResponse,
     BreakingNewsResponse,
@@ -69,6 +73,13 @@ _UPDATES_OLD_WEEKLY_CAP = 2
 _ASK_CONTEXT_RECENT_LIMIT = 20
 _ASK_CONTEXT_RELATED_LIMIT = 10
 _ASK_CONTEXT_QUESTION_KEYWORD_LIMIT = 6
+# 一次回答最多回传多少条引用，避免模型大段复述编号时撑大响应。
+_AI_CITATION_LIMIT = 5
+# 回答里的 [n] 标记；编号对应上下文里带 [n] 前缀的文章。
+_AI_CITATION_MARKER = re.compile(r"\[(\d{1,3})\]")
+# 无标记降级匹配的标题片段最短长度；过短的片段太容易误命中。
+_AI_CITATION_TITLE_MIN_LENGTH = 4
+_AI_CITATION_QUOTE_MAX_LENGTH = 120
 _AI_DAILY_ID_PATTERN = re.compile(rf"^{AI_ARTICLE_ID_PREFIX}-(\d{{8}})-(\d+)$")
 
 
@@ -263,7 +274,12 @@ def _today_checklist_response(
     )
 
 
-def _article_context(article: ContentArticle) -> str:
+def _article_context(article: ContentArticle, index: int | None = None) -> str:
+    """把一篇文章压成给模型的上下文。
+
+    ``index`` 是这篇文章在本次上下文里的编号（从 1 开始）：模型回答里出现
+    ``[n]`` 时，用同一个编号回查文章，生成可点击的引用来源。
+    """
     summary = "；".join(str(item) for item in _as_list(article.summary) if item)
     sections = []
     for section in _as_list(article.sections):
@@ -282,10 +298,14 @@ def _article_context(article: ContentArticle) -> str:
         if title or org:
             references.append(f"{title}（{org}）".strip("（）"))
 
+    article_line = f"文章ID：{article.article_id}"
+    if index is not None:
+        article_line = f"[{index}] {article_line}"
+
     return "\n".join(
         part
         for part in [
-            f"文章ID：{article.article_id}",
+            article_line,
             f"标题：{article.title}",
             f"主题：{article.topic or article.category or ''}",
             f"来源：{article.sources or ''}",
@@ -296,6 +316,99 @@ def _article_context(article: ContentArticle) -> str:
         ]
         if part.strip()
     )
+
+
+def _trim_quote(text: str) -> str:
+    normalized = " ".join(str(text or "").split())
+    if len(normalized) <= _AI_CITATION_QUOTE_MAX_LENGTH:
+        return normalized
+    return normalized[: _AI_CITATION_QUOTE_MAX_LENGTH - 1] + "…"
+
+
+def _article_quote(article: ContentArticle) -> str | None:
+    """取文章里最适合当“依据段落”的一句原文；没有可摘录内容时返回 None。"""
+    for item in _as_list(getattr(article, "summary", None)):
+        quote = _trim_quote(str(item))
+        if quote:
+            return quote
+    quote = _trim_quote(str(getattr(article, "desc", "") or ""))
+    return quote or None
+
+
+def _title_matches_answer(title: str, answer: str) -> bool:
+    """保守判断回答是否提到了某篇文章：完整标题，或足够长的标题片段。"""
+    compact_title = re.sub(r"\s+", "", title or "")
+    compact_answer = re.sub(r"\s+", "", answer or "")
+    if not compact_title or not compact_answer or len(compact_title) < _AI_CITATION_TITLE_MIN_LENGTH:
+        return False
+    if compact_title in compact_answer:
+        return True
+
+    matched = 0
+    longest = 0
+    matcher = difflib.SequenceMatcher(None, compact_title, compact_answer, autojunk=False)
+    for block in matcher.get_matching_blocks():
+        if block.size < 2:
+            continue
+        matched += block.size
+        longest = max(longest, block.size)
+    # 至少要有一段 4 字以上的连续命中，且总命中量不少于标题的一半。
+    threshold = max(_AI_CITATION_TITLE_MIN_LENGTH, (len(compact_title) + 1) // 2)
+    return longest >= _AI_CITATION_TITLE_MIN_LENGTH and matched >= threshold
+
+
+def _match_citations_by_title(answer: str, articles: list[ContentArticle]) -> list[AiCitation]:
+    """模型没写 [n] 时，用标题/关键词做保守匹配：宁缺毋滥。"""
+    citations: list[AiCitation] = []
+    for article in articles:
+        title = str(getattr(article, "title", "") or "")
+        if not _title_matches_answer(title, answer):
+            continue
+        article_id = str(getattr(article, "article_id", "") or "")
+        if not article_id:
+            continue
+        citations.append(AiCitation(article_id=article_id, title=title, quote=_article_quote(article)))
+        if len(citations) >= _AI_CITATION_LIMIT:
+            break
+    return citations
+
+
+def _citations_from_answer(answer: str, articles: list[ContentArticle]) -> list[AiCitation]:
+    """把回答里的 [n] 标记映射回本次上下文里的文章。
+
+    解析失败或没有任何可靠依据时一律返回空列表，绝不让问诊接口因此报错。
+    """
+    try:
+        if not isinstance(answer, str) or not answer.strip() or not articles:
+            return []
+
+        citations: list[AiCitation] = []
+        seen: set[str] = set()
+        for match in _AI_CITATION_MARKER.finditer(answer):
+            index = int(match.group(1))
+            if index < 1 or index > len(articles):
+                continue
+            article = articles[index - 1]
+            article_id = str(getattr(article, "article_id", "") or "")
+            if not article_id or article_id in seen:
+                continue
+            seen.add(article_id)
+            citations.append(
+                AiCitation(
+                    article_id=article_id,
+                    title=str(getattr(article, "title", "") or ""),
+                    quote=_article_quote(article),
+                )
+            )
+            if len(citations) >= _AI_CITATION_LIMIT:
+                break
+        if citations:
+            return citations
+        # 模型没按约定标注时，退回保守的标题/关键词匹配。
+        return _match_citations_by_title(answer, articles)
+    except Exception:
+        logger.warning("Failed to parse AI answer citations", exc_info=True)
+        return []
 
 
 def _local_answer(db: Session, question: str) -> AiAnswerResponse | None:
@@ -406,10 +519,10 @@ def _question_keywords(question: str) -> list[str]:
     return seen
 
 
-def _build_ask_context(
+def _select_ask_articles(
     db: Session, article_id: str | None = None, question: str | None = None
-) -> dict[str, object]:
-    """Build a bounded AI context.
+) -> tuple[list[ContentArticle], ContentArticle | None]:
+    """选出本次回答可用的文章，顺序即给模型标注的 [1]…[n]。
 
     Sending the whole catalog bloats the prompt and slows answers, so only the
     current article, articles matching the question, and the most recent N
@@ -454,13 +567,38 @@ def _build_ask_context(
             continue
         seen_ids.add(candidate.article_id)
         selected.append(candidate)
+    return selected, linked_article
 
+
+def _ask_context_from_articles(
+    selected: list[ContentArticle], linked_article: ContentArticle | None = None
+) -> dict[str, object]:
+    """把选好的文章渲染成带 [n] 编号的模型上下文。"""
     context: dict[str, object] = {
-        "相关文章资料库": [_article_context(article) for article in selected],
+        "相关文章资料库": [_article_context(article, index=index + 1) for index, article in enumerate(selected)],
+        "引用标注要求": (
+            "回答中如果某句话依据上面某篇文章，就在句末标注该文章编号，例如 [1]；"
+            "同一句引用多篇写成 [1][2]。没有依据的句子不要标注。"
+        ),
     }
     if linked_article is not None:
-        context["当前关联文章"] = _article_context(linked_article)
+        linked_index = next(
+            (
+                index + 1
+                for index, article in enumerate(selected)
+                if article.article_id == linked_article.article_id
+            ),
+            None,
+        )
+        context["当前关联文章"] = _article_context(linked_article, index=linked_index)
     return context
+
+
+def _build_ask_context(
+    db: Session, article_id: str | None = None, question: str | None = None
+) -> dict[str, object]:
+    selected, linked_article = _select_ask_articles(db, article_id, question)
+    return _ask_context_from_articles(selected, linked_article)
 
 
 @router.get("/categories", response_model=list[ContentCategoryResponse])
@@ -881,7 +1019,8 @@ def answer_question(
     quota_date = today_cn()
 
     try:
-        result = ask_ai(question, context=_build_ask_context(db, payload.article_id, question))
+        context_articles, linked_article = _select_ask_articles(db, payload.article_id, question)
+        result = ask_ai(question, context=_ask_context_from_articles(context_articles, linked_article))
     except AIClientError as exc:
         logger.warning("Ark AI request failed: %s", exc)
         fallback = _local_answer(db, question)
@@ -902,11 +1041,33 @@ def answer_question(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI 未返回有效回答")
 
     sources = "AI 回答基于公开信息整理，涉及具体办理请以官方来源为准。"
+    citations = _citations_from_answer(result.text, context_articles)
     _save_ai_usage(db, current_user, question, result.text, sources)
     return AiAnswerResponse(
         answer=result.text,
         sources=sources,
+        citations=citations,
     )
+
+
+@router.post("/ask/citations", response_model=AiCitationsResponse)
+def resolve_ask_citations(
+    payload: AiCitationsRequest,
+    db: Session = Depends(get_db),
+) -> AiCitationsResponse:
+    """按本次提问的文章上下文解析回答里的引用来源。
+
+    流式接口逐字返回纯文本，无法在流里附带结构化来源；前端在回答结束后
+    用最终文本调这个接口，补上可点击的引用。这里不调用 AI、不扣额度，
+    任何解析异常都返回空列表。
+    """
+    try:
+        context_articles, _linked_article = _select_ask_articles(db, payload.article_id, payload.question)
+        citations = _citations_from_answer(payload.answer, context_articles)
+    except Exception:
+        logger.warning("Failed to resolve ask citations", exc_info=True)
+        return AiCitationsResponse()
+    return AiCitationsResponse(citations=citations)
 
 
 @router.post("/ask", response_model=AiAnswerResponse)

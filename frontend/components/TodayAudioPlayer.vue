@@ -75,12 +75,21 @@
         <text class="audio-time">{{ durationLabel }}</text>
       </view>
     </view>
+
+    <!-- 连续音轨离线缓存：手动触发，在线优先；缓存成功后播放自动切到本地文件。 -->
+    <view v-if="cacheRowVisible" class="audio-cache-row">
+      <text :class="['audio-cache-hint', cacheState === 'cached' ? 'is-ready' : '', cacheState === 'failed' ? 'is-error' : '']">{{ cacheHint }}</text>
+      <button v-if="cacheState !== 'cached'" class="audio-cache-action" :disabled="cacheBusy" @click="cacheTodayAudio">
+        <text class="audio-cache-action-text">{{ cacheButtonLabel }}</text>
+      </button>
+    </view>
   </view>
 </template>
 
 <script>
 import { getTodayAudio, todayAudioUrl } from '@/utils/api.js'
 import { startPlaybackService, updatePlaybackService, stopPlaybackService } from '@/utils/keepalive.js'
+import { chooseAudioUrl, createOfflineCache, dateFromAudioUrl, estimateAudioBytes, formatBytes, resolveLocalPlayablePath, shouldDownload } from '@/utils/offline.js'
 import {
   VOICE_STORAGE_KEY,
   afterEnded,
@@ -120,7 +129,11 @@ export default {
       seeking: false,
       playError: '',
       continuousMap: null,
-      continuous: null
+      continuous: null,
+      // 连续音轨离线缓存状态：'' | 'checking' | 'caching' | 'cached' | 'failed' | 'unsupported'
+      cacheState: '',
+      cacheError: '',
+      cacheSize: 0
     }
   },
   computed: {
@@ -167,7 +180,24 @@ export default {
       return this.track ? this.track.duration : 0
     },
     currentLabel() { return formatTime(this.currentTime) },
-    durationLabel() { return formatTime(this.duration) }
+    durationLabel() { return formatTime(this.duration) },
+    cacheRowVisible() { return Boolean(this.continuous) && this.cacheState !== 'unsupported' },
+    cacheBusy() { return this.cacheState === 'caching' || this.cacheState === 'checking' },
+    cacheSizeLabel() { return formatBytes(estimateAudioBytes(this.continuous ? this.continuous.duration : 0)) },
+    cacheHint() {
+      if (this.cacheState === 'cached') {
+        return this.cacheSize > 0 ? `已缓存 ${formatBytes(this.cacheSize)}，断网也能连续听` : '已缓存，断网也能连续听'
+      }
+      if (this.cacheState === 'checking') return '正在检查离线缓存'
+      if (this.cacheState === 'caching') return '正在缓存今日音轨，请保持网络连接'
+      if (this.cacheState === 'failed') return this.cacheError || '缓存失败，稍后可重试'
+      return `缓存后可离线连续听 · 约 ${this.cacheSizeLabel}`
+    },
+    cacheButtonLabel() {
+      if (this.cacheState === 'caching') return '缓存中…'
+      if (this.cacheState === 'failed') return '重试缓存'
+      return '缓存今日音频'
+    }
   },
   created() {
     // 音频上下文不放进 data：它不可序列化，也没必要参与响应式。
@@ -191,6 +221,11 @@ export default {
     // 「听完即读完」判定器：非响应式，只用于判定，不参与渲染。
     this.listen = createListenTracker()
     this.listenedSegments = new Set()
+    // 连续音轨离线缓存：只负责落盘和本地路径选择，播放仍然在线优先。
+    this.offline = createOfflineCache()
+    this.continuousLocalUrl = ''
+    this.cacheCheckToken = 0
+    if (!this.offline.supported()) this.cacheState = 'unsupported'
   },
   mounted() {
     this.loadManifest()
@@ -210,13 +245,126 @@ export default {
           // 换源出错不能把已拿到的清单打回「生成中」：只记日志，用户点播放时会再加载一次。
           try { this.applyTrack(false) } catch (error) { console.error('[today-audio] applyTrack', error) }
           this.restoreResume()
+          this.checkAudioCache()
         }, () => {
           // 生成中或请求失败都不报错，只显示「今日朗读生成中」。
           this.state = createTodayAudioState({ ready: false, articles: [] }, saved)
           this.continuousMap = null
           this.continuous = null
+          this.continuousLocalUrl = ''
+          if (this.cacheState !== 'unsupported') this.cacheState = ''
           this.loading = false
         })
+    },
+    // 连续音轨远端地址：缓存文件名与离线目录日期都从它和 manifest.date 来。
+    continuousRemoteUrl() {
+      return this.continuous ? todayAudioUrl(this.continuous.url) : ''
+    },
+    offlineDate() {
+      const stateDate = String((this.state && this.state.date) || '')
+      if (/^\d{4}-\d{2}-\d{2}$/.test(stateDate)) return stateDate
+      return dateFromAudioUrl(this.continuousRemoteUrl())
+    },
+    // 有本地缓存时优先本地路径；没有就保持在线播放。检查是异步的，不阻塞清单渲染。
+    async checkAudioCache() {
+      const token = ++this.cacheCheckToken
+      this.continuousLocalUrl = ''
+      if (!this.continuous) {
+        if (this.cacheState !== 'unsupported') this.cacheState = ''
+        return
+      }
+      if (!this.offline.supported()) {
+        this.cacheState = 'unsupported'
+        return
+      }
+      const date = this.offlineDate()
+      if (!date) {
+        if (this.cacheState !== 'caching') this.cacheState = ''
+        return
+      }
+      // 正在下载时不打断状态；其余情况先显示“检查中”，查完再落到 cached / 空。
+      if (this.cacheState !== 'caching') this.cacheState = 'checking'
+      const path = await this.offline.cachedAudioPath(date, this.state.voice).catch(() => '')
+      if (token !== this.cacheCheckToken) return
+      if (path) {
+        this.continuousLocalUrl = resolveLocalPlayablePath(path)
+        this.cacheState = 'cached'
+        return
+      }
+      if (this.cacheState === 'checking') this.cacheState = ''
+    },
+    // 手动缓存：Wi-Fi 直接下；移动网络先确认一次，避免偷跑流量。
+    async cacheTodayAudio() {
+      if (!this.continuous || this.cacheState === 'caching' || this.cacheState === 'cached') return
+      if (!this.offline.supported()) {
+        this.cacheState = 'unsupported'
+        return
+      }
+      const date = this.offlineDate()
+      if (!date) {
+        this.cacheError = '未识别到今日日期，暂时不能缓存'
+        this.cacheState = 'failed'
+        return
+      }
+      const network = await this.offline.networkType()
+      if (network === 'none') {
+        this.cacheError = '当前没有网络，连上 Wi-Fi 后再缓存'
+        this.cacheState = 'failed'
+        uni.showToast({ title: '当前没有网络', icon: 'none' })
+        return
+      }
+      if (!shouldDownload({ networkType: network, manual: false, wifiOnly: true })) {
+        uni.showModal({
+          title: '用移动网络缓存？',
+          content: `今日朗读约 ${this.cacheSizeLabel}，建议连 Wi-Fi 再缓存。现在缓存会消耗流量。`,
+          confirmText: '继续缓存',
+          cancelText: '先不缓存',
+          success: result => { if (result.confirm) this.downloadTodayAudio() }
+        })
+        return
+      }
+      this.downloadTodayAudio()
+    },
+    async downloadTodayAudio() {
+      if (!this.continuous) return
+      const date = this.offlineDate()
+      const voice = this.state.voice
+      const url = this.continuousRemoteUrl()
+      if (!date || !url) {
+        this.cacheError = '没有可缓存的今日音轨'
+        this.cacheState = 'failed'
+        return
+      }
+      this.cacheError = ''
+      this.cacheState = 'caching'
+      // 让在途的缓存检查失效，避免它把「正在缓存」改回空闲。
+      ++this.cacheCheckToken
+      try {
+        const result = await this.offline.cacheAudio({ date, voice, url })
+        if (result.status === 'cached' || result.status === 'exists') {
+          this.cacheSize = Number(result.size) || this.cacheSize
+          if (this.continuous && this.state.voice === voice && this.offlineDate() === date) {
+            this.continuousLocalUrl = resolveLocalPlayablePath(result.path)
+            this.cacheState = 'cached'
+          } else {
+            // 下载期间用户换了声音/日期：缓存已落盘，但当前音源要重新判定。
+            this.cacheState = ''
+            this.checkAudioCache()
+          }
+          uni.showToast({ title: '已缓存，可离线收听', icon: 'none' })
+          return
+        }
+        if (result.status === 'unsupported') {
+          this.cacheState = 'unsupported'
+          return
+        }
+        this.cacheState = 'failed'
+        this.cacheError = '缓存失败，请稍后重试'
+        uni.showToast({ title: this.cacheError, icon: 'none' })
+      } catch (error) {
+        this.cacheState = 'failed'
+        this.cacheError = '缓存失败，请稍后重试'
+      }
     },
     // uni.createInnerAudioContext 每次换源都重新走一遍 src，进度按比例恢复。
     bindAudio(audio) {
@@ -295,15 +443,16 @@ export default {
     // 连续音轨：一个文件播完当天所有篇目，熄屏时由原生顺序播放，不依赖 JS 切歌。
     loadContinuous(audio, seconds, autoplay) {
       if (!this.continuous) return
-      const url = todayAudioUrl(this.continuous.url)
+      // 本地缓存优先（断网也能听），否则用今天的在线地址。
+      const source = chooseAudioUrl(todayAudioUrl(this.continuous.url), this.continuousLocalUrl)
       audio.title = this.track ? this.track.title : '今日朗读'
       audio.singer = '见闻'
       audio.epname = '今日朗读'
       if (!autoplay) return
       const at = Math.max(0, Math.min(Number(seconds) || 0, this.continuous.duration - 0.2))
       if (at > 0) audio.startTime = at
-      audio.src = url
-      this.audioSrc = url
+      audio.src = source.url
+      this.audioSrc = source.url
       this.currentTime = at
       this.knownDuration = this.continuous.duration
       this.sliderValue = Math.round(progressRatio(at, this.continuous.duration) * 1000)
@@ -479,6 +628,8 @@ export default {
         this.continuous = this.continuousMap[this.state.voice] || null
         this.knownDuration = this.continuous ? this.continuous.duration : 0
         this.sliderValue = this.continuous ? Math.round(progressRatio(at, this.continuous.duration) * 1000) : 0
+        // 换声音后缓存文件也换了，重新判定当前音轨有没有本地缓存。
+        this.checkAudioCache()
         if (this.continuous && this.audio && this.userStarted && this.playing) this.loadContinuous(this.audio, at, true)
         else if (this.audio) this.audioSrc = ''
         return
@@ -977,6 +1128,65 @@ export default {
   font-variant-numeric: tabular-nums;
 }
 
+/* 离线缓存行：与进度条同卡片，靠 1~3% 明度差分层，不用黑框。 */
+.audio-cache-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 18rpx;
+  background: rgba(31, 95, 122, 0.06);
+}
+
+.audio-cache-hint {
+  flex: 1;
+  min-width: 0;
+  color: #6C7880;
+  font-size: 22rpx;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+
+.audio-cache-hint.is-ready {
+  color: #1F5F7A;
+}
+
+.audio-cache-hint.is-error {
+  color: #B5413A;
+}
+
+.audio-cache-action {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 22rpx;
+  min-height: 56rpx;
+  border: 0;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8rpx 20rpx rgba(31, 47, 58, 0.06);
+  color: #1F5F7A;
+  font-size: 23rpx;
+  line-height: 1;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.audio-cache-action::after {
+  border: 0;
+}
+
+.audio-cache-action[disabled] {
+  color: #A6B0B6;
+  background: rgba(108, 120, 128, 0.08);
+  box-shadow: none;
+}
+
+.audio-cache-action-text {
+  font-size: 23rpx;
+  line-height: 1;
+}
+
 .is-dark.today-audio {
   border-color: rgba(126, 184, 209, 0.16);
   background: rgba(23, 35, 49, 0.86);
@@ -1056,5 +1266,37 @@ export default {
 .is-dark .audio-play.is-disabled {
   background: rgba(126, 184, 209, 0.12);
   color: #7C8B95;
+}
+
+.is-dark .audio-cache-row {
+  background: rgba(126, 184, 209, 0.07);
+}
+
+.is-dark .audio-cache-hint {
+  color: #B6C2CC;
+  font-weight: 240;
+}
+
+.is-dark .audio-cache-hint.is-ready {
+  color: #7EB8D1;
+}
+
+.is-dark .audio-cache-hint.is-error {
+  color: #E08A82;
+}
+
+.is-dark .audio-cache-action {
+  background: rgba(126, 184, 209, 0.1);
+  box-shadow: none;
+  color: #B6C2CC;
+  font-weight: 240;
+}
+
+.is-dark .audio-cache-action[disabled] {
+  color: #6F7C85;
+}
+
+.is-dark .audio-cache-action-text {
+  font-weight: 240;
 }
 </style>

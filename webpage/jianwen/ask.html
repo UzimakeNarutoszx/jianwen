@@ -10,6 +10,91 @@
   <link rel="stylesheet" href="../css/ask.css?v=20261110-2">
 <link rel="stylesheet" href="../css/editorial.css?v=20261110-2">
 <link rel="icon" href="../assets/agents-96.png?v=agents-1" type="image/png">
+<style>
+  /* 回答下方的“依据”列表：每条都可点击跳到文章详情。 */
+  .answer-citations {
+    margin-top: 22px;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(31, 95, 122, 0.05), rgba(31, 95, 122, 0.015));
+  }
+  .answer-citations .citations-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 10px;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+  }
+  .answer-citations .citations-count {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .answer-citations .citation-list {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .answer-citations .citation-link {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+    transition: background 0.15s ease;
+  }
+  .answer-citations .citation-link:hover,
+  .answer-citations .citation-link:focus-visible {
+    background: rgba(31, 95, 122, 0.06);
+  }
+  .answer-citations .citation-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(31, 95, 122, 0.18), 0 0 0 4px rgba(31, 95, 122, 0.08);
+  }
+  .answer-citations .citation-number {
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+  }
+  .answer-citations .citation-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .answer-citations .citation-name {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .answer-citations .citation-quote {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  .answer-citations .citation-arrow {
+    color: var(--blue);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+</style>
 </head>
 <body data-page="jianwen-ask">
   <header data-site-header></header>
@@ -65,5 +150,143 @@
   <script src="../js/site.js?v=20261110-2"></script>
   <script src="../js/api-browser.js?v=20261110-2"></script>
   <script src="../js/ask.js?v=20261110-2"></script>
+  <script>
+    /* 引用来源：流式接口只返回纯文本，回答接收完后用最终文本回查一次，
+       在回答卡片下方渲染可点击的“依据”。没有引用或解析失败就不显示。 */
+    (function () {
+      'use strict'
+      var output = document.getElementById('ask-output')
+      var input = document.getElementById('ask-input')
+      var status = document.getElementById('ask-status')
+      var retry = document.getElementById('ask-retry')
+      if (!output || !input || typeof MutationObserver === 'undefined') return
+      var pendingTimer = 0
+      var requestSeq = 0
+
+      function clearCitations() {
+        var existing = output.querySelector('.answer-citations')
+        if (existing) existing.remove()
+      }
+
+      function articleHref(articleId) {
+        return 'article.html?id=' + encodeURIComponent(articleId)
+      }
+
+      function citationNumber(index) {
+        var value = index + 1
+        return value < 10 ? '0' + value : String(value)
+      }
+
+      function renderCitations(citations) {
+        clearCitations()
+        if (!Array.isArray(citations)) return
+        var items = citations.filter(function (item) {
+          return item && item.article_id && item.title
+        })
+        if (!items.length) return
+        var section = document.createElement('section')
+        section.className = 'answer-citations'
+        section.setAttribute('aria-label', '回答依据')
+        var heading = document.createElement('p')
+        heading.className = 'citations-heading'
+        heading.textContent = '依据'
+        var count = document.createElement('span')
+        count.className = 'citations-count'
+        count.textContent = items.length + ' 篇原文'
+        heading.appendChild(count)
+        section.appendChild(heading)
+        var list = document.createElement('ol')
+        list.className = 'citation-list'
+        items.forEach(function (item, index) {
+          var row = document.createElement('li')
+          row.className = 'citation-item'
+          var link = document.createElement('a')
+          link.className = 'citation-link'
+          link.href = articleHref(item.article_id)
+          var number = document.createElement('span')
+          number.className = 'citation-number'
+          number.textContent = citationNumber(index)
+          var text = document.createElement('span')
+          text.className = 'citation-text'
+          var name = document.createElement('span')
+          name.className = 'citation-name'
+          name.textContent = item.title
+          text.appendChild(name)
+          if (item.quote) {
+            var quote = document.createElement('span')
+            quote.className = 'citation-quote'
+            quote.textContent = item.quote
+            text.appendChild(quote)
+          }
+          var arrow = document.createElement('span')
+          arrow.className = 'citation-arrow'
+          arrow.setAttribute('aria-hidden', 'true')
+          arrow.textContent = '↗'
+          link.appendChild(number)
+          link.appendChild(text)
+          link.appendChild(arrow)
+          row.appendChild(link)
+          list.appendChild(row)
+        })
+        section.appendChild(list)
+        output.appendChild(section)
+      }
+
+      function readAnswer() {
+        var copy = output.querySelector('.answer-copy')
+        if (!copy) return ''
+        return String(copy.innerText || copy.textContent || '').trim()
+      }
+
+      async function loadCitations() {
+        var seq = ++requestSeq
+        var answer = readAnswer()
+        var question = String(input.value || '').trim()
+        if (!answer || !question) {
+          clearCitations()
+          return
+        }
+        // 用户主动停止或请求出错时只拿到半截回答，不生成依据。
+        if ((retry && !retry.hidden) || (status && /已停止生成/.test(status.textContent || ''))) {
+          clearCitations()
+          return
+        }
+        var token = typeof window.getToken === 'function' ? window.getToken() : ''
+        var base = window.jianwenApi && typeof window.jianwenApi.baseUrl === 'function' ? window.jianwenApi.baseUrl() : ''
+        try {
+          var response = await fetch(base + '/api/v1/content/ask/citations', {
+            method: 'POST',
+            headers: Object.assign(
+              { 'Content-Type': 'application/json' },
+              token ? { Authorization: 'Bearer ' + token } : {}
+            ),
+            body: JSON.stringify({
+              question: question,
+              article_id: new URLSearchParams(location.search).get('article') || '',
+              answer: answer
+            })
+          })
+          if (!response.ok) return
+          var data = await response.json()
+          // 新一轮提问已经开始时，丢掉上一轮的迟到响应。
+          if (seq !== requestSeq) return
+          renderCitations(data && data.citations)
+        } catch (error) {
+          // 引用只是补充依据，拉取失败不影响回答。
+        }
+      }
+
+      new MutationObserver(function () {
+        if (output.getAttribute('aria-busy') !== 'false') {
+          clearTimeout(pendingTimer)
+          requestSeq++
+          clearCitations()
+          return
+        }
+        clearTimeout(pendingTimer)
+        pendingTimer = setTimeout(loadCitations, 120)
+      }).observe(output, { attributes: true, attributeFilter: ['aria-busy'] })
+    })()
+  </script>
 </body>
 </html>

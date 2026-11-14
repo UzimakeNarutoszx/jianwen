@@ -65,14 +65,39 @@
         <view v-if="hiddenRoundCount" class="chat-earlier" @click="openAskRecords">
           <text>更早的 {{ hiddenRoundCount }} 轮已收起，在“问问记录”中查看</text>
         </view>
-        <AskMessage
-          v-for="message in visibleMessages"
-          :key="message.id"
-          :message="message"
-          :show-sources="showSources"
-          :dark-mode="darkMode"
-          :font-size="fontSize"
-        />
+        <template v-for="message in visibleMessages" :key="message.id">
+          <AskMessage
+            :message="message"
+            :show-sources="showSources"
+            :dark-mode="darkMode"
+            :font-size="fontSize"
+          />
+          <!-- 引用的原文依据；放在气泡外，避免改变 AskMessage 的内部结构。 -->
+          <view
+            v-if="message.role === 'assistant' && showSources && citationItems(message).length"
+            class="citation-card"
+            :aria-label="`回答依据，共 ${citationItems(message).length} 篇原文`"
+          >
+            <view class="citation-head">
+              <text class="citation-title">依据</text>
+              <text class="citation-count">{{ citationItems(message).length }} 篇原文</text>
+            </view>
+            <button
+              v-for="(item, index) in citationItems(message)"
+              :key="`${message.id}-${item.article_id}`"
+              class="citation-row"
+              hover-class="citation-row-hover"
+              @click="openCitation(item)"
+            >
+              <text class="citation-index">{{ citationNumber(index) }}</text>
+              <view class="citation-main">
+                <text class="citation-name">{{ item.title }}</text>
+                <text v-if="item.quote" class="citation-quote">{{ item.quote }}</text>
+              </view>
+              <text class="citation-arrow" aria-hidden="true">→</text>
+            </button>
+          </view>
+        </template>
       </view>
 
       <view v-if="hasAsked && followups.length" class="followup-card">
@@ -115,7 +140,7 @@
 </template>
 
 <script>
-import { askQuestion, askQuestionStream, getAiQuota, getAskBootstrap } from '@/utils/api.js'
+import { askQuestion, askQuestionStream, getAiQuota, getAskBootstrap, authRequest } from '@/utils/api.js'
 import { markdownToHtml } from '@/utils/markdown.js'
 import { applyTabBarTheme } from '@/utils/theme.js'
 import { addAskRecord, getAskSession, saveAskSession } from '@/utils/user-data.js'
@@ -125,6 +150,23 @@ import AskMessage from '@/components/AskMessage.vue'
 let messageId = 3
 // 对话区只显示最近 7 轮问答。
 const VISIBLE_ROUNDS = 7
+
+// 流式接口逐字返回纯文本，无法在流里附带结构化来源；回答接收完后用最终
+// 文本回查一次引用。失败就当没有引用，不影响回答本身。
+async function requestCitations(question, articleId, answer) {
+  const text = String(answer || '').trim()
+  if (!text) return []
+  try {
+    const data = await authRequest({
+      url: '/api/v1/content/ask/citations',
+      method: 'POST',
+      data: { question, article_id: articleId || '', answer: text }
+    })
+    return Array.isArray(data && data.citations) ? data.citations : []
+  } catch (error) {
+    return []
+  }
+}
 
 // 新消息 id 必须大于已有消息（包括从本地恢复的会话），否则会和旧消息撞号：
 // 回答写进旧气泡，新气泡永远停在“正在思考… 已思考 0 秒”。
@@ -390,6 +432,7 @@ export default {
         role: 'assistant',
         text: '正在思考…',
         sources: '',
+        citations: [],
         thinkingLabel: '已思考 0 秒'
       })
       saveAskSession({ messages: this.messages, linkedArticle: this.linkedArticle })
@@ -400,6 +443,8 @@ export default {
       try {
         let answer = ''
         let responseSources = ''
+        let citations = []
+        let citationPromise = null
         const articleId = this.linkedArticle && this.linkedArticle.articleId
         try {
           let streamedText = ''
@@ -410,6 +455,9 @@ export default {
             this.queueAssistantText(pendingId, streamedText)
             this.scheduleBottomScroll()
           })
+          // 流式接口只有纯文本：接收完后再按同一份文章上下文回查引用，
+          // 不阻塞定稿，引用回来就补到这条消息上。
+          citationPromise = requestCitations(text, articleId, streamedText)
           // 接收完毕后先把剩余内容按节奏追平，再定稿成完整 markdown。
           await this.finishReveal()
           this.clearStreamRenderTimer()
@@ -422,6 +470,7 @@ export default {
           const result = await askQuestion(text, { articleId })
           answer = result.answer || ''
           responseSources = result.sources || ''
+          citations = Array.isArray(result.citations) ? result.citations : []
           // 非流式兜底也走同一套半流式节奏：一次拿到全文，按“接收结束”的追平速度显示。
           this.queueAssistantText(pendingId, answer)
           await this.finishReveal()
@@ -434,11 +483,19 @@ export default {
         this.replaceAssistantMessage(pendingId, {
           text: answer,
           sources: displaySources,
+          citations,
           thinkingLabel: `已思考 ${thinkingSeconds} 秒`,
           streaming: false,
           renderBlocks: '',
           liveBlock: ''
         })
+        if (citationPromise) {
+          citationPromise.then(list => {
+            if (Array.isArray(list) && list.length) {
+              this.replaceAssistantMessage(pendingId, { citations: list })
+            }
+          })
+        }
         this.clearBottomScrollTimer()
         this.scrollToBottom({ duration: 160 })
         addAskRecord(text, answer, displaySources)
@@ -453,6 +510,7 @@ export default {
             this.messages.splice(index, 1, {
               ...partial,
               text: partial.text === '正在思考…' ? '已停止生成，可以重新提问。' : partial.text,
+              citations: [],
               thinkingLabel: '',
               streaming: false,
               renderBlocks: '',
@@ -466,6 +524,7 @@ export default {
         this.replaceAssistantMessage(pendingId, {
           text: error.message || '回答生成失败',
           sources: '',
+          citations: [],
           thinkingLabel: `已思考 ${Math.max(1, Math.round((Date.now() - requestStartedAt) / 1000))} 秒`,
           streaming: false,
           renderBlocks: '',
@@ -687,6 +746,20 @@ export default {
           fail: () => uni.pageScrollTo({ scrollTop: 0, duration: 220 })
         })
       })
+    },
+    // 只渲染带文章 id 和标题的合法引用，坏数据直接跳过。
+    citationItems(message) {
+      const list = message && Array.isArray(message.citations) ? message.citations : []
+      return list.filter(item => item && item.article_id && item.title)
+    },
+    citationNumber(index) {
+      const value = index + 1
+      return value < 10 ? `0${value}` : String(value)
+    },
+    openCitation(citation) {
+      const articleId = citation && citation.article_id
+      if (!articleId) return
+      uni.navigateTo({ url: `/pages/article/detail?id=${encodeURIComponent(articleId)}` })
     },
     openAskRecords() {
       uni.navigateTo({ url: '/pages/profile/ask-records' })
@@ -1461,6 +1534,133 @@ export default {
 .dark-mode .prompt-icon-wrap,
 .dark-mode .followup-chip {
   background: rgba(126,184,209,0.12) !important;
+}
+
+/* 回答下方的“依据”列表：每条都可点击跳到文章详情。 */
+.citation-card {
+  margin: -8rpx 0 34rpx;
+  padding: 24rpx 26rpx;
+  border: 1rpx solid rgba(31, 95, 122, 0.12);
+  border-radius: 22rpx;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(244, 249, 250, 0.7));
+  box-shadow: 0 12rpx 30rpx rgba(20, 33, 43, 0.05);
+}
+
+.citation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 14rpx;
+}
+
+.citation-title {
+  color: #1F5F7A;
+  font-size: 23rpx;
+  font-weight: 900;
+  letter-spacing: 2rpx;
+}
+
+.citation-count {
+  color: #7C8790;
+  font-size: 21rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.citation-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  width: 100%;
+  margin: 0;
+  padding: 16rpx 12rpx;
+  border: 0;
+  border-radius: 16rpx;
+  background: transparent;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.citation-row::after {
+  border: none;
+}
+
+.citation-row-hover {
+  background: rgba(31, 95, 122, 0.06);
+}
+
+.citation-index {
+  flex: 0 0 auto;
+  min-width: 40rpx;
+  color: #B98A28;
+  font-size: 21rpx;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.citation-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.citation-name {
+  color: #143E52;
+  font-size: 25rpx;
+  font-weight: 900;
+  text-wrap: pretty;
+}
+
+.citation-quote {
+  color: #5D6B73;
+  font-size: 22rpx;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.citation-arrow {
+  flex: 0 0 auto;
+  color: #1F5F7A;
+  font-size: 24rpx;
+  line-height: 1;
+  transform: translateY(2rpx);
+}
+
+.dark-mode .citation-card {
+  border-color: rgba(126, 184, 209, 0.16);
+  background: linear-gradient(180deg, rgba(26, 40, 52, 0.9), rgba(21, 33, 44, 0.86));
+  box-shadow: 0 14rpx 32rpx rgba(0, 0, 0, 0.18);
+}
+
+.dark-mode .citation-title,
+.dark-mode .citation-arrow {
+  color: #7EB8D1;
+}
+
+.dark-mode .citation-count,
+.dark-mode .citation-quote {
+  color: #A9B6BE;
+}
+
+.dark-mode .citation-name {
+  color: #F4F7FA;
+}
+
+.dark-mode .citation-index {
+  color: #D4AA4E;
+}
+
+/* 暗色字重整体降 40%，避免浅色文字在暗底发胖。 */
+.dark-mode .citation-title,
+.dark-mode .citation-name,
+.dark-mode .citation-index {
+  font-weight: 540;
+}
+
+.dark-mode .citation-quote {
+  font-weight: 240;
 }
 
 @media screen and (max-width: 900px) {
