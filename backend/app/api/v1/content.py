@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import json
 import logging
 from pathlib import Path
@@ -28,6 +28,7 @@ from app.models.content import (
     DailyQuote,
 )
 from app.models.profile import UserAiUsageRecord, UserBrowsingHistory, UserFollowTopic
+from app.models.reading import ArticleReadingDay
 from app.models.user import User
 from app.services.breaking_news import active_breaking_news, card_payload
 from app.services.daily_articles import AI_ARTICLE_ID_PREFIX, get_content_date, read_daily_articles
@@ -223,9 +224,32 @@ def _personalize_articles(articles: list[ContentArticle], topics: list[str]) -> 
     return sorted(articles, key=rank)
 
 
+def _reading_streak_days(db: Session, user: User | None) -> int:
+    """连续阅读天数：从今天往前数有阅读记录的天数；今天没读则从昨天开始。"""
+    if user is None:
+        return 0
+    days = {
+        row[0]
+        for row in db.query(ArticleReadingDay.content_date)
+        .filter(ArticleReadingDay.user_id == user.id)
+        .distinct()
+        .all()
+    }
+    if not days:
+        return 0
+    today = get_content_date()
+    day = today if today in days else today - timedelta(days=1)
+    streak = 0
+    while day in days and streak < 3650:
+        streak += 1
+        day -= timedelta(days=1)
+    return streak
+
+
 def _today_checklist_response(
     articles: list[ContentArticle],
     viewed_ids: set[str] | None = None,
+    streak_days: int = 0,
 ) -> TodayChecklistResponse:
     viewed_article_ids = viewed_ids or set()
     items = [_article_list_response(article, viewed_article_ids) for article in articles]
@@ -235,6 +259,7 @@ def _today_checklist_response(
         total_count=len(items),
         read_count=read_count,
         is_complete=bool(items) and read_count == len(items),
+        streak_days=streak_days,
     )
 
 
@@ -461,7 +486,7 @@ def get_personalized_today(
     topics = _followed_topics(db, current_user)
     sorted_articles = _personalize_articles(articles, topics)
     viewed_ids = _viewed_article_ids(db, current_user, [article.article_id for article in sorted_articles])
-    return _today_checklist_response(sorted_articles, viewed_ids)
+    return _today_checklist_response(sorted_articles, viewed_ids, _reading_streak_days(db, current_user))
 
 
 @router.get("/today/audio", response_model=TodayAudioResponse)

@@ -195,7 +195,8 @@ export default {
       loadState: 'loading',
       loadError: '',
       lastLoadedAt: 0,
-      loadVersion: 0
+      loadVersion: 0,
+      streakDays: 0
     }
   },
   computed: {
@@ -233,7 +234,9 @@ export default {
       return { width: `${this.progressPercent}%` }
     },
     progressDesc() {
-      return this.isComplete ? '今日清单已完成' : `今日 ${this.articles.length} 件事 · 已读 ${this.readCount} 件`
+      const streak = this.streakDays > 0 ? ` · 连续 ${this.streakDays} 天` : ''
+      if (this.isComplete) return `今日清单已完成${streak}`
+      return `今日 ${this.articles.length} 件事 · 已读 ${this.readCount} 件${streak}`
     },
     bannerItems() { return this.banners },
     quoteSource() {
@@ -346,6 +349,7 @@ export default {
         // 本地已读但服务端没记录（当时断网/后端维护）：补一次历史，避免任务统计丢篇。
         const readIds = getReadArticleIds()
         const loggedIn = Boolean(uni.getStorageSync('jianwen_auth_token'))
+        this.streakDays = Number(result.streak_days || 0)
         this.articles = (result.articles || []).map(item => {
           const localRead = readIds.includes(item.id)
           if (!item.viewed && localRead && loggedIn) saveRemoteHistory(item.articleId || item.id, item).catch(() => {})

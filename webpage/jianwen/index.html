@@ -120,12 +120,16 @@ a.major-event-card:focus-visible{outline:0;box-shadow:0 0 0 1px var(--focus-ring
         })
         const readCount = articles.filter(item => item.viewed).length
         const percentage = articles.length ? Math.round((readCount / articles.length) * 100) : 0
+        const streak = Number(todayResult && todayResult.streak_days ? todayResult.streak_days : 0)
+        const streakText = streak > 0 ? ` 连续 ${streak} 天。` : ''
 
         count.textContent = articles.length
         read.textContent = readCount
         progress.textContent = `${percentage}%`
         progressText.textContent = articles.length
-          ? `今日理解进度 ${percentage}%：已读 ${readCount} / ${articles.length} 篇。`
+          ? (readCount === articles.length
+            ? `今日 ${articles.length} 篇已完成。${streakText}`
+            : `今日理解进度 ${percentage}%：已读 ${readCount} / ${articles.length} 篇。${streakText}`)
           : '今日内容正在整理中，稍后再来看看。'
         state.textContent = articles.length
           ? `已从见闻后端加载 ${articles.length} 篇今日文章。`

@@ -160,6 +160,7 @@ class TodayChecklistResponse(BaseModel):
     total_count: int = 0
     read_count: int = 0
     is_complete: bool = False
+    streak_days: int = 0
 
 
 class BreakingNewsResponse(BaseModel):
