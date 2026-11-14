@@ -6,10 +6,10 @@
   <meta name="referrer" content="same-origin">
   <meta name="description" content="见闻每周：每周视频回看这一周，个人周报收好你的阅读与追问。">
   <title>每周 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20261115-2">
-  <link rel="stylesheet" href="../css/pages/weekly-video.css?v=20261115-2">
-  <link rel="stylesheet" href="../css/pages/jianwen-weekly.css?v=20261115-2">
-  <link rel="stylesheet" href="../css/editorial.css?v=20261115-2">
+  <link rel="stylesheet" href="../css/site.css?v=20261115-3">
+  <link rel="stylesheet" href="../css/pages/weekly-video.css?v=20261115-3">
+  <link rel="stylesheet" href="../css/pages/jianwen-weekly.css?v=20261115-3">
+  <link rel="stylesheet" href="../css/editorial.css?v=20261115-3">
   <style>
     .weekly-combined { padding-top: 44px; }
     .weekly-head h1 { margin: 0 0 10px; font-size: clamp(36px, 5vw, 56px); font-weight: 500; letter-spacing: -.03em; }
@@ -20,8 +20,7 @@
     .weekly-panel { padding-top: 4px; }
     .weekly-panel[hidden] { display: none; }
     .weekly-controls[hidden], #download-report[hidden] { display: none; }
-        .weekly-report-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-    .weekly-report-top .button { flex: 0 0 auto; }
+        .weekly-report-actions { display: flex; justify-content: flex-end; margin-top: 24px; }
     .weekly-combined .weekly-feature { padding-top: 0; }
     .weekly-combined .weekly-heading { padding-top: 0; }
     .weekly-combined .weekly-archive { margin-top: 40px; }
@@ -58,9 +57,6 @@
     </section>
 
     <section id="weekly-report-panel" class="weekly-panel" role="tabpanel" aria-labelledby="weekly-report-tab" hidden>
-      <div class="weekly-report-top">
-        <button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button>
-      </div>
       <nav class="weekly-controls" aria-label="选择周报日期">
         <button id="previous-week" class="button button-secondary" type="button">上一周</button>
         <label>选择日期 <input id="week-date" type="date" min="2000-01-03"></label>
@@ -70,15 +66,16 @@
       </nav>
       <p id="weekly-status" role="status" aria-live="polite">正在整理你的周报…</p>
       <div id="weekly-report" aria-busy="true"></div>
+      <div class="weekly-report-actions"><button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button></div>
       <div id="export-preview"></div>
     </section>
     <noscript><p class="weekly-notice">请启用 JavaScript 查看节目列表和周报。</p></noscript>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20261115-2"></script>
-  <script src="../js/api-browser.js?v=20261115-2"></script>
-  <script src="../js/weekly.js?v=20261115-2"></script>
-  <script type="module" src="../js/weekly-video.mjs?v=20261115-2"></script>
+  <script src="../js/site.js?v=20261115-3"></script>
+  <script src="../js/api-browser.js?v=20261115-3"></script>
+  <script src="../js/weekly.js?v=20261115-3"></script>
+  <script type="module" src="../js/weekly-video.mjs?v=20261115-3"></script>
   <script>
     (function () {
       const buttons = [...document.querySelectorAll('[data-weekly-tab]')]
