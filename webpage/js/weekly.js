@@ -30,7 +30,13 @@
     generation++; report = null; dispose(); root.replaceChildren(); revoke(); download.disabled = true
     document.querySelectorAll('.weekly-export').forEach(node => node.remove())
   }
+  function reportChrome(visible) {
+    const controls = document.querySelector('.weekly-controls')
+    if (controls) controls.hidden = !visible
+    download.hidden = !visible
+  }
   function login() {
+    reportChrome(false)
     // 每周页同时承载公开的每周视频：未登录时不跳走，只在周报区提示登录。
     clear()
     status.textContent = ''
@@ -47,6 +53,7 @@
     return true
   }
   function render(data) {
+    reportChrome(true)
     const s = data.summary
     root.innerHTML = `<article class="weekly-paper">
       <header class="weekly-cover"><h2>${esc(data.user.nickname)}的见闻周报</h2><p>${data.week_start} — ${data.week_end}</p><span class="weekly-badge">${data.is_current ? '本周 · 持续更新中' : '个人历史周报'}</span><p>这一周，你有 ${s.active_days} 天留下阅读或提问记录。</p></header>

@@ -12,33 +12,44 @@
   <link rel="stylesheet" href="../css/editorial.css?v=20261115-1">
   <style>
     .weekly-combined { padding-top: 44px; }
-    .weekly-combined .weekly-section { padding: 34px 0 10px; border-top: 1px solid var(--line); margin-top: 38px; }
-    .weekly-combined .weekly-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
-    .weekly-combined .weekly-section > h2 { margin: 0 0 8px; font-size: clamp(26px, 3vw, 38px); font-weight: 500; letter-spacing: -.02em; }
-    .weekly-combined .weekly-section > p { margin: 0 0 22px; max-width: 720px; color: var(--ink-soft); line-height: 1.85; }
-    .weekly-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
-    .weekly-jump a { padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); text-decoration: none; font: 13px system-ui, sans-serif; }
-    .weekly-jump a:hover { color: var(--ink); border-color: rgba(31,95,122,.4); }
+    .weekly-head h1 { margin: 0 0 10px; font-size: clamp(36px, 5vw, 56px); font-weight: 500; letter-spacing: -.03em; }
+    .weekly-head p { margin: 0; color: var(--muted); font-size: 16px; }
+    .weekly-tabs { display: flex; gap: 8px; margin: 28px 0 22px; border-bottom: 1px solid var(--line); }
+    .weekly-tab { padding: 11px 18px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: 15px system-ui, sans-serif; }
+    .weekly-tab.is-active { color: var(--ink); border-bottom-color: var(--blue); font-weight: 600; }
+    .weekly-panel { padding-top: 4px; }
+    .weekly-panel[hidden] { display: none; }
+    .weekly-controls[hidden], #download-report[hidden] { display: none; }
+    .weekly-panel-lead { margin: 0 0 22px; max-width: 720px; color: var(--ink-soft); line-height: 1.85; }
+    .weekly-report-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+    .weekly-report-top .button { flex: 0 0 auto; }
+    .weekly-combined .weekly-feature { padding-top: 0; }
     .weekly-combined .weekly-heading { padding-top: 0; }
     .weekly-combined .weekly-archive { margin-top: 40px; }
-    .weekly-report-id { scroll-margin-top: 96px; }
+    .weekly-login-prompt { padding: 40px; border: 1px solid var(--line); text-align: center; background: var(--surface-card); }
+    .weekly-login-prompt h2 { margin: 0 0 10px; font-size: 24px; }
+    .weekly-login-prompt p { margin: 0 0 20px; color: var(--muted); }
+    @media (max-width: 620px) {
+      .weekly-report-top { flex-direction: column; }
+      .weekly-tabs { margin-top: 22px; }
+    }
   </style>
   <link rel="icon" href="../assets/agents-96.png?v=agents-1" type="image/png">
 </head>
 <body data-page="jianwen-weekly">
   <header data-site-header></header>
   <main class="page-shell weekly-page weekly-combined">
-    <header class="weekly-heading">
-      <div><h1>每周</h1><p>每周视频回看这一周，个人周报收好你的阅读与追问。</p></div>
+    <header class="weekly-head">
+      <h1>每周</h1>
+      <p>回看这一周，也看看自己的收获。</p>
     </header>
-    <nav class="weekly-jump" aria-label="每周内容导航">
-      <a href="#weekly-video">每周视频</a>
-      <a href="#weekly-report-section">我的周报</a>
-    </nav>
+    <div class="weekly-tabs" role="tablist" aria-label="每周内容">
+      <button type="button" role="tab" class="weekly-tab is-active" data-weekly-tab="video" aria-selected="true" aria-controls="weekly-video-panel">每周视频</button>
+      <button type="button" role="tab" class="weekly-tab" data-weekly-tab="report" aria-selected="false" aria-controls="weekly-report-panel">我的周报</button>
+    </div>
 
-    <section id="weekly-video" class="weekly-section weekly-report-id" aria-labelledby="weekly-video-title">
-      <h2 id="weekly-video-title">每周视频</h2>
-      <p>从值得读的文章，到见闻的新变化，再到这一周的大事。留几分钟，回看与我们有关的变化。</p>
+    <section id="weekly-video-panel" class="weekly-panel" role="tabpanel" aria-labelledby="weekly-video-tab">
+      <p class="weekly-panel-lead">从值得读的文章，到见闻的新变化，再到这一周的大事。留几分钟，回看与我们有关的变化。</p>
       <section id="episode" class="weekly-feature" aria-label="本期节目" aria-busy="true">
         <p class="weekly-notice" role="status">正在载入节目…</p>
       </section>
@@ -48,14 +59,14 @@
       </section>
     </section>
 
-    <section id="weekly-report-section" class="weekly-section weekly-report-id" aria-labelledby="weekly-report-title">
-      <div class="weekly-heading">
-        <div><h2 id="weekly-report-title">我的周报</h2><p>把这一周的阅读与追问，留在一起。</p></div>
+    <section id="weekly-report-panel" class="weekly-panel" role="tabpanel" aria-labelledby="weekly-report-tab" hidden>
+      <div class="weekly-report-top">
+        <p class="weekly-panel-lead">把这一周的阅读与追问，留在一起。</p>
         <button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button>
       </div>
       <nav class="weekly-controls" aria-label="选择周报日期">
         <button id="previous-week" class="button button-secondary" type="button">上一周</button>
-        <label>选择一周 <input id="week-date" type="date" min="2000-01-03"></label>
+        <label>选择日期 <input id="week-date" type="date" min="2000-01-03"></label>
         <button id="next-week" class="button button-secondary" type="button" disabled>下一周</button>
         <button id="current-week" class="button button-secondary" type="button">回到本周</button>
         <span>北京时间 · 周一至周日</span>
@@ -71,5 +82,24 @@
   <script src="../js/api-browser.js?v=20261115-1"></script>
   <script src="../js/weekly.js?v=20261115-1"></script>
   <script type="module" src="../js/weekly-video.mjs?v=20261115-1"></script>
+  <script>
+    (function () {
+      const buttons = [...document.querySelectorAll('[data-weekly-tab]')]
+      const panels = { video: document.querySelector('#weekly-video-panel'), report: document.querySelector('#weekly-report-panel') }
+      function show(tab) {
+        if (!panels[tab]) tab = 'video'
+        buttons.forEach(button => {
+          const active = button.dataset.weeklyTab === tab
+          button.classList.toggle('is-active', active)
+          button.setAttribute('aria-selected', active ? 'true' : 'false')
+        })
+        Object.entries(panels).forEach(([key, panel]) => { panel.hidden = key !== tab })
+        if (location.hash !== '#' + tab) history.replaceState(null, '', '#' + tab)
+      }
+      buttons.forEach(button => button.addEventListener('click', () => show(button.dataset.weeklyTab)))
+      show(location.hash === '#report' ? 'report' : 'video')
+      window.addEventListener('hashchange', () => show(location.hash === '#report' ? 'report' : 'video'))
+    })()
+  </script>
 </body>
 </html>
