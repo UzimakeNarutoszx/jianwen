@@ -1,6 +1,6 @@
 // Start the website on port 8765; run playwright-cli run-code --filename webpage/tests/navigation-browser.js.
 async page => {
-  const paths=['index.html','intro.html','changelog.html','avatar.html','weekly-video.html','jianwen/index.html','jianwen/discover.html','jianwen/ask.html','jianwen/article.html','jianwen/reader.html','jianwen/login.html','jianwen/profile.html','jianwen/weekly.html']
+  const paths=['index.html','intro.html','changelog.html','avatar.html','jianwen/weekly.html','jianwen/index.html','jianwen/discover.html','jianwen/ask.html','jianwen/article.html','jianwen/reader.html','jianwen/login.html','jianwen/profile.html','jianwen/weekly.html']
   for (const width of [1440,390]) {
     await page.setViewportSize({width,height:1000})
     for(const path of paths) {
@@ -17,7 +17,7 @@ async page => {
       }
     }
   }
-  await page.goto('http://127.0.0.1:8765/weekly-video.html?v=20261031-1')
+  await page.goto('http://127.0.0.1:8765/jianwen/weekly.html?v=20261031-1')
   await page.screenshot({path:'output/playwright/navigation-mobile.png'})
   await page.setViewportSize({width:1440,height:1000})
   await page.goto('http://127.0.0.1:8765/index.html?v=20261031-1')

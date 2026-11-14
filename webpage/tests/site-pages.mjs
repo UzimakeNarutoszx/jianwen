@@ -8,15 +8,15 @@ async function pages(directory) {
   const files = await readdir(directory, { withFileTypes: true })
   return (await Promise.all(files.map(file => file.isDirectory() ? pages(resolve(directory, file.name)) : file.name.endsWith('.html') ? [resolve(directory, file.name)] : []))).flat()
 }
-const files = await pages(root)
+const files = (await pages(root)).filter(file => !file.endsWith('weekly-video.html'))
 const source = (await readFile(resolve(root, 'js/site.js'), 'utf8')).split("document.querySelectorAll('img[data-fallback]')")[0]
-const expected = ['weekly-video.html', 'index.html', 'changelog.html', 'jianwen/index.html', 'jianwen/discover.html', 'jianwen/ask.html', 'jianwen/weekly.html', 'avatar.html']
+const expected = ['index.html', 'changelog.html', 'jianwen/index.html', 'jianwen/discover.html', 'jianwen/ask.html', 'jianwen/weekly.html', 'avatar.html']
 for (const file of files) {
   const page = relative(root, file).replaceAll('\\', '/')
   const html = await readFile(file, 'utf8')
   const shellScript = [...html.matchAll(/<script[^>]*src="([^"]*js\/site\.js[^"]*)"/g)]
   assert.equal(shellScript.length, 1, `${page}: one shared navigation script`)
-  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261110-2', `${page}: navigation script cache version`)
+  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261115-1', `${page}: navigation script cache version`)
   assert.equal((html.match(/data-site-header/g) || []).length, 1, `${page}: one common header`)
   assert.ok(html.includes('data-site-footer'), `${page}: footer`)
   assert.doesNotMatch(html, /avatar-contact\.html/, `${page}: retired pages`)
@@ -39,7 +39,7 @@ for (const file of files) {
     vm.runInNewContext(`${source}\nrenderShell()`, context)
     assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
     for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
-      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261110-2', `${page}: every header link uses current version`)
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261115-1', `${page}: every header link uses current version`)
     }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)
@@ -47,5 +47,5 @@ for (const file of files) {
     assert.equal((header.innerHTML.match(/aria-current="page"/g) || []).length, page === 'intro.html' ? 0 : 1, `${page}: active navigation`)
   }
 }
-assert.equal(files.length, 14)
+assert.equal(files.length, 13)
 console.log(`All ${files.length} pages: complete navigation in both session states, shared theme last, local assets resolved, retired pages removed.`)

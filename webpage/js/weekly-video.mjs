@@ -4,7 +4,13 @@ const feature = document.querySelector('#episode')
 const archive = document.querySelector('#archive-list')
 const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
 const dateLabel = value => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric' }).format(new Date(value))
-const safeUrl = value => escape(mediaUrl(value))
+const mediaBase = new URL('../', import.meta.url)
+const dataUrl = new URL('../data/weekly-videos.json', import.meta.url)
+const safeUrl = value => {
+  const media = mediaUrl(value)
+  if (!media) return ''
+  try { return escape(new URL(media, mediaBase).href) } catch { return '' }
+}
 let catalog
 
 function render() {
@@ -68,7 +74,7 @@ document.querySelector('main').addEventListener('click', event => {
 window.addEventListener('popstate', () => { if (catalog) { feature.querySelector('video')?.pause(); render() } })
 
 try {
-  const response = await fetch('data/weekly-videos.json', { cache: 'no-store' })
+  const response = await fetch(dataUrl, { cache: 'no-store' })
   if (!response.ok) throw new Error('catalog unavailable')
   catalog = await response.json()
   render()

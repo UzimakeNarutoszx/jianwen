@@ -10,7 +10,6 @@
 
 const portalPages = [
   { href: 'index.html', label: '首页' },
-  { href: 'weekly-video.html', label: '每周视频' },
   { href: 'changelog.html', label: '更新日志' }
 ]
 
@@ -22,12 +21,12 @@ const jianwenPages = [
   { href: 'jianwen/index.html', label: '今日', key: 'today' },
   { href: 'jianwen/discover.html', label: '发现', key: 'discover' },
   { href: 'jianwen/ask.html', label: 'AI 问问', key: 'ask' },
-  { href: 'jianwen/weekly.html', label: '我的周报', key: 'weekly' }
+  { href: 'jianwen/weekly.html', label: '每周', key: 'weekly' }
 ]
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261110-2'
+const SITE_VERSION = '20261115-1'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -162,10 +161,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261110-2'
+  apiScript.src = 'js/api-browser.js?v=20261115-1'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261110-2'
+    chatScript.src = 'js/ajin-chat.js?v=20261115-1'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

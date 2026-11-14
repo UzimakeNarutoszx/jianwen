@@ -4,27 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>我的 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20261110-2">
-  <link rel="stylesheet" href="../css/pages/jianwen-profile.css?v=20261110-2">
+  <link rel="stylesheet" href="../css/site.css?v=20261115-1">
+  <link rel="stylesheet" href="../css/pages/jianwen-profile.css?v=20261115-1">
 
-<link rel="stylesheet" href="../css/editorial.css?v=20261110-2">
+<link rel="stylesheet" href="../css/editorial.css?v=20261115-1">
 <link rel="icon" href="../assets/agents-96.png?v=agents-1" type="image/png">
 </head>
 <body data-page="jianwen-profile">
   <header data-site-header></header>
   <main class="page-shell">
     <section class="profile-hero"><div><p class="eyebrow">JIANWEN / PROFILE</p><h1 id="name">我的见闻</h1><p id="bio">同步你的收藏、历史和 AI 问问记录。</p></div><div class="profile-summary"><strong>个人控制台</strong><span>资料 · 收藏 · 历史 · AI 问问</span></div></section>
-    <p><a class="button button-primary" href="weekly.html?v=20261110-2">查看我的周报</a></p>
+    <p><a class="button button-primary" href="weekly.html?v=20261115-1">查看我的周报</a></p>
     <div id="profile" class="profile-content"><div class="empty-state">加载中…</div></div>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20261110-2"></script>
-  <script src="../js/api-browser.js?v=20261110-2"></script>
+  <script src="../js/site.js?v=20261115-1"></script>
+  <script src="../js/api-browser.js?v=20261115-1"></script>
   <script>
     (async function () {
       const root = document.querySelector('#profile')
       const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]))
-      const articleBlock = (title, items, scrollable = false) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div${scrollable ? ' class="profile-scroll-list"' : ''}>${items.map(item => `<a class="link-item" href="article.html?id=${encodeURIComponent(item.article_id)}&v=20261110-2"><div><strong>${escapeHtml(item.title || item.article_id)}</strong><p>${escapeHtml(item.desc || '打开文章继续阅读。')}</p></div><span class="link-arrow">↗</span></a>`).join('')}</div>` : '<p class="auth-state">暂无内容。</p>'}</section>`
+      const articleBlock = (title, items, scrollable = false) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div${scrollable ? ' class="profile-scroll-list"' : ''}>${items.map(item => `<a class="link-item" href="article.html?id=${encodeURIComponent(item.article_id)}&v=20261115-1"><div><strong>${escapeHtml(item.title || item.article_id)}</strong><p>${escapeHtml(item.desc || '打开文章继续阅读。')}</p></div><span class="link-arrow">↗</span></a>`).join('')}</div>` : '<p class="auth-state">暂无内容。</p>'}</section>`
       const aiBlock = (title, items) => `<section class="profile-section"><h2>${title}（${items.length}）</h2>${items.length ? `<div class="profile-scroll-list">${items.map(item => `<article class="link-item"><div><strong>${escapeHtml(item.question)}</strong><p>${escapeHtml(item.answer || '已记录问答。')}</p>${item.sources ? `<small>${escapeHtml(item.sources)}</small>` : ''}</div></article>`).join('')}</div>` : '<p class="auth-state">暂无记录。</p>'}</section>`
       const isAjinRecord = item => /阿烬|ajin/i.test(String(item.sources || ''))
 
@@ -55,10 +55,10 @@
           location.href = 'login.html'
         })
       } catch (error) {
-        root.innerHTML = `<div class="empty-state"><strong>账号数据加载失败</strong><p>${escapeHtml(error.message)}</p><a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname)}&v=20261110-2">重新登录</a></div>`
+        root.innerHTML = `<div class="empty-state"><strong>账号数据加载失败</strong><p>${escapeHtml(error.message)}</p><a class="button button-primary" href="login.html?return=${encodeURIComponent(location.pathname)}&v=20261115-1">重新登录</a></div>`
       }
     })()
   </script>
-  <script src="../js/profile-settings.js?v=20261110-2"></script>
+  <script src="../js/profile-settings.js?v=20261115-1"></script>
 </body>
 </html>

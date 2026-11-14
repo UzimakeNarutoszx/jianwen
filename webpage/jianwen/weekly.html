@@ -4,31 +4,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="same-origin">
-  <title>我的周报 · 见闻</title>
-  <link rel="stylesheet" href="../css/site.css?v=20261110-2">
-  <link rel="stylesheet" href="../css/pages/jianwen-weekly.css?v=20261110-2">
-  <link rel="stylesheet" href="../css/editorial.css?v=20261110-2">
+  <meta name="description" content="见闻每周：每周视频回看这一周，个人周报收好你的阅读与追问。">
+  <title>每周 · 见闻</title>
+  <link rel="stylesheet" href="../css/site.css?v=20261115-1">
+  <link rel="stylesheet" href="../css/pages/weekly-video.css?v=20261115-1">
+  <link rel="stylesheet" href="../css/pages/jianwen-weekly.css?v=20261115-1">
+  <link rel="stylesheet" href="../css/editorial.css?v=20261115-1">
+  <style>
+    .weekly-combined { padding-top: 44px; }
+    .weekly-combined .weekly-section { padding: 34px 0 10px; border-top: 1px solid var(--line); margin-top: 38px; }
+    .weekly-combined .weekly-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+    .weekly-combined .weekly-section > h2 { margin: 0 0 8px; font-size: clamp(26px, 3vw, 38px); font-weight: 500; letter-spacing: -.02em; }
+    .weekly-combined .weekly-section > p { margin: 0 0 22px; max-width: 720px; color: var(--ink-soft); line-height: 1.85; }
+    .weekly-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+    .weekly-jump a { padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); text-decoration: none; font: 13px system-ui, sans-serif; }
+    .weekly-jump a:hover { color: var(--ink); border-color: rgba(31,95,122,.4); }
+    .weekly-combined .weekly-heading { padding-top: 0; }
+    .weekly-combined .weekly-archive { margin-top: 40px; }
+    .weekly-report-id { scroll-margin-top: 96px; }
+  </style>
   <link rel="icon" href="../assets/agents-96.png?v=agents-1" type="image/png">
 </head>
 <body data-page="jianwen-weekly">
   <header data-site-header></header>
-  <main class="page-shell weekly-page">
-    <div class="weekly-heading"><div><h1>我的周报</h1><p>把这一周的阅读与追问，留在一起。</p></div><button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button></div>
-    <nav class="weekly-controls" aria-label="选择周报日期">
-      <button id="previous-week" class="button button-secondary" type="button">上一周</button>
-      <label>选择一周 <input id="week-date" type="date" min="2000-01-03"></label>
-      <button id="next-week" class="button button-secondary" type="button" disabled>下一周</button>
-      <button id="current-week" class="button button-secondary" type="button">回到本周</button>
-      <span>北京时间 · 周一至周日</span>
+  <main class="page-shell weekly-page weekly-combined">
+    <header class="weekly-heading">
+      <div><h1>每周</h1><p>每周视频回看这一周，个人周报收好你的阅读与追问。</p></div>
+    </header>
+    <nav class="weekly-jump" aria-label="每周内容导航">
+      <a href="#weekly-video">每周视频</a>
+      <a href="#weekly-report-section">我的周报</a>
     </nav>
-    <p id="weekly-status" role="status" aria-live="polite">正在整理你的周报…</p>
-    <div id="weekly-report" aria-busy="true"></div>
-    <div id="export-preview"></div>
+
+    <section id="weekly-video" class="weekly-section weekly-report-id" aria-labelledby="weekly-video-title">
+      <h2 id="weekly-video-title">每周视频</h2>
+      <p>从值得读的文章，到见闻的新变化，再到这一周的大事。留几分钟，回看与我们有关的变化。</p>
+      <section id="episode" class="weekly-feature" aria-label="本期节目" aria-busy="true">
+        <p class="weekly-notice" role="status">正在载入节目…</p>
+      </section>
+      <section class="weekly-archive" aria-labelledby="archive-title">
+        <div class="weekly-section-heading"><h2 id="archive-title">往期回看</h2><span id="archive-count"></span></div>
+        <div id="archive-list"><p class="weekly-notice">往期节目将在这里保存。</p></div>
+      </section>
+    </section>
+
+    <section id="weekly-report-section" class="weekly-section weekly-report-id" aria-labelledby="weekly-report-title">
+      <div class="weekly-heading">
+        <div><h2 id="weekly-report-title">我的周报</h2><p>把这一周的阅读与追问，留在一起。</p></div>
+        <button id="download-report" class="button button-primary" type="button" disabled>下载完整长图</button>
+      </div>
+      <nav class="weekly-controls" aria-label="选择周报日期">
+        <button id="previous-week" class="button button-secondary" type="button">上一周</button>
+        <label>选择一周 <input id="week-date" type="date" min="2000-01-03"></label>
+        <button id="next-week" class="button button-secondary" type="button" disabled>下一周</button>
+        <button id="current-week" class="button button-secondary" type="button">回到本周</button>
+        <span>北京时间 · 周一至周日</span>
+      </nav>
+      <p id="weekly-status" role="status" aria-live="polite">正在整理你的周报…</p>
+      <div id="weekly-report" aria-busy="true"></div>
+      <div id="export-preview"></div>
+    </section>
+    <noscript><p class="weekly-notice">请启用 JavaScript 查看节目列表和周报。</p></noscript>
   </main>
   <footer data-site-footer></footer>
-  <script src="../js/site.js?v=20261110-2"></script>
-  <script src="../js/api-browser.js?v=20261110-2"></script>
-  <!-- 图表库与长图导出库体积较大，由 weekly.js 在需要时动态加载。 -->
-  <script src="../js/weekly.js?v=20261110-2"></script>
+  <script src="../js/site.js?v=20261115-1"></script>
+  <script src="../js/api-browser.js?v=20261115-1"></script>
+  <script src="../js/weekly.js?v=20261115-1"></script>
+  <script type="module" src="../js/weekly-video.mjs?v=20261115-1"></script>
 </body>
 </html>

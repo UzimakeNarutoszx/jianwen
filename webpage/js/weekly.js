@@ -30,7 +30,14 @@
     generation++; report = null; dispose(); root.replaceChildren(); revoke(); download.disabled = true
     document.querySelectorAll('.weekly-export').forEach(node => node.remove())
   }
-  function login() { location.replace(`login.html?return=${encodeURIComponent(location.pathname + location.search)}`) }
+  function login() {
+    // 每周页同时承载公开的每周视频：未登录时不跳走，只在周报区提示登录。
+    clear()
+    status.textContent = ''
+    root.setAttribute('aria-busy', 'false')
+    const back = encodeURIComponent(location.pathname + location.search)
+    root.innerHTML = `<div class="weekly-login-prompt"><h2>登录后查看你的周报</h2><p>每周视频不用登录；阅读与追问统计只有登录后才会有。</p><a class="button button-primary" href="login.html?return=${back}">登录 / 注册</a></div>`
+  }
   function guard() {
     if (window.getToken() !== identity || !window.getToken()) {
       clear(); identity = window.getToken(); status.textContent = '账号已变更，正在重新加载…'

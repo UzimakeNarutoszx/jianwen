@@ -2,7 +2,7 @@
 async (page) => {
   await page.unrouteAll({behavior:'wait'})
   const check = (value, message) => { if (!value) throw new Error(message) }
-  const address = 'http://127.0.0.1:8765/weekly-video.html?v=20261011-1'
+  const address = 'http://127.0.0.1:8765/jianwen/weekly.html?v=20261011-1'
   await page.setViewportSize({width:390,height:844})
   await page.route('**/data/weekly-videos.json', route => route.fulfill({json:{episodes:[],upcoming:{id:'qa-pending',number:1,title:'制作中测试',description:'仅用于测试',weekStart:'2026-10-12',weekEnd:'2026-10-18',cutoff:'2026-10-17T18:30:00+08:00',poster:'assets/weekly-video/2026-W42/cover.jpg'}}}))
   await page.goto(address)
