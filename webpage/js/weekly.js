@@ -106,6 +106,8 @@
       const data = await window.jianwenApi.weeklyReport(week)
       if (request !== generation || expected !== window.getToken()) return
       report = data; selected = data.week_start; render(data); charts = await drawWhenReady(root, data)
+      // 周报面板可能默认隐藏，等标签切换后再按真实宽度重排一次。
+      requestAnimationFrame(() => charts.forEach(chart => chart.resize()))
       $('week-date').value = selected; $('week-date').max = data.current_week_start
       $('next-week').disabled = selected >= data.current_week_start
       $('previous-week').disabled = selected <= '2000-01-03'

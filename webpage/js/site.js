@@ -26,7 +26,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261115-1'
+const SITE_VERSION = '20261115-2'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -161,10 +161,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261115-1'
+  apiScript.src = 'js/api-browser.js?v=20261115-2'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261115-1'
+    chatScript.src = 'js/ajin-chat.js?v=20261115-2'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)
