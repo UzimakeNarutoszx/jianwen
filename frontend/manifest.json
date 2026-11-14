@@ -2,8 +2,8 @@
     "name" : "见闻",
     "appid" : "__UNI__8D7394F",
     "description" : "",
-    "versionName" : "1.1.1",
-    "versionCode" : "111",
+    "versionName" : "1.1.10",
+    "versionCode" : "120",
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -71,12 +71,14 @@
                     "<uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
                     "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+                    "<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\"/>",
                     "<uses-feature android:name=\"android.hardware.camera\" android:required=\"false\"/>"
                 ]
             },
             /* ios打包配置 */
             "ios" : {
-                "dSYMs" : false
+                "dSYMs" : false,
+                "UIBackgroundModes" : [ "audio" ]
             },
             /* SDK配置 */
             "sdkConfigs" : {}

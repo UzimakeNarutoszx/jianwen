@@ -179,3 +179,29 @@ function manifest(overrides = {}) {
 }
 
 console.log('今日朗读：切换边界、声音回退、ready:false、进度与脏数据校验通过。')
+
+
+// 连续音轨：优先整条播放，段内按时间映射到篇目。
+{
+  const m = manifest({
+    continuous: {
+      jianwen: {
+        url: '/uploads/tts/2026-11-08/continuous-jianwen.mp3',
+        duration: 300,
+        segments: [
+          { article_id: 'a', start: 0, end: 182.4 },
+          { article_id: 'b', start: 183, end: 273 }
+        ]
+      }
+    }
+  })
+  let state = audio.createTodayAudioState(m, 'jianwen')
+  const continuous = audio.continuousFor(state)
+  assert.ok(continuous, '识别连续音轨')
+  assert.equal(continuous.url, '/uploads/tts/2026-11-08/continuous-jianwen.mp3')
+  assert.equal(audio.isPlayable(state), true, '有连续音轨即可播放')
+  assert.equal(audio.segmentIndexAt(continuous, 10), 0)
+  assert.equal(audio.segmentIndexAt(continuous, 200), 1)
+  state = audio.createTodayAudioState(m, 'vivian')
+  assert.equal(audio.continuousFor(state), null, '该声音没有连续音轨时回退逐篇')
+}

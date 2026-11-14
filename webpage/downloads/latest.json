@@ -1,6 +1,10 @@
 {
-  "versionName": "1.1.0",
-  "versionCode": 110,
-  "apkUrl": "",
-  "notes": "今日朗读改版：播放器重新排版，声音改为下拉选择，修正朗读时数字读错。公开版不随仓库发布安装包，请自行配置下载地址。"
+  "versionName": "1.1.4",
+  "versionCode": 114,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.4.apk",
+  "notes": "今日朗读支持锁屏和切后台继续播放；同时修复播放进度、切篇续播等细节。",
+  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.10.wgt",
+  "wgtVersionCode": 120,
+  "wgtBaseVersionCode": 114,
+  "wgtNotes": "修复：锁屏/熄屏后播放被系统暂停（自动拉起 + 后台权限引导）。约 1.1 MB，安装后自动重启。"
 }

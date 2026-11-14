@@ -205,7 +205,7 @@ export default {
       return '今天还没有新内容，晚点再来看看'
     },
     majorEventImage() {
-      return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/共产党.jpg')
+      return buildFileUrl((this.majorEvent && this.majorEvent.image) || '/static/images/topic-default.jpg')
     },
     majorEventDates() {
       const item = this.majorEvent || {}
@@ -253,6 +253,9 @@ export default {
     }
   },
   onShow() {
+    const player = this.$refs.todayAudio
+    if (player && typeof player.enforceSilence === 'function') player.enforceSilence()
+    if (player && typeof player.syncFromAudio === 'function') player.syncFromAudio()
     this.todayText = formatToday()
     this.darkMode = !!uni.getStorageSync('jianwen_dark_mode')
     this.fontSize = uni.getStorageSync('jianwen_font_size') || 'standard'
@@ -266,8 +269,13 @@ export default {
   },
   // 页面隐藏/卸载时朗读必须停掉：子组件里的 onHide/onUnload 不会被 uni 调用到。
   onHide() {
+    // #ifdef APP-PLUS
+    // 切后台/锁屏继续播放，由后台音频管理器接管；页面卸载时才停。
+    // #endif
+    // #ifndef APP-PLUS
     const player = this.$refs.todayAudio
     if (player && typeof player.stopAudio === 'function') player.stopAudio()
+    // #endif
   },
   onUnload() {
     const player = this.$refs.todayAudio
@@ -335,7 +343,14 @@ export default {
           result = await fallback()
         }
         if (version !== this.loadVersion) return
-        this.articles = result.articles || []
+        // 本地已读但服务端没记录（当时断网/后端维护）：补一次历史，避免任务统计丢篇。
+        const readIds = getReadArticleIds()
+        const loggedIn = Boolean(uni.getStorageSync('jianwen_auth_token'))
+        this.articles = (result.articles || []).map(item => {
+          const localRead = readIds.includes(item.id)
+          if (!item.viewed && localRead && loggedIn) saveRemoteHistory(item.articleId || item.id, item).catch(() => {})
+          return Object.assign({}, item, { viewed: Boolean(item.viewed || localRead) })
+        })
         this.banners = result.banners || []
         this.loadState = 'ready'
         this.lastLoadedAt = Date.now()

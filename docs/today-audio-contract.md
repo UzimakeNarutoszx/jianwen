@@ -10,8 +10,8 @@
 ## 声音 id（顺序即前端显示顺序，第一个为默认；vivian / uncle_fu 已于 2026-11-08 停用）
 | id | label | 生成方式 |
 |---|---|---|
-| `jianwen` | 见闻（默认） | Qwen3-TTS `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit` ICL 克隆；参考 `<VOICE_REF_DIR>/ref.wav` + `ref.txt` |
-| `dylan` | 男声·京味 | `mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit`，voice `dylan` |
+| `jianwen` | 见闻（默认） | edge-tts `zh-CN-XiaoxiaoNeural`（语速 +6%），服务器端生成 |
+| `dylan` | 男声 | edge-tts `zh-CN-YunxiNeural`（语速 +6%），服务器端生成 |
 
 ## manifest.json
 ```json
@@ -51,3 +51,23 @@
 - 用户选择的声音保存在本地（key：`jianwen_tts_voice`）。
 - `ready:false` 时显示「今日朗读生成中」，播放器禁用，不报错。
 - 听完即读完：同一篇真实播放（不含拖动跳过）累计 ≥ 90% 时，按已读处理（本地已读 + 登录用户写阅读历史），与打开文章详情等价。
+
+## 连续音轨（熄屏连播）
+`manifest.json` 额外提供 `continuous`，按声音把当天各篇拼成一条 mp3：
+```json
+"continuous": {
+  "jianwen": {
+    "url": "/uploads/tts/2026-11-12/continuous-jianwen.mp3?v=...",
+    "duration": 733.7,
+    "segments": [
+      {"article_id": "ai-daily-20261112-1", "start": 0.0, "end": 151.9},
+      {"article_id": "ai-daily-20261112-2", "start": 152.5, "end": 300.4}
+    ]
+  }
+}
+```
+- 段与段之间留 `SECTION_GAP`（0.6s）静音，`start/end` 是绝对秒数。
+- 客户端优先播连续音轨：熄屏/后台时由原生播放器顺序播完，不依赖 JS 切歌；回前台用 `currentTime` 映射到当前篇目。
+- `continuous` 缺失或某声音没有连续音轨时，客户端回退到逐篇播放。
+- 生成方式：每日任务自动生成；补建用 `python generate_server.py --date YYYY-MM-DD --continuous-only`。
+- 接口 `GET /api/v1/content/today/audio` 已透出 `continuous`，只保留属于当日文章的片段。

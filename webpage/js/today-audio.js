@@ -7,7 +7,7 @@
   const PENDING_TEXT = '今日朗读生成中'
   const DEFAULT_VOICES = [
     { id: 'jianwen', label: '见闻' },
-    { id: 'dylan', label: '男声·京味' }
+    { id: 'dylan', label: '男声' }
   ]
 
   function normalizeVoices(voices) {
@@ -25,6 +25,24 @@
       if (!value || typeof value.url !== 'string' || !value.url) continue
       const duration = Number(value.duration)
       result[id] = { url: value.url, duration: Number.isFinite(duration) && duration > 0 ? Math.round(duration * 10) / 10 : 0 }
+    }
+    return result
+  }
+
+  function normalizeContinuous(value) {
+    const result = {}
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return result
+    for (const id of Object.keys(value)) {
+      const entry = value[id]
+      if (!entry || typeof entry.url !== 'string' || !entry.url) continue
+      const segments = (Array.isArray(entry.segments) ? entry.segments : [])
+        .filter(item => item && item.article_id !== undefined && item.article_id !== null)
+        .map(item => ({ articleId: String(item.article_id), start: Number(item.start), end: Number(item.end) }))
+        .filter(item => Number.isFinite(item.start) && Number.isFinite(item.end) && item.end > item.start)
+        .sort((a, b) => a.start - b.start)
+      if (!segments.length) continue
+      const duration = Number(entry.duration)
+      result[id] = { url: entry.url, duration: Number.isFinite(duration) && duration > 0 ? duration : segments[segments.length - 1].end, segments }
     }
     return result
   }
@@ -50,7 +68,8 @@
       date: String(record.date || ''),
       generatedAt: String(record.generated_at || ''),
       voices: normalizeVoices(record.voices),
-      articles: ready ? articles : []
+      articles: ready ? articles : [],
+      continuous: normalizeContinuous(record.continuous)
     }
   }
 
@@ -115,7 +134,22 @@
     }
   }
 
+  function continuousFor(state) {
+    if (state.ready !== true || !state.continuous) return null
+    return state.continuous[state.voice] || null
+  }
+
+  function segmentIndexAt(continuous, time) {
+    const value = Number(time) || 0
+    let index = 0
+    for (let i = continuous.segments.length - 1; i >= 0; i--) {
+      if (value >= continuous.segments[i].start) { index = i; break }
+    }
+    return index
+  }
+
   function hasTrack(state) {
+    if (continuousFor(state)) return true
     const track = currentTrack(state)
     return Boolean(track && track.url)
   }
@@ -231,7 +265,7 @@
     module.exports = {
       VOICE_STORAGE_KEY, PENDING_TEXT, DEFAULT_VOICES, normalizeManifest, resolveVoice, createTodayAudioState,
       withLoading, setIndex, step, canPrev, canNext, selectVoice, currentTrack, hasTrack, isPlayable, voiceOptions, voiceChoices, voiceSelect,
-      afterEnded, formatTime, titleChunks, progressRatio, ratioToSeconds, statusLabel,
+      afterEnded, formatTime, titleChunks, progressRatio, ratioToSeconds, statusLabel, normalizeContinuous, continuousFor, segmentIndexAt,
       LISTEN_DONE_RATIO, createListenTracker, trackListen, resetListenAnchor, finishListen
     }
     return
@@ -349,6 +383,19 @@
     function loadSource(keepRatio) {
       const media = audio()
       resetListenAnchor(listen)
+      const continuous = continuousFor(state)
+      if (continuous) {
+        // 连续音轨按绝对秒数保留位置：不同声音的段边界只差零点几秒。
+        const at = keepRatio ? Math.min(Number(media.currentTime) || 0, continuous.duration - 0.5) : 0
+        media.src = absoluteUrl(continuous.url)
+        if (at > 0) {
+          const seek = () => { try { media.currentTime = at } catch {} }
+          media.addEventListener('loadedmetadata', seek, { once: true })
+        }
+        syncProgress()
+        render()
+        return
+      }
       const track = currentTrack(state)
       const ratio = keepRatio ? progressRatio(media.currentTime, media.duration) : 0
       if (!track || !track.url) {
@@ -370,11 +417,27 @@
     function play() {
       const media = audio()
       if (!hasTrack(state)) return
+      if (!media.getAttribute('src')) loadSource(false)
       const attempt = media.play()
       if (attempt && typeof attempt.catch === 'function') attempt.catch(() => { parts.status.textContent = '点一下播放按钮开始朗读'; parts.status.hidden = false })
     }
 
+    function jumpSegment(delta) {
+      const media = audio()
+      const continuous = continuousFor(state)
+      if (!continuous) return false
+      const index = segmentIndexAt(continuous, media.currentTime)
+      const target = continuous.segments[index + delta]
+      if (!target) return true
+      const position = state.articles.findIndex(item => item.articleId === target.articleId)
+      if (position >= 0) state = Object.assign({}, state, { index: position })
+      try { media.currentTime = target.start } catch {}
+      resetListenAnchor(listen)
+      render()
+      return true
+    }
     parts.prev.addEventListener('click', () => {
+      if (jumpSegment(-1)) return
       if (!canPrev(state)) return
       const wasPlaying = !audio().paused
       state = step(state, -1)
@@ -382,6 +445,7 @@
       if (wasPlaying) play()
     })
     parts.next.addEventListener('click', () => {
+      if (jumpSegment(1)) return
       if (!canNext(state)) return
       const wasPlaying = !audio().paused
       state = step(state, 1)
@@ -428,6 +492,24 @@
     const currentArticle = () => state.articles[state.index]
     media.addEventListener('timeupdate', () => {
       if (userSeeking) return
+      const continuous = continuousFor(state)
+      if (continuous) {
+        const segment = continuous.segments[segmentIndexAt(continuous, media.currentTime)]
+        const position = segment ? state.articles.findIndex(item => item.articleId === segment.articleId) : -1
+        if (position >= 0 && position !== state.index) state = Object.assign({}, state, { index: position })
+        syncProgress()
+        if (!media.paused) {
+          for (const segment of continuous.segments) {
+            // 按 90% 判定「听完」：段尾常有静音和 0.6s 间隔，卡 end-2 会漏记。
+            const threshold = segment.start + (segment.end - segment.start) * LISTEN_DONE_RATIO
+            if (media.currentTime < threshold || listen.done[segment.articleId]) continue
+            listen.done[segment.articleId] = true
+            const article = state.articles.find(item => item.articleId === segment.articleId)
+            if (article) announceListened(article)
+          }
+        }
+        return
+      }
       syncProgress()
       const article = currentArticle()
       if (article && !media.paused && trackListen(listen, article.articleId, media.currentTime, media.duration)) announceListened(article)
@@ -437,6 +519,17 @@
     media.addEventListener('play', render)
     media.addEventListener('pause', render)
     media.addEventListener('ended', () => {
+      const continuous = continuousFor(state)
+      if (continuous) {
+        const last = continuous.segments[continuous.segments.length - 1]
+        if (last && !listen.done[last.articleId]) {
+          listen.done[last.articleId] = true
+          const article = state.articles.find(item => item.articleId === last.articleId)
+          if (article) announceListened(article)
+        }
+        render()
+        return
+      }
       // 一篇播完自动接下一篇，最后一篇播完就停。
       const article = currentArticle()
       if (article && finishListen(listen, article.articleId, media.duration)) announceListened(article)

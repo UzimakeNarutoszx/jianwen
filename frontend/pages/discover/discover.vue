@@ -64,7 +64,6 @@
           <view class="classic-copy">
             <text class="classic-title">{{ book.title }}</text>
             <text class="classic-meta">{{ book.author }}</text>
-            <text class="classic-desc">{{ book.description }}</text>
             <view class="classic-source-row">
               <text class="classic-source">{{ book.sourceOrg }}</text>
               <image class="classic-arrow" src="/static/icons/icon-arrow-right.png" mode="aspectFit" />
@@ -519,8 +518,8 @@ export default {
 .classic-card {
   display: inline-flex;
   flex-direction: column;
-  width: 318rpx;
-  min-height: 486rpx;
+  width: 300rpx;
+  min-height: 304rpx;
   white-space: normal;
   overflow: hidden;
 }
@@ -528,7 +527,7 @@ export default {
 .classic-cover-wrap {
   position: relative;
   flex: 0 0 auto;
-  height: 172rpx;
+  height: 140rpx;
   overflow: hidden;
   background: #DCE5EA;
 }
@@ -564,13 +563,17 @@ export default {
 
 .classic-copy {
   flex: 1;
-  gap: 12rpx;
-  padding: 26rpx;
+  gap: 8rpx;
+  padding: 20rpx 22rpx 22rpx;
 }
 
 .classic-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   color: #14212B;
-  font-size: 28rpx;
+  font-size: 27rpx;
   line-height: 1.35;
   font-weight: 900;
 }
@@ -578,7 +581,7 @@ export default {
 .classic-meta,
 .classic-source {
   color: #1F5F7A;
-  font-size: 22rpx;
+  font-size: 21rpx;
   font-weight: 800;
 }
 

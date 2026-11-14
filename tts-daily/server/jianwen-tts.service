@@ -1,0 +1,12 @@
+[Unit]
+Description=Jianwen daily TTS (edge-tts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/jianwen/tts/run.sh
+Environment=TZ=Asia/Shanghai
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
