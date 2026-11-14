@@ -153,3 +153,19 @@ test('脏数据被收敛：缺 title、空 url、非法 duration、缺 article_i
   assert.equal(hasTrack(state), false)
   assert.equal(currentTrack(state).duration, 0)
 })
+
+test('进度与秒数边界：current=0、负数、超 duration 均收敛到 0~1 或不超过 duration', () => {
+  const base = 182.4
+  // current=0: progressRatio(0, base) = 0, ratioToSeconds(0, base) = 0
+  assert.equal(progressRatio(0, base), 0)
+  assert.equal(ratioToSeconds(0, base), 0)
+  // current 为负数: 收敛到 0
+  assert.equal(progressRatio(-1, base), 0)
+  assert.equal(ratioToSeconds(-0.5, base), 0)
+  // current 超过 duration: progressRatio 收敛到 1, ratioToSeconds 收敛到 duration
+  assert.equal(progressRatio(base * 2, base), 1)
+  assert.equal(ratioToSeconds(base * 3, base), base)
+  // 综合边界：确保所有值都在合理范围内
+  assert.ok(progressRatio(-100, base) >= 0 && progressRatio(-100, base) <= 1)
+  assert.ok(ratioToSeconds(-1, base) >= 0 && ratioToSeconds(-1, base) <= base)
+})
