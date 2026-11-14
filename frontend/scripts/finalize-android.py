@@ -29,7 +29,6 @@ build = args.sdk / 'build-tools/36.0.0'
 apktool = args.hbuilder / 'Contents/HBuilderX/plugins/app-safe-pack/apktool.jar'
 removed = {
     'android.permission.INSTALL_PACKAGES',
-    'android.permission.REQUEST_INSTALL_PACKAGES',
     'android.permission.READ_MEDIA_VIDEO',
     'com.asus.msa.SupplementaryDID.ACCESS',
     'com.huawei.android.launcher.permission.CHANGE_BADGE',
@@ -63,6 +62,12 @@ permissions = subprocess.check_output([str(build / 'aapt'), 'dump', 'permissions
 for permission in removed:
     if "name='" + permission + "'" in permissions:
         raise SystemExit('Unexpected permission retained: ' + permission)
+# 应用内更新靠 plus.runtime.openFile 把 APK 交给系统安装器；缺这条权限时
+# Android 静默丢弃这个 Intent，用户只会看到「下载完了但什么都没发生」。
+required = {'android.permission.REQUEST_INSTALL_PACKAGES'}
+for permission in required:
+    if "name='" + permission + "'" not in permissions:
+        raise SystemExit('Required permission missing: ' + permission)
 # App code and assets must be unchanged by manifest cleanup and re-signing.
 with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
     for name in before.namelist():
