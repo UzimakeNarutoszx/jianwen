@@ -18,7 +18,7 @@ from app.services import classic_fulltext, daily_articles, seed_content
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-STATIC_IMAGES = REPO_ROOT / "frontend" / "static" / "images"
+STATIC_IMAGES = REPO_ROOT / "frontend" / "assets-src" / "images"
 
 
 class ImagePathMigrationTests(unittest.TestCase):
@@ -137,7 +137,7 @@ class LegacyPngRouteTests(unittest.TestCase):
             images = Path(tmp) / "images"
             images.mkdir()
             (images / "kept.png").write_bytes(b"png-bytes")
-            with patch("app.main.frontend_static", Path(tmp)):
+            with patch("app.main.content_images", Path(tmp) / "images"):
                 response = self._get("/static/images/kept.png")
 
         self.assertEqual(response.status_code, 200)

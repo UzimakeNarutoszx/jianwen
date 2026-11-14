@@ -19,6 +19,9 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 # Content records use the same image paths as the H5 bundle. Mount those
 # directories explicitly before the backend-owned static directory.
 frontend_static = Path(__file__).resolve().parents[2] / "frontend" / "static"
+# 分类封面只由服务器提供，App 里引用的是远程 URL。放在 static/ 下会被打进
+# wgt 资源包，而中文文件名会让 HBuilderX 直接拒绝导出，所以搬运到这里。
+content_images = Path(__file__).resolve().parents[2] / "frontend" / "assets-src" / "images"
 
 
 def _legacy_image_name_is_safe(name: str) -> bool:
@@ -31,19 +34,21 @@ def legacy_image_redirect(name: str):
     """Category covers moved from .png to .jpg; keep cached .png URLs working."""
     if not _legacy_image_name_is_safe(name):
         raise HTTPException(status_code=404, detail="Not Found")
-    directory = frontend_static / "images"
+    directory = content_images
     png_path = directory / f"{name}.png"
     jpg_path = directory / f"{name}.jpg"
     if not png_path.resolve().is_relative_to(directory.resolve()):
         raise HTTPException(status_code=404, detail="Not Found")
-    if png_path.is_file():
-        return FileResponse(png_path)
+    # 已转成 jpg 的封面：旧的 png 缓存链接统一 307 到 jpg；没转的继续发 png。
     if jpg_path.is_file():
         return RedirectResponse(f"/static/images/{quote(name, safe='')}.jpg", status_code=307)
+    if png_path.is_file():
+        return FileResponse(png_path)
     raise HTTPException(status_code=404, detail="Not Found")
 
 
-for directory_name in ("images", "icons", "app-icons"):
+app.mount("/static/images", StaticFiles(directory=content_images), name="static-images")
+for directory_name in ("icons", "app-icons"):
     directory = frontend_static / directory_name
     if directory.is_dir():
         app.mount(f"/static/{directory_name}", StaticFiles(directory=directory), name=f"static-{directory_name}")

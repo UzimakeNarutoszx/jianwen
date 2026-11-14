@@ -16,7 +16,7 @@ from app.services import daily_articles, seed_content
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-STATIC_IMAGES = REPO_ROOT / "frontend" / "static" / "images"
+STATIC_IMAGES = REPO_ROOT / "frontend" / "assets-src" / "images"
 
 
 class ChannelCategoryTests(unittest.TestCase):
