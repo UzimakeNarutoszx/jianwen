@@ -125,6 +125,7 @@ export default {
   data() {
     return {
       articleId: '',
+      from: '',
       article: Object.assign({}, emptyArticle),
       quickQuestions: [
         { label: '问相关', value: '这和我有什么关系？' },
@@ -166,6 +167,7 @@ export default {
   },
   onLoad(options) {
     this.articleId = options && options.id ? options.id : 'job'
+    this.from = options && options.from ? String(options.from) : ''
     this.loadArticle()
   },
   onShow() {
@@ -244,7 +246,7 @@ export default {
     },
     goBack() {
       if (Date.now() - this.lastFavoriteTapAt < 350) return
-      uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/today/today' }) })
+      uni.navigateBack({ fail: () => uni.switchTab({ url: this.from === 'ask' ? '/pages/ask/ask' : '/pages/today/today' }) })
     },
     async goAsk(questionText = '') {
       if (!this.article.title) {

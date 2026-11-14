@@ -320,6 +320,7 @@ export default {
       if (lastUser) this.activeNavId = lastUser.id
     }
     syncMessageId(this.messages)
+    this.backfillCitations()
     this.loadSettings()
     this.loadQuota()
     // 进入问问默认停在最底部；提示词卡片和图片加载会把内容撑高，加载完再对齐一次。
@@ -756,10 +757,28 @@ export default {
       const value = index + 1
       return value < 10 ? `0${value}` : String(value)
     },
+    // 从文章页返回后，若上一条回答的引用还没拿到（或上次没保存），补拉一次。
+    backfillCitations() {
+      if (!this.citationTried) this.citationTried = new Set()
+      const assistant = [...this.messages].reverse().find(item => item
+        && item.role === 'assistant'
+        && item.text
+        && item.text !== '正在思考…'
+        && !item.streaming
+        && (!Array.isArray(item.citations) || !item.citations.length))
+      if (!assistant || this.citationTried.has(assistant.id)) return
+      const user = [...this.messages].reverse().find(item => item && item.role === 'user' && item.id < assistant.id)
+      if (!user || !user.text) return
+      this.citationTried.add(assistant.id)
+      const articleId = this.linkedArticle && this.linkedArticle.articleId
+      requestCitations(user.text, articleId, assistant.text)
+        .then(list => { if (Array.isArray(list) && list.length) this.replaceAssistantMessage(assistant.id, { citations: list }) })
+        .catch(() => {})
+    },
     openCitation(citation) {
       const articleId = citation && citation.article_id
       if (!articleId) return
-      uni.navigateTo({ url: `/pages/article/detail?id=${encodeURIComponent(articleId)}` })
+      uni.navigateTo({ url: `/pages/article/detail?id=${encodeURIComponent(articleId)}&from=ask` })
     },
     openAskRecords() {
       uni.navigateTo({ url: '/pages/profile/ask-records' })
@@ -1129,7 +1148,7 @@ export default {
 }
 
 .ask-topbar .subtle {
-  margin-top: 8rpx;
+  margin-top: 14rpx;
 }
 
 .top-status {

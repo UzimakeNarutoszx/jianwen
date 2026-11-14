@@ -14,7 +14,7 @@
   <header data-site-header></header>
   <main class="page-shell article-page">
     <nav class="detail-nav" aria-label="文章操作">
-      <a class="back-button" href="index.html?v=20261110-2">← 返回今日</a>
+      <a id="article-back" class="back-button" href="index.html?v=20261110-2">← 返回今日</a>
       <button class="favorite-button" id="favorite-button" type="button"><span class="favorite-icon" aria-hidden="true">☆</span><span data-label>收藏</span></button>
     </nav>
     <section id="article-hero" class="article-hero" aria-live="polite">
@@ -28,5 +28,16 @@
   <script src="../js/api-browser.js?v=20261110-2"></script>
   <script src="../js/reading-activity.js?v=20261110-2"></script>
   <script src="../js/article.js?v=20261110-2"></script>
+<script>
+    (function () {
+      var link = document.getElementById('article-back')
+      if (!link) return
+      var from = new URLSearchParams(location.search).get('from') || ''
+      if (from === 'ask' || /\/jianwen\/ask\.html/.test(document.referrer || '')) {
+        link.href = 'ask.html?v=20261110-2'
+        link.textContent = '← 返回问问'
+      }
+    })()
+  </script>
 </body>
 </html>

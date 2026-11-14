@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI 问问 · 见闻</title>
   <link rel="stylesheet" href="../css/site.css?v=20261110-2">
-  <link rel="stylesheet" href="../css/pages/jianwen-ask.css?v=20261110-2">
+  <link rel="stylesheet" href="../css/pages/jianwen-ask.css?v=20261114-3">
 
   <link rel="stylesheet" href="../css/ask.css?v=20261110-2">
 <link rel="stylesheet" href="../css/editorial.css?v=20261110-2">
@@ -163,13 +163,36 @@
       var pendingTimer = 0
       var requestSeq = 0
 
+      var CITATIONS_KEY = 'jianwen_web_ask_citations'
       function clearCitations() {
         var existing = output.querySelector('.answer-citations')
         if (existing) existing.remove()
       }
+      function storedQuestion() {
+        try {
+          var saved = JSON.parse(localStorage.getItem('jianwen_web_ask_last') || 'null')
+          return saved && saved.question ? String(saved.question).trim() : ''
+        } catch (error) { return '' }
+      }
+      function saveCitations(citations) {
+        try {
+          var question = String(input.value || '').trim() || storedQuestion()
+          if (!question || !citations.length) return
+          localStorage.setItem(CITATIONS_KEY, JSON.stringify({ question: question, citations: citations }))
+        } catch (error) {}
+      }
+      function restoreCitations() {
+        try {
+          var saved = JSON.parse(localStorage.getItem(CITATIONS_KEY) || 'null')
+          if (!saved || !Array.isArray(saved.citations) || !saved.citations.length) return
+          var question = String(input.value || '').trim() || storedQuestion()
+          if (!question || saved.question !== question) return
+          if (output.querySelector('.answer-copy')) renderCitations(saved.citations)
+        } catch (error) {}
+      }
 
       function articleHref(articleId) {
-        return 'article.html?id=' + encodeURIComponent(articleId)
+        return 'article.html?id=' + encodeURIComponent(articleId) + '&from=ask'
       }
 
       function citationNumber(index) {
@@ -230,6 +253,7 @@
         })
         section.appendChild(list)
         output.appendChild(section)
+        saveCitations(items)
       }
 
       function readAnswer() {
@@ -281,11 +305,13 @@
           clearTimeout(pendingTimer)
           requestSeq++
           clearCitations()
+          try { localStorage.removeItem(CITATIONS_KEY) } catch (error) {}
           return
         }
         clearTimeout(pendingTimer)
         pendingTimer = setTimeout(loadCitations, 120)
       }).observe(output, { attributes: true, attributeFilter: ['aria-busy'] })
+      restoreCitations()
     })()
   </script>
 </body>
