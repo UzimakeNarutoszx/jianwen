@@ -55,7 +55,8 @@ echo "starting llama-server..."
 nohup /opt/homebrew/bin/llama-server \
   -m "$MODEL" \
   --host "$HOST" --port "$PORT" \
-  -c "${QWEN_CTX:-32768}" \
+  -c "${QWEN_CTX:-16384}" \
+  --parallel 1 \
   -ngl "${QWEN_GPU_LAYERS:-99}" \
   --api-key "$KEY" \
   --no-webui \
