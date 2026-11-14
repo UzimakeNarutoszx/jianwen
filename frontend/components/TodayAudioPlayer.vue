@@ -178,6 +178,10 @@ export default {
     this.wakeLock = null
     this.watchdog = null
     this.advancing = false
+    this.shouldPlay = false
+    this.userPaused = false
+    this.keepAlive = null
+    this.resumeTimer = null
     // 不依赖条件编译：App 端有 plus.runtime，H5 端没有。
     try { this.isApp = typeof plus !== 'undefined' && !!plus.runtime } catch (error) { this.isApp = false }
     // 后台音频单例可能带着上次的播放状态，进页面立即压住，等用户点播放。
@@ -213,9 +217,26 @@ export default {
     },
     // uni.createInnerAudioContext 每次换源都重新走一遍 src，进度按比例恢复。
     bindAudio(audio) {
-      audio.onPlay(() => { this.playing = true; this.playError = ''; this.acquireWakeLock(); this.startWatchdog() })
-      audio.onPause(() => { this.playing = false; this.releaseWakeLock() })
-      audio.onStop(() => { this.playing = false; this.releaseWakeLock(); this.stopWatchdog() })
+      audio.onPlay(() => {
+        this.playing = true
+        this.playError = ''
+        this.shouldPlay = true
+        this.acquireWakeLock()
+        this.startWatchdog()
+        this.startKeepAlive()
+        this.maybeGuideBackground()
+      })
+      audio.onPause(() => {
+        this.playing = false
+        this.releaseWakeLock()
+        this.resumeIfScreenOff()
+      })
+      audio.onStop(() => {
+        this.playing = false
+        this.releaseWakeLock()
+        this.stopWatchdog()
+        this.resumeIfScreenOff()
+      })
       audio.onTimeUpdate(() => {
         if (this.seeking) return
         this.currentTime = audio.currentTime || 0
@@ -401,14 +422,18 @@ export default {
       this.userStarted = true
       const audio = this.ensureAudio()
       if (this.continuous) {
-        if (this.playing) { audio.pause(); return }
+        if (this.playing) { this.userPaused = true; this.shouldPlay = false; this.stopKeepAlive(); audio.pause(); return }
+        this.userPaused = false
+        this.shouldPlay = true
         // 播到结尾后再点播放，从当天开头重新开始。
         if (this.currentTime >= this.continuous.duration - 1) this.currentTime = 0
         this.loadContinuous(audio, this.currentTime, true)
         this.startPlayback(audio)
         return
       }
-      if (this.playing) { audio.pause(); return }
+      if (this.playing) { this.userPaused = true; this.shouldPlay = false; this.stopKeepAlive(); audio.pause(); return }
+      this.userPaused = false
+      this.shouldPlay = true
       if (this.isApp) {
         const url = this.track && this.track.url ? todayAudioUrl(this.track.url) : ''
         if (!url) return
@@ -480,6 +505,73 @@ export default {
     announceListened(track) {
       this.$emit('listened', { articleId: track.articleId, title: track.title })
     },
+    // 国产 ROM 常把后台播放当耗电行为；只提示一次，用户可自己去把电池/后台权限设为无限制。
+    maybeGuideBackground() {
+      if (!this.isAndroid()) return
+      if (uni.getStorageSync('jianwen_bg_guide')) return
+      uni.setStorageSync('jianwen_bg_guide', 1)
+      setTimeout(() => {
+        uni.showModal({
+          title: '锁屏播放设置',
+          content: '如果锁屏后朗读中断，请在系统设置里把「见闻」的电池或后台权限改为「无限制 / 允许后台活动」。',
+          confirmText: '去设置',
+          cancelText: '知道了',
+          success: res => { if (res.confirm) this.openAppSettings() }
+        })
+      }, 1200)
+    },
+    openAppSettings() {
+      try {
+        const main = plus.android.runtimeMainActivity()
+        const Intent = plus.android.importClass('android.content.Intent')
+        const Uri = plus.android.importClass('android.net.Uri')
+        const Settings = plus.android.importClass('android.provider.Settings')
+        const intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.setData(Uri.parse(`package:${main.getPackageName()}`))
+        main.startActivity(intent)
+      } catch (error) {}
+    },
+    // 部分 ROM 在屏幕熄灭时会把后台播放器暂停；这里只在「屏幕已关 + 用户没主动暂停」时拉起。
+    isScreenOn() {
+      if (!this.isAndroid()) return true
+      try {
+        const main = plus.android.runtimeMainActivity()
+        const Context = plus.android.importClass('android.content.Context')
+        const PowerManager = plus.android.importClass('android.os.PowerManager')
+        const pm = main.getSystemService(Context.POWER_SERVICE)
+        return Boolean(pm.isInteractive())
+      } catch (error) { return true }
+    },
+    resumeIfScreenOff() {
+      if (!this.isApp || !this.shouldPlay || this.userPaused) return
+      if (this.isScreenOn()) return
+      this.scheduleResume(0)
+    },
+    scheduleResume(attempt = 0) {
+      if (!this.isApp || !this.shouldPlay || this.userPaused) return
+      clearTimeout(this.resumeTimer)
+      this.resumeTimer = setTimeout(() => {
+        if (!this.isApp || !this.shouldPlay || this.userPaused || this.playing) return
+        try { this.audio && this.audio.play() } catch (error) {}
+        this.acquireWakeLock()
+        if (attempt < 4) this.scheduleResume(attempt + 1)
+      }, attempt === 0 ? 600 : 1500)
+    },
+    // 兜底心跳：熄屏后如果被系统暂停，每 8 秒尝试恢复一次。
+    startKeepAlive() {
+      if (!this.isApp || this.keepAlive) return
+      this.keepAlive = setInterval(() => {
+        if (!this.shouldPlay || this.userPaused || this.playing) return
+        if (this.isScreenOn()) return
+        try { this.audio && this.audio.play() } catch (error) {}
+        this.acquireWakeLock()
+      }, 8000)
+    },
+    stopKeepAlive() {
+      if (this.keepAlive) { clearInterval(this.keepAlive); this.keepAlive = null }
+      clearTimeout(this.resumeTimer)
+      this.resumeTimer = null
+    },
     // Android 锁屏后，WebView 的 JS 计时器可能被系统挂起：持一个 PARTIAL_WAKE_LOCK
     // 让 CPU 保持醒着（屏幕仍可关闭），onEnded 与自动换集才能可靠触发。
     isAndroid() {
@@ -526,8 +618,10 @@ export default {
           this.$emit('listened', { articleId: last.article_id, title: article ? article.title : '' })
         }
         this.playing = false
+        this.shouldPlay = false
         this.releaseWakeLock()
         this.stopWatchdog()
+        this.stopKeepAlive()
         return
       }
       // onEnded 偶发丢失（锁屏/后台时）由看门狗兜底，防止重复触发。
@@ -539,8 +633,10 @@ export default {
       const result = afterEnded(this.state)
       if (!result.play) {
         this.playing = false
+        this.shouldPlay = false
         this.releaseWakeLock()
         this.stopWatchdog()
+        this.stopKeepAlive()
         return
       }
       this.state = result.state
@@ -576,8 +672,11 @@ export default {
     },
     stopAudio() {
       clearTimeout(this.playRetry)
+      this.shouldPlay = false
+      this.userPaused = true
       this.releaseWakeLock()
       this.stopWatchdog()
+      this.stopKeepAlive()
       if (!this.audio) return
       try {
         this.audio.pause()

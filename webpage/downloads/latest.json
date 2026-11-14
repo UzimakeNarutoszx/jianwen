@@ -3,8 +3,8 @@
   "versionCode": 114,
   "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.4.apk",
   "notes": "今日朗读支持锁屏和切后台继续播放；同时修复播放进度、切篇续播等细节。",
-  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.9.wgt",
-  "wgtVersionCode": 119,
+  "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.10.wgt",
+  "wgtVersionCode": 120,
   "wgtBaseVersionCode": 114,
-  "wgtNotes": "修复：朗读听完一篇后「每日五篇」偶尔不计数（改为 90% 判定并补写历史）。约 1.1 MB，安装后自动重启。"
+  "wgtNotes": "修复：锁屏/熄屏后播放被系统暂停（自动拉起 + 后台权限引导）。约 1.1 MB，安装后自动重启。"
 }
