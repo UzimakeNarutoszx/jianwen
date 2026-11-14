@@ -1,10 +1,10 @@
 {
-  "versionName": "1.1.4",
-  "versionCode": 114,
-  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.4.apk",
-  "notes": "今日朗读支持锁屏和切后台继续播放；同时修复播放进度、切篇续播等细节。",
+  "versionName": "1.1.11",
+  "versionCode": 121,
+  "apkUrl": "http://8.147.110.194/downloads/jianwen-1.1.11.apk",
+  "notes": "锁屏/后台播放改为原生前台服务，支持断点续播；建议所有安卓用户更新。",
   "wgtUrl": "http://8.147.110.194/downloads/jianwen-1.1.10.wgt",
   "wgtVersionCode": 120,
   "wgtBaseVersionCode": 114,
-  "wgtNotes": "修复：锁屏/熄屏后播放被系统暂停（自动拉起 + 后台权限引导）。约 1.1 MB，安装后自动重启。"
+  "wgtNotes": "1.1.4 用户请先安装 1.1.11 整包，之后才支持前台服务保活。"
 }

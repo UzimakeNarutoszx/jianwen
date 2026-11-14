@@ -5,7 +5,7 @@ const WGT_INSTALLED_KEY = 'jianwen_wgt_version_code'
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000
 
 // 原生版本号：早期 plus.runtime 还没就绪时用它兜底，必须随每次整包发布同步提升。
-const NATIVE_VERSION_CODE = 114
+const NATIVE_VERSION_CODE = 121
 
 function versionCode(value) {
   const parsed = Number.parseInt(value, 10)

@@ -1,0 +1,127 @@
+import Service from 'android.app.Service'
+import Intent from 'android.content.Intent'
+import IBinder from 'android.os.IBinder'
+import Context from 'android.content.Context'
+import Notification from 'android.app.Notification'
+import NotificationChannel from 'android.app.NotificationChannel'
+import NotificationManager from 'android.app.NotificationManager'
+import PendingIntent from 'android.app.PendingIntent'
+import PowerManager from 'android.os.PowerManager'
+import Build from 'android.os.Build'
+import { UTSAndroid } from 'io.dcloud.uts'
+
+const CHANNEL_ID = 'jianwen_playback'
+const NOTIFICATION_ID: Int = 2101
+const WAKE_TAG = 'jianwen:playback'
+
+class JianwenPlaybackService extends Service {
+	private wakeLock: PowerManager.WakeLock | null = null
+
+	constructor() {
+		super()
+	}
+
+	override onCreate(): void {
+		super.onCreate()
+		this.ensureChannel()
+	}
+
+	override onStartCommand(intent: Intent | null, flags: Int, startId: Int): Int {
+		const title = intent?.getStringExtra('title') ?? '今日朗读'
+		const text = intent?.getStringExtra('text') ?? '见闻 · 正在播放'
+		this.startForeground(NOTIFICATION_ID, this.buildNotification(title, text))
+		this.acquireWakeLock()
+		return Service.START_STICKY
+	}
+
+	override onBind(intent: Intent | null): IBinder | null {
+		return null
+	}
+
+	override onDestroy(): void {
+		this.releaseWakeLock()
+		this.stopForeground(true)
+		super.onDestroy()
+	}
+
+	private ensureChannel(): void {
+		if (Build.VERSION.SDK_INT < 26) return
+		const manager = this.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+		const channel = new NotificationChannel(CHANNEL_ID, '见闻播放', NotificationManager.IMPORTANCE_LOW)
+		channel.setShowBadge(false)
+		manager.createNotificationChannel(channel)
+	}
+
+	private buildNotification(title: string, text: string): Notification {
+		const context = this.getApplicationContext()
+		const builder = Build.VERSION.SDK_INT >= 26
+			? new Notification.Builder(context, CHANNEL_ID)
+			: new Notification.Builder(context)
+		builder.setContentTitle(title)
+		builder.setContentText(text)
+		builder.setSmallIcon(context.getApplicationInfo().icon)
+		builder.setOngoing(true)
+		builder.setOnlyAlertOnce(true)
+		const launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName())
+		if (launch != null) {
+			const pending = PendingIntent.getActivity(
+				context,
+				0 as Int,
+				launch,
+				PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+			)
+			builder.setContentIntent(pending)
+		}
+		return builder.build()
+	}
+
+	private acquireWakeLock(): void {
+		if (this.wakeLock != null) return
+		try {
+			const manager = this.getSystemService(Context.POWER_SERVICE) as PowerManager
+			const lock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TAG)
+			lock.setReferenceCounted(false)
+			lock.acquire()
+			this.wakeLock = lock
+		} catch (error) {
+			console.log('[keepalive] wake lock failed', error)
+		}
+	}
+
+	private releaseWakeLock(): void {
+		if (this.wakeLock == null) return
+		try {
+			if (this.wakeLock!.isHeld()) this.wakeLock!.release()
+		} catch (error) {
+			console.log('[keepalive] wake release failed', error)
+		}
+		this.wakeLock = null
+	}
+}
+
+function serviceIntent(title: string, text: string): Intent {
+	const context = UTSAndroid.getAppContext()!
+	const intent = new Intent(context, JianwenPlaybackService().javaClass)
+	intent.putExtra('title', title)
+	intent.putExtra('text', text)
+	return intent
+}
+
+export function startKeepAlive(title: string, text: string): void {
+	const context = UTSAndroid.getAppContext()!
+	const intent = serviceIntent(title, text)
+	if (Build.VERSION.SDK_INT >= 26) {
+		context.startForegroundService(intent)
+	} else {
+		context.startService(intent)
+	}
+}
+
+export function updateKeepAlive(title: string, text: string): void {
+	startKeepAlive(title, text)
+}
+
+export function stopKeepAlive(): void {
+	const context = UTSAndroid.getAppContext()!
+	context.stopService(serviceIntent('', ''))
+}

@@ -1,0 +1,24 @@
+{
+  "id": "jianwen-keepalive",
+  "displayName": "见闻播放前台服务",
+  "version": "1.0.0",
+  "description": "锁屏/后台保持朗读进程的前台服务",
+  "keywords": ["foreground", "service", "audio"],
+  "engines": { "HBuilderX": "^4.0.0" },
+  "dcloudext": {
+    "type": "uts",
+    "sale": { "regular": { "price": "0.00" }, "sourcecode": { "price": "0.00" } },
+    "contact": { "qq": "" },
+    "declaration": { "ads": "", "data": "", "permissions": "" },
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "client": {
+        "App": { "app-android": "y" }
+      }
+    }
+  }
+}

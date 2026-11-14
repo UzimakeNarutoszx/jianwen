@@ -80,6 +80,7 @@
 
 <script>
 import { getTodayAudio, todayAudioUrl } from '@/utils/api.js'
+import { startPlaybackService, updatePlaybackService, stopPlaybackService } from '@/utils/keepalive.js'
 import {
   VOICE_STORAGE_KEY,
   afterEnded,
@@ -182,6 +183,7 @@ export default {
     this.userPaused = false
     this.keepAlive = null
     this.resumeTimer = null
+    this.lastResumeSave = 0
     // 不依赖条件编译：App 端有 plus.runtime，H5 端没有。
     try { this.isApp = typeof plus !== 'undefined' && !!plus.runtime } catch (error) { this.isApp = false }
     // 后台音频单例可能带着上次的播放状态，进页面立即压住，等用户点播放。
@@ -207,6 +209,7 @@ export default {
           this.loading = false
           // 换源出错不能把已拿到的清单打回「生成中」：只记日志，用户点播放时会再加载一次。
           try { this.applyTrack(false) } catch (error) { console.error('[today-audio] applyTrack', error) }
+          this.restoreResume()
         }, () => {
           // 生成中或请求失败都不报错，只显示「今日朗读生成中」。
           this.state = createTodayAudioState({ ready: false, articles: [] }, saved)
@@ -224,17 +227,21 @@ export default {
         this.acquireWakeLock()
         this.startWatchdog()
         this.startKeepAlive()
+        this.startPlaybackServiceForTrack()
         this.maybeGuideBackground()
       })
       audio.onPause(() => {
         this.playing = false
         this.releaseWakeLock()
+        this.saveResume()
+        stopPlaybackService()
         this.resumeIfScreenOff()
       })
       audio.onStop(() => {
         this.playing = false
         this.releaseWakeLock()
         this.stopWatchdog()
+        stopPlaybackService()
         this.resumeIfScreenOff()
       })
       audio.onTimeUpdate(() => {
@@ -244,10 +251,12 @@ export default {
           this.knownDuration = this.continuous.duration
           this.sliderValue = Math.round(progressRatio(this.currentTime, this.duration) * 1000)
           if (this.playing) this.syncContinuous(this.currentTime)
+          this.saveResume()
           return
         }
         this.knownDuration = audio.duration > 0 ? audio.duration : this.knownDuration
         this.sliderValue = Math.round(progressRatio(this.currentTime, this.duration) * 1000)
+        this.saveResume()
         const track = this.track
         if (track && this.playing && trackListen(this.listen, track.articleId, this.currentTime, this.duration)) this.announceListened(track)
       })
@@ -309,6 +318,7 @@ export default {
       const position = this.state.articles.findIndex(item => item.articleId === segment.article_id)
       if (position >= 0 && position !== this.state.index) {
         this.state = Object.assign({}, this.state, { index: position })
+        if (this.isApp) updatePlaybackService(this.state.articles[position].title, '见闻 · 今日朗读')
       }
       // 熄屏期间 JS 可能被挂起，回到前台时把已经播过的篇目一次补齐。
       // 按 90% 判定：段尾常有静音和 0.6s 间隔，卡 end-2 会漏记。
@@ -571,11 +581,54 @@ export default {
       if (this.keepAlive) { clearInterval(this.keepAlive); this.keepAlive = null }
       clearTimeout(this.resumeTimer)
       this.resumeTimer = null
+    this.lastResumeSave = 0
     },
     // Android 锁屏后，WebView 的 JS 计时器可能被系统挂起：持一个 PARTIAL_WAKE_LOCK
     // 让 CPU 保持醒着（屏幕仍可关闭），onEnded 与自动换集才能可靠触发。
     isAndroid() {
       try { return this.isApp && plus.os.name === 'Android' } catch (error) { return false }
+    },
+    restoreResume() {
+      if (!this.state || !this.state.date) return
+      let saved = null
+      try { saved = uni.getStorageSync('jianwen_audio_resume') } catch (error) { saved = null }
+      if (!saved || saved.date !== this.state.date || saved.voice !== this.state.voice) return
+      const seconds = Number(saved.seconds)
+      if (!Number.isFinite(seconds) || seconds < 5) return
+      const total = this.continuous ? this.continuous.duration : this.track ? this.track.duration : 0
+      if (!total || seconds >= total - 2) return
+      this.currentTime = seconds
+      this.knownDuration = total
+      this.sliderValue = Math.round(progressRatio(seconds, total) * 1000)
+      if (this.continuous) {
+        const segments = this.continuous.segments || []
+        let index = 0
+        for (let i = segments.length - 1; i >= 0; i--) if (seconds >= segments[i].start) { index = i; break }
+        const segment = segments[index]
+        const position = segment ? this.state.articles.findIndex(item => item.articleId === segment.article_id) : -1
+        if (position >= 0) this.state = Object.assign({}, this.state, { index: position })
+      } else if (Number.isFinite(Number(saved.index))) {
+        this.state = Object.assign({}, this.state, { index: Math.max(0, Number(saved.index)) })
+      }
+    },
+    saveResume() {
+      const now = Date.now()
+      if (this.currentTime < 5 || now - this.lastResumeSave < 5000) return
+      this.lastResumeSave = now
+      try {
+        uni.setStorageSync('jianwen_audio_resume', {
+          date: this.state.date,
+          voice: this.state.voice,
+          index: this.state.index,
+          seconds: Math.floor(this.currentTime),
+          updatedAt: now
+        })
+      } catch (error) {}
+    },
+    startPlaybackServiceForTrack() {
+      if (!this.isApp) return
+      const title = this.track ? this.track.title : '今日朗读'
+      startPlaybackService(title, '见闻 · 今日朗读')
     },
     acquireWakeLock() {
       if (!this.isAndroid() || this.wakeLock) return
@@ -622,6 +675,7 @@ export default {
         this.releaseWakeLock()
         this.stopWatchdog()
         this.stopKeepAlive()
+        stopPlaybackService()
         return
       }
       // onEnded 偶发丢失（锁屏/后台时）由看门狗兜底，防止重复触发。
@@ -672,6 +726,7 @@ export default {
     },
     stopAudio() {
       clearTimeout(this.playRetry)
+      stopPlaybackService()
       this.shouldPlay = false
       this.userPaused = true
       this.releaseWakeLock()
