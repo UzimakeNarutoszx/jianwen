@@ -274,6 +274,81 @@
       "video": "assets/weekly-video/2026-W45/episode.mp4",
       "poster": "assets/weekly-video/2026-W45/cover.jpg",
       "captions": "assets/weekly-video/2026-W45/captions.vtt"
+    },
+    {
+      "id": "2026-W46",
+      "number": 5,
+      "title": "从矿山，到深圳",
+      "description": "一篇关于人工智能进矿山的重点文章，两处见闻更新，以及本周的两件大事。",
+      "weekStart": "2026-11-09",
+      "weekEnd": "2026-11-15",
+      "cutoff": "2026-11-14T18:30:00+08:00",
+      "durationSeconds": 67.76666666666667,
+      "chapters": [
+        {
+          "title": "片头导读",
+          "seconds": 0.0
+        },
+        {
+          "title": "本周重点文章",
+          "seconds": 8.633333333333333
+        },
+        {
+          "title": "本周见闻更新",
+          "seconds": 18.966666666666665
+        },
+        {
+          "title": "大事总结",
+          "seconds": 35.166666666666664
+        },
+        {
+          "title": "片尾来源",
+          "seconds": 55.233333333333334
+        }
+      ],
+      "articles": [
+        {
+          "title": "人工智能+要进矿山高空，先解决谁掏钱谁维护",
+          "url": "jianwen/article.html?id=ai-daily-20261112-1",
+          "date": "2026-11-12"
+        }
+      ],
+      "sources": [
+        {
+          "title": "“十五五”时期我国将深化拓展“人工智能+”行动",
+          "url": "https://www.gov.cn/yaowen/liebiao/202611/content_7085824.htm",
+          "date": "2026-11-11"
+        },
+        {
+          "title": "见闻更新日志：每日朗读改到服务器自动生成",
+          "url": "https://jianwen.xin/changelog.html",
+          "date": "2026-11-09"
+        },
+        {
+          "title": "见闻 Android 版本清单",
+          "url": "https://jianwen.xin/downloads/latest.json",
+          "date": "2026-11-14"
+        },
+        {
+          "title": "纪念孙中山先生诞辰160周年大会在京举行（新华社）",
+          "url": "https://www.bjrd.gov.cn/xwzx/tt/202611/t20261112_4943213.html",
+          "date": "2026-11-12"
+        },
+        {
+          "title": "习近平将出席亚太经合组织第三十三次领导人非正式会议及相关活动（人民日报）",
+          "url": "http://cpc.people.com.cn/n1/2026/1114/c64094-40833702.html",
+          "date": "2026-11-14"
+        }
+      ],
+      "durationTarget": {
+        "min": 50,
+        "max": 70
+      },
+      "status": "published",
+      "publishedAt": "2026-11-15T09:35:18.395125+08:00",
+      "video": "assets/weekly-video/2026-W46/episode.mp4",
+      "poster": "assets/weekly-video/2026-W46/cover.jpg",
+      "captions": "assets/weekly-video/2026-W46/captions.vtt"
     }
   ],
   "upcoming": null
