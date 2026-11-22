@@ -1,0 +1,35 @@
+{
+  "episode": "2026-W47",
+  "cutoff": "2026-11-22T11:30:00+08:00",
+  "basis": "本期内容来自站点公开文章 ai-daily-20261122-3、webpage/data/changelog.json 与提交 a33063c（站点版本 20261122-1），以及中国政府网、新华社关于 2026 年 APEC 深圳会议周与中俄美元首会晤的公开报道。只写截至采编时已经公开的事实。",
+  "records": [
+    "ai-daily-20261122-3",
+    "changelog 2026-11-22",
+    "commit a33063c",
+    "gov.cn 2026-11-21 会议周巡礼",
+    "新华社 2026-11-19 中俄美元首会晤"
+  ],
+  "note": "本期换用 v2 版式（纸页 + 索引 + 印章）与微型界面插画；见闻更新只写门户入口这一处公开改动，未把开发中内容写成已上线。",
+  "music": {
+    "title": "雨",
+    "artistTag": "昔日烬",
+    "rightsBasis": "User explicitly confirmed in this task on 2026-10-17 that 憩、柱、雨、岚、终 are their originals and authorized their use. See music-library.json. Earlier CLAUDE_HANDOFF.md entry 2026-10-11 also identifies 雨 as user-original. No public-domain or CC license claim.",
+    "sourceSnapshot": "music/雨.mp3",
+    "sourceSha256": "39e5ff4da91a1ae9f66dfbdb61ad204bbff3ffa56a25c1de97e98f5c515c01e8",
+    "narrationSha256": "428cae93f3841379add5fe5d4b8b3ff6e5fd5e14a58b9da31303bf04ed3efe47",
+    "mix": {
+      "loopCrossfadeSeconds": 3,
+      "fadeInSeconds": 3,
+      "fadeOutSeconds": 5,
+      "musicTargetLUFS": -30,
+      "speechDucking": true,
+      "mixTargetLUFS": -16,
+      "mixTruePeakCeilingDb": -1.5
+    },
+    "output": {
+      "file": "soundtrack-e1055360811b.m4a",
+      "sha256": "e1055360811b1d7a74e793926d8a48fec966c637d2091f9119a1e7035134f4bd",
+      "credit": "原创配乐《雨》 · 昔日烬"
+    }
+  }
+}

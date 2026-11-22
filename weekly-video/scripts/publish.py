@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('episode')
 parser.add_argument('--video', type=Path, required=True)
+parser.add_argument('--replace', action='store_true', help='Re-publish an existing episode in place (e.g. after a voice fix)')
 args = parser.parse_args()
 if not re.fullmatch(r'\d{4}-W\d{2}', args.episode):
     parser.error('episode must be YYYY-Www')
@@ -19,8 +20,9 @@ snapshot = json.loads((ROOT / 'episodes' / args.episode / 'timeline.json').read_
 duration_target = {'min': 180, 'max': 300, **(snapshot.get('durationTarget') or {})}
 catalog_path = ROOT.parent / 'webpage/data/weekly-videos.json'
 catalog = json.loads(catalog_path.read_text())
-if any(item['id'] == args.episode for item in catalog['episodes']):
-    raise SystemExit('This episode is already published; refusing to overwrite the archive.')
+existing = next((item for item in catalog['episodes'] if item['id'] == args.episode), None)
+if existing and not args.replace:
+    raise SystemExit('This episode is already published; pass --replace to update it in place.')
 probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json', str(args.video)]))
 video = next(stream for stream in probe['streams'] if stream['codec_type'] == 'video')
 audio = next(stream for stream in probe['streams'] if stream['codec_type'] == 'audio')
@@ -40,8 +42,15 @@ for name in ['cover.jpg', 'captions.vtt']:
 base = f'assets/weekly-video/{args.episode}'
 record = {key: snapshot[key] for key in ['id', 'number', 'title', 'description', 'weekStart', 'weekEnd', 'cutoff', 'durationSeconds', 'chapters', 'articles', 'sources']}
 record['durationTarget'] = duration_target
+record['music'] = (snapshot.get('soundtrack') or {}).get('credit')
 record.update(status='published', publishedAt=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), video=f'{base}/episode.mp4', poster=f'{base}/cover.jpg', captions=f'{base}/captions.vtt')
-catalog['episodes'].append(record)
+if existing:
+    record['publishedAt'] = existing.get('publishedAt', record['publishedAt'])
+    record['updatedAt'] = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+    catalog['episodes'][catalog['episodes'].index(existing)] = record
+    print(f"Replaced {args.episode} in place; publishedAt kept, updatedAt recorded.")
+else:
+    catalog['episodes'].append(record)
 if (catalog.get('upcoming') or {}).get('id') == args.episode:
     catalog['upcoming'] = None
 temporary = catalog_path.with_suffix('.json.tmp')

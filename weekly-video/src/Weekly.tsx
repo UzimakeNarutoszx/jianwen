@@ -45,10 +45,10 @@ const ChapterInner: React.FC<ChapterProps> = ({chapter}) => {
       <h1 style={{fontFamily:'"Songti SC", "STSong", serif', fontSize:isBookend ? 100 : 76, lineHeight:1.28, fontWeight:600, letterSpacing:'-.02em', whiteSpace:'pre-line', margin:0,
         opacity:interpolate(elapsed,[0,.5*fps],[.3,1],{extrapolateLeft:'clamp',extrapolateRight:'clamp'}),
         translate:`0 ${interpolate(elapsed,[0,.6*fps],[22,0],{extrapolateLeft:'clamp',extrapolateRight:'clamp'})}px`}}>{title}</h1>
-      {!isBookend && <div style={{paddingTop:12}}>{slide.lines.map((line,index) => <div key={line} style={{padding:'24px 0', borderTop:'1px solid #b9cace', fontSize:index === 0 && line.includes('万亿') ? 70 : 36, lineHeight:1.5, color:index === 0 ? blue : ink,
+      {!isBookend && <div style={{paddingTop:12}}>{(slide.lines ?? []).map((line,index) => <div key={line} style={{padding:'24px 0', borderTop:'1px solid #b9cace', fontSize:index === 0 && line.includes('万亿') ? 70 : 36, lineHeight:1.5, color:index === 0 ? blue : ink,
         opacity:interpolate(elapsed,[index*.3*fps,(index*.3+.7)*fps],[.22,1],{extrapolateLeft:'clamp',extrapolateRight:'clamp'})}}>{line}</div>)}</div>}
     </div>
-    {isBookend && <div style={{position:'absolute', left:104, top:590, maxWidth:760, fontSize:30, lineHeight:1.9, color:blue}}>{slide.lines.map(line => <div key={line}>{line}</div>)}</div>}
+    {isBookend && <div style={{position:'absolute', left:104, top:590, maxWidth:760, fontSize:30, lineHeight:1.9, color:blue}}>{(slide.lines ?? []).map(line => <div key={line}>{line}</div>)}</div>}
     {chapter === '片尾来源' && (episode as typeof episode & {soundtrack?: {credit: string}}).soundtrack && <div style={{position:'absolute',left:104,bottom:215,fontSize:23,color:blue}}>{(episode as typeof episode & {soundtrack?: {credit: string}}).soundtrack?.credit}</div>}
     <div style={{position:'absolute', left:104, right:104, bottom:170, display:'flex', alignItems:'center', gap:16, color:blue, fontSize:23}}><span style={{width:28,height:2,background:'#b08a35'}} />{slide.source}</div>
     <div style={{position:'absolute', left:104, right:104, bottom:62, minHeight:66, borderTop:'1px solid #bfcdd0', paddingTop:22, display:'flex', justifyContent:'center', fontSize:34, lineHeight:1.6}}>{cue?.text || '\u00a0'}</div>

@@ -31,7 +31,7 @@ function render() {
           <div class="weekly-media-fallback" ${selected ? 'hidden' : ''} role="status"><strong>${selected ? '视频暂时无法播放' : '这一周，正在成片。'}</strong><p>${selected ? '请稍后刷新重试，也可以先查看下方文章与来源。' : '重点文章 · 见闻更新 · 大事总结'}</p></div>
         </div>
         <div class="weekly-copy"><h2 tabindex="-1">${escape(episode.title)}</h2><p>${escape(episode.description)}</p>
-          <p class="weekly-meta">采编截至 ${escape(dateLabel(episode.cutoff))}${selected ? ` · ${escape(timestamp(episode.durationSeconds))} · 中文旁白` : ' · 完成后公开发布'}</p>
+          <p class="weekly-meta">采编截至 ${escape(dateLabel(episode.cutoff))}${selected ? ` · ${escape(timestamp(episode.durationSeconds))} · 中文旁白${episode.music ? ' · 原创配乐' : ''}` : ' · 完成后公开发布'}</p>
           ${selected ? `<div class="weekly-chapters" aria-label="按章节播放">${chapters.map(chapter => `<button type="button" data-seek="${Number(chapter.seconds)}"><span>${escape(chapter.title)}</span><time>${timestamp(chapter.seconds)}</time></button>`).join('')}</div>` : '<ul class="weekly-outline"><li>本周重点文章<span>养老收费怎么看，中国制造往哪走</span></li><li>本周见闻更新<span>只记录已经公开的变化</span></li><li>大事总结<span>进出口与秋粮收获的本周观察</span></li></ul>'}
           ${selected && pinned && selected.id !== pinned.id ? `<a class="button button-secondary" href="?episode=${encodeURIComponent(pinned.id)}#episode">返回${pinned.weekStart === selected.weekStart ? '最新节目' : '置顶节目'}</a>` : ''}
         </div>

@@ -27,6 +27,8 @@ npm run render
 
 ```sh
 python3 scripts/publish.py 2026-W42 --video ../output/weekly-video/2026-W42/episode.mp4
+# 已发布过的同一期要换声音/换剪辑时：加 --replace，原地替换并保留 publishedAt、记 updatedAt
+python3 scripts/publish.py 2026-W47 --video ../output/weekly-video/2026-W47/episode.mp4 --replace
 ```
 
 发布工具检查 H.264/AAC、分辨率、帧率、时长、封面和字幕，复制媒体后才原子更新公开清单。拒绝覆盖同一期历史节目。网站支持 `weekly-video.html?episode=2026-W42`，公开节目按发布时间倒序，当前自然周优先置顶。无本周新片时显示“最近一期”。
@@ -36,12 +38,21 @@ python3 scripts/publish.py 2026-W42 --video ../output/weekly-video/2026-W42/epis
 1. 复制 `episodes/2026-W42/episode.json` 到新期号目录，修改期号、日期、文章、来源、旁白和画面文案。保持五个章节名称：片头导读、本周重点文章、本周见闻更新、大事总结、片尾来源。需要短于默认 3–5 分钟时，加上可选的 `"durationTarget": {"min": 50, "max": 70}`。
 2. 保存核验来源与站内文章快照。新闻按发布日期核对，开发中的功能不算公开更新。
 3. `npm run prepare -- 2026-W43`，生成音轨、逐句字幕和带时间的脚本快照。时长默认必须为 180–300 秒；每期可在 `episode.json` 用可选的 `durationTarget`（`{"min":秒,"max":秒}`）按期设置，校验和发布都按该区间执行。自 W43 起每期约 1 分钟（50–70 秒）。
-4. `node scripts/select-episode.mjs 2026-W43`，切换 Studio 模板。既有期的内容、字幕和媒体均保留。
+4. `node scripts/select-episode.mjs 2026-W43`，切换 Studio 模板；`episode.json` 里写 `"template": "v2"` 时用纸页版式（`src/WeeklyV2.tsx`），不写则沿用旧版式。既有期的内容、字幕和媒体均保留。
 5. 导出封面、检查 Studio、导出视频，再执行发布命令。若需要先展示制作中的预告，仅修改公开清单的 `upcoming`，不把草稿加入 `episodes`。
 
 每期模板统一读取所选快照；修改新期文案不会重写旧期脚本。需要重渲染某一期时先选择对应期号。已发布媒体不自动重建。
 
 ## 旁白
+
+旁白默认走 **1.7B Base 的 ICL 克隆**，用的是日更「见闻」同一个参考音（`voice_ref/ref.wav` + `ref.txt`），按**整句**合成：`npm run prepare:clone -- 2026-W47 --tempo 0.9`。字幕仍按标点切成 ≤30 字，句内时间按字数分配，句与句之间只留实测的停顿。
+
+```sh
+npm run prepare:clone -- 2026-W47 --tempo 0.9
+QWEN_REF_AUDIO=/path/ref.wav QWEN_REF_TEXT=/path/ref.txt npm run prepare:clone -- 2026-W47
+```
+
+历史各期用的是 0.6B CustomVoice 的 Vivian 音色、按分句合成（`npm run prepare -- <期号> --tempo 1.35`）。Vivian 在 2026-11-08 已因「听感不佳」从日更下线，第 6 期起不再用于视频；分句合成会把每个逗号当句尾，语气容易碎，`--unit sentence` 可以避免。旧口径仍可用 `npm run prepare -- <期号> --unit clause` 复现。
 
 旧交接文档记载的是通义开源 CosyVoice3，但模型与脚本已删除，并未配置千问云端 API。本工程已另行安装 **Qwen3-TTS 0.6B CustomVoice 4bit / MLX-Audio 0.5.9**，默认使用 Vivian 中文音色，完全在本机生成，不需要 API key 或云端付费额度。音轨可用 `--tempo` 调整节奏，FFmpeg 保持音高。
 

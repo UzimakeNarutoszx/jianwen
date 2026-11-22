@@ -32,7 +32,8 @@
     "cover": "node scripts/export.mjs cover",
     "render": "node scripts/export.mjs video",
     "test": "node --test ../webpage/tests/weekly-video.test.mjs",
-    "prepare:macos": "python3 scripts/prepare.py"
+    "prepare:macos": "python3 scripts/prepare.py",
+    "prepare:clone": "bash scripts/prepare-clone.sh"
   },
   "allowScripts": {
     "esbuild": false
