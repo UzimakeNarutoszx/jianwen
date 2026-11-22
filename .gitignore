@@ -50,3 +50,9 @@ Thumbs.db
 
 # Daily read-aloud audio and caches (generated locally, uploaded to server)
 tts-daily/out/
+
+# Local scratch and tooling artifacts (not part of the published site)
+.claude/
+.tmp-inspect/
+jianwen-paper-30s/
+/scripts/apply-base.mjs

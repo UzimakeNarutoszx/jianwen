@@ -26,7 +26,7 @@ const jianwenPages = [
 
 const AUTH_TOKEN_KEY = 'jianwen_auth_token'
 const AUTH_USER_KEY = 'jianwen_auth_user'
-const SITE_VERSION = '20261122-2'
+const SITE_VERSION = '20261122-3'
 const BUILD_VERSION_KEY = 'jianwen_web_build_version'
 
 function versionedPage(href) {
@@ -129,7 +129,7 @@ function renderShell() {
 
   if (footer) {
     footer.className = 'site-footer'
-    footer.innerHTML = `<p>© 2026 见闻 · 个人门户 · <a class="site-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026077702号-1</a></p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a><a href="${versionedPage(`${root}changelog.html`)}">更新日志</a><a href="${root}personal/">个人网站</a></div>`
+    footer.innerHTML = `<p>© 2026 见闻 · 个人门户 · <a class="site-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026077702号-1</a></p><div class="footer-links"><a href="${versionedPage(`${root}index.html`)}">门户首页</a><a href="${versionedPage(`${root}jianwen/index.html`)}">见闻今日</a><a href="${versionedPage(`${root}jianwen/ask.html`)}">AI 问问</a><a href="${versionedPage(`${root}changelog.html`)}">更新日志</a><a href="${root}personal/" target="_blank" rel="noopener noreferrer">个人网站</a></div>`
   }
 }
 
@@ -161,10 +161,10 @@ window.addEventListener('pageshow', guardStaleWindow)
 stripHeadingPeriods(document)
 if (location.pathname.endsWith('/avatar.html')) {
   const apiScript = document.createElement('script')
-  apiScript.src = 'js/api-browser.js?v=20261122-2'
+  apiScript.src = 'js/api-browser.js?v=20261122-3'
   apiScript.onload = () => {
     const chatScript = document.createElement('script')
-    chatScript.src = 'js/ajin-chat.js?v=20261122-2'
+    chatScript.src = 'js/ajin-chat.js?v=20261122-3'
     document.body.appendChild(chatScript)
   }
   document.body.appendChild(apiScript)

@@ -9,6 +9,8 @@ async function pages(directory) {
   return (await Promise.all(files.map(file => file.isDirectory() ? pages(resolve(directory, file.name)) : file.name.endsWith('.html') ? [resolve(directory, file.name)] : []))).flat()
 }
 const files = (await pages(root)).filter(file => !file.endsWith('weekly-video.html'))
+// personal/ and zhuozheng/ are deployed separately under the same domain; they are not in this repo.
+const externalMounts = new Set(['personal', 'zhuozheng'])
 const source = (await readFile(resolve(root, 'js/site.js'), 'utf8')).split("document.querySelectorAll('img[data-fallback]')")[0]
 const expected = ['index.html', 'changelog.html', 'jianwen/index.html', 'jianwen/discover.html', 'jianwen/ask.html', 'jianwen/weekly.html', 'avatar.html']
 for (const file of files) {
@@ -16,7 +18,7 @@ for (const file of files) {
   const html = await readFile(file, 'utf8')
   const shellScript = [...html.matchAll(/<script[^>]*src="([^"]*js\/site\.js[^"]*)"/g)]
   assert.equal(shellScript.length, 1, `${page}: one shared navigation script`)
-  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261122-2', `${page}: navigation script cache version`)
+  assert.equal(new URL(shellScript[0][1], `http://localhost/${page}`).searchParams.get('v'), '20261122-3', `${page}: navigation script cache version`)
   assert.equal((html.match(/data-site-header/g) || []).length, 1, `${page}: one common header`)
   assert.ok(html.includes('data-site-footer'), `${page}: footer`)
   assert.doesNotMatch(html, /avatar-contact\.html/, `${page}: retired pages`)
@@ -26,7 +28,10 @@ for (const file of files) {
     const value = match[1]
     if (/^(https?:|data:|#|mailto:|tel:)/.test(value)) continue
     const path = value.split(/[?#]/)[0]
-    if (path) await access(resolve(dirname(file), decodeURIComponent(path)))
+    if (!path) continue
+    const pathname = new URL(value, `http://localhost/${page}`).pathname
+    if (externalMounts.has(pathname.split('/')[1])) continue
+    await access(resolve(dirname(file), decodeURIComponent(path)))
   }
   for (const loggedIn of [false, true]) {
     const header = {}, footer = {}, main = { id: 'content' }
@@ -39,7 +44,7 @@ for (const file of files) {
     vm.runInNewContext(`${source}\nrenderShell()`, context)
     assert.ok(!header.innerHTML.includes('nav-label'), `${page}: no category labels`)
     for (const link of header.innerHTML.matchAll(/href="([^"]+)"/g)) {
-      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261122-2', `${page}: every header link uses current version`)
+      assert.equal(new URL(link[1], `http://localhost/${page}`).searchParams.get('v'), '20261122-3', `${page}: every header link uses current version`)
     }
     const hrefs = [...header.innerHTML.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1], `http://localhost/${page}`)).map(url => url.pathname.slice(1) + url.hash)
     for (const href of expected) assert.ok(hrefs.includes(href), `${page}: missing ${href}`)

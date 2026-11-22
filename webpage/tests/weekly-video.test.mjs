@@ -82,3 +82,12 @@ test('every published episode fits its own durationTarget (default 180–300s)',
     assert.ok(item.durationSeconds >= min && item.durationSeconds <= max, `${item.id} ${item.durationSeconds}s outside ${min}–${max}s`)
   }
 })
+
+test('published catalog time fields match each episode timeline', async () => {
+  const catalog = JSON.parse(await readFile(new URL('../data/weekly-videos.json', import.meta.url), 'utf8'))
+  for (const episode of catalog.episodes) {
+    const timeline = JSON.parse(await readFile(new URL(`../../weekly-video/episodes/${episode.id}/timeline.json`, import.meta.url), 'utf8'))
+    assert.equal(episode.durationSeconds, timeline.durationSeconds, `${episode.id}: catalog duration matches timeline`)
+    assert.deepEqual(episode.chapters, timeline.chapters.map(({title, seconds}) => ({title, seconds})), `${episode.id}: catalog chapters match timeline`)
+  }
+})

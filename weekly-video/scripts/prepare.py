@@ -74,7 +74,7 @@ def split_frames(total, chunks):
 def prepare():
     parser = argparse.ArgumentParser()
     parser.add_argument('episode', nargs='?', default='2026-W42')
-    parser.add_argument('--voice', default='Tingting')
+    parser.add_argument('--voice', help='声线名称；不给时必须用 --ref-audio/--ref-text 走克隆，否则拒绝执行（旧默认音色已停用）')
     parser.add_argument('--engine', choices=['macos', 'qwen3'], default='macos')
     parser.add_argument('--model', default='mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-4bit')
     parser.add_argument('--unit', choices=['clause', 'sentence'], default='clause')
@@ -88,6 +88,13 @@ def prepare():
         parser.error('tempo must be between 0.8 and 1.35')
     if bool(args.ref_audio) != bool(args.ref_text):
         parser.error('--ref-audio and --ref-text must be given together')
+    retired = {'tingting', 'vivian', 'uncle_fu'}
+    if args.voice and args.voice.lower() in retired:
+        parser.error(f'--voice {args.voice} 已停用（2026-11-08 听感不佳）。请用 --ref-audio/--ref-text 走 1.7B ICL 克隆，或显式指定其他音色。')
+    if args.engine == 'qwen3' and not args.ref_audio and not args.voice:
+        parser.error('qwen3 引擎必须显式指定 --voice，或用 --ref-audio/--ref-text 走克隆；不再回落到已停用的 Vivian。')
+    if args.engine == 'macos' and not args.tts_command and not args.voice:
+        parser.error('macOS 引擎必须显式指定 --voice；旧的默认 Tingting 已移除。')
     reference = None
     if args.ref_audio:
         reference = (Path(args.ref_audio), Path(args.ref_text).read_text(encoding='utf-8').strip())
@@ -97,8 +104,6 @@ def prepare():
         import numpy as np
         import soundfile as sf
         from mlx_audio.tts.utils import load_model
-        if args.voice == 'Tingting':
-            args.voice = 'Vivian'
         model = load_model(args.model)
         def synthesize(text, output):
             mx.random.seed(42)

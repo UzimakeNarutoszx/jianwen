@@ -7,7 +7,7 @@
 - 项目目录：`/opt/jianwen`
 - 后端：`jianwen.service`，专用 `jianwen` 用户、单 worker，监听 `127.0.0.1:8000`。
 - MySQL：仅本机访问，数据库 `ENS_Project`，应用账号 `jianwen`。
-- Nginx：`/etc/nginx/sites-available/jianwen`，代理 API、静态图片及公开视频；网页与 API 同源。
+- Nginx：宿主机 `/etc/nginx/sites-available/jianwen` 已停用（归档）；线上由 1Panel OpenResty 容器代理 API、静态图片及公开视频，见下节。
 - 密钥：服务器 `/opt/jianwen/backend/.env`，权限 `640 root:jianwen`，不在代码包内。
 - `SEED_CONTENT_ON_STARTUP=false`：保留迁移内容，跳过种子数据重写。
 - 应用时区：`Asia/Shanghai`，与原数据库历史时间约定一致。
@@ -17,8 +17,29 @@
 对外服务由 1Panel 的 OpenResty 容器 `1Panel-openresty-7PTV`（镜像 `1panel/openresty:1.31.8.1-2-1-noble`）在 80/443 提供，宿主机自带的 `nginx` 服务是 `inactive`，`/etc/nginx/sites-available/jianwen` 已不是线上配置。站点 vhost 在宿主机 `/opt/1panel/jianwen.xin/conf.d/jianwen.xin.conf`，挂载进容器的 `/usr/local/openresty/nginx/conf/conf.d`。
 
 - 改站点配置：编辑 `/opt/1panel/jianwen.xin/conf.d/*.conf`，再 `docker exec 1Panel-openresty-7PTV openresty -t && docker exec 1Panel-openresty-7PTV openresty -s reload`。
-- MIME 类型来自宿主机 `/opt/1panel/apps/openresty/openresty/conf/mime.types`（挂载为容器的 `conf/mime.types`）。2026-11-22 在这里补了 `text/vtt vtt;`，否则每周视频的 `<track>` 字幕会被当 `application/octet-stream` 拒绝加载。
-- 部署网页静态文件：`rsync -a webpage/ aliyun:/opt/jianwen/webpage/`（注意别把 `webpage/jianwen/` 当成根目录同步，否则子页会覆盖根 `index.html`）。
+- 部署网页静态文件：用仓库脚本 `scripts/deploy-webpage.sh`（默认 dry-run，只允许显式路径；不会把 `webpage/jianwen/` 当成根目录同步）。
+- MIME 类型见下节，换机/重建容器后必须重新执行。
+
+## 部署网页（必做）
+
+```bash
+# 1) 看差异（md5 + rsync -n），确认清单里没有 webpage/jianwen/* -> /webpage/* 的映射
+scripts/deploy-webpage.sh
+# 2) 只发布改动的文件；禁止 --delete
+scripts/deploy-webpage.sh --only data/weekly-videos.json --apply
+# 3) 大体积成片按需同步（默认不同步）
+scripts/deploy-webpage.sh --with-media --only assets/weekly-video/2026-W47/ --apply
+```
+
+## MIME 类型（部署必做）
+
+`.vtt` 必须返回 `text/vtt`，否则每周视频的 `<track>` 字幕会被当 `application/octet-stream` 拒绝加载。线上 MIME 表是宿主机文件 `/opt/1panel/apps/openresty/openresty/conf/mime.types`（挂载为容器 `conf/mime.types`），重建容器或换机会丢失，因此必须执行仓库里的幂等脚本：
+
+```bash
+bash backend/deploy/mime-types-vtt.sh
+```
+
+脚本会：检测 `text/vtt vtt;` 是否存在 → 缺失则备份后追加 → 校验容器内挂载副本 → `openresty -t`（失败自动回滚）→ `openresty -s reload` → 用线上 `captions.vtt` 实测 `content-type`。可重复执行。
 
 ## 检查和维护
 

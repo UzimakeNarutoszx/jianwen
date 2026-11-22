@@ -222,7 +222,7 @@
       "weekStart": "2026-11-02",
       "weekEnd": "2026-11-08",
       "cutoff": "2026-11-07T18:30:00+08:00",
-      "durationSeconds": 60.93333333333333,
+      "durationSeconds": 68.66666666666667,
       "chapters": [
         {
           "title": "片头导读",
@@ -230,19 +230,19 @@
         },
         {
           "title": "本周重点文章",
-          "seconds": 8.1
+          "seconds": 8.166666666666666
         },
         {
           "title": "本周见闻更新",
-          "seconds": 29.633333333333333
+          "seconds": 33.5
         },
         {
           "title": "大事总结",
-          "seconds": 41.43333333333333
+          "seconds": 45.233333333333334
         },
         {
           "title": "片尾来源",
-          "seconds": 50.63333333333333
+          "seconds": 54.666666666666664
         }
       ],
       "articles": [],
@@ -277,7 +277,8 @@
       "video": "assets/weekly-video/2026-W45/episode.mp4",
       "poster": "assets/weekly-video/2026-W45/cover.jpg",
       "captions": "assets/weekly-video/2026-W45/captions.vtt",
-      "music": "原创配乐《雨》 · 昔日烬"
+      "music": "原创配乐《雨》 · 昔日烬",
+      "updatedAt": "2026-11-22T13:41:29.377764+08:00"
     },
     {
       "id": "2026-W46",

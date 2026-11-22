@@ -1,0 +1,22 @@
+# GitHub Actions example. This repo token lacks the `workflow` scope, so the file lives
+# here as documentation instead of .github/workflows/. Copy it there after granting
+# `workflow` scope if server-side CI is wanted; .githooks/pre-push runs the same checks.
+
+name: webpage-tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Weekly video logic + catalog/timeline consistency
+        run: node --test webpage/tests/weekly-video.test.mjs
+      - name: All pages (navigation, cache version, local assets)
+        run: node webpage/tests/site-pages.mjs

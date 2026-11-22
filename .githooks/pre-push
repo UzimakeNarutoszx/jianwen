@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Local pre-push gate (2026-11-22): run the same two test commands as the CI example
+# (docs/ci/webpage-tests.yml.example). GitHub rejects workflow files from this token
+# without the `workflow` scope, so the hook is the versioned gate for now.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+node --test webpage/tests/weekly-video.test.mjs
+node webpage/tests/site-pages.mjs
