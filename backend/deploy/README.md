@@ -12,6 +12,14 @@
 - `SEED_CONTENT_ON_STARTUP=false`：保留迁移内容，跳过种子数据重写。
 - 应用时区：`Asia/Shanghai`，与原数据库历史时间约定一致。
 
+## 线上实际拓扑（2026-11-22 核实）
+
+对外服务由 1Panel 的 OpenResty 容器 `1Panel-openresty-7PTV`（镜像 `1panel/openresty:1.31.8.1-2-1-noble`）在 80/443 提供，宿主机自带的 `nginx` 服务是 `inactive`，`/etc/nginx/sites-available/jianwen` 已不是线上配置。站点 vhost 在宿主机 `/opt/1panel/jianwen.xin/conf.d/jianwen.xin.conf`，挂载进容器的 `/usr/local/openresty/nginx/conf/conf.d`。
+
+- 改站点配置：编辑 `/opt/1panel/jianwen.xin/conf.d/*.conf`，再 `docker exec 1Panel-openresty-7PTV openresty -t && docker exec 1Panel-openresty-7PTV openresty -s reload`。
+- MIME 类型来自宿主机 `/opt/1panel/apps/openresty/openresty/conf/mime.types`（挂载为容器的 `conf/mime.types`）。2026-11-22 在这里补了 `text/vtt vtt;`，否则每周视频的 `<track>` 字幕会被当 `application/octet-stream` 拒绝加载。
+- 部署网页静态文件：`rsync -a webpage/ aliyun:/opt/jianwen/webpage/`（注意别把 `webpage/jianwen/` 当成根目录同步，否则子页会覆盖根 `index.html`）。
+
 ## 检查和维护
 
 ```bash
