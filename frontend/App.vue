@@ -1,8 +1,21 @@
 <script>
 import { installReadingActivity, readingActivity, resumeReadingActivity } from '@/utils/reading-activity.js'
 import { checkForAppUpdate } from '@/utils/app-updater.js'
+import { clearAuthSession, getAuthToken } from '@/utils/api.js'
+
+const LOGIN_EXPIRES_AT_KEY = 'jianwen_login_expires_at'
+
+// Mirrors the website: an expired local session is cleared on launch so the
+// app does not look signed in until the first authed request fails.
+function dropExpiredSession() {
+  if (!getAuthToken()) return
+  const expiresAt = Number(uni.getStorageSync(LOGIN_EXPIRES_AT_KEY) || 0)
+  if (expiresAt && expiresAt <= Date.now()) clearAuthSession()
+}
+
 export default {
   onLaunch() {
+    dropExpiredSession()
     installReadingActivity()
     checkForAppUpdate()
     console.log('Jianwen launched')

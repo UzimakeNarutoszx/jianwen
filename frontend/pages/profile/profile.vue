@@ -117,6 +117,7 @@ import {
   getCategories,
   getMyProfile,
   getRemoteFollowTopics,
+  isUnauthorized,
   saveRemoteFollowTopics,
   updateMyProfile,
   uploadMyAvatar
@@ -263,12 +264,16 @@ export default {
           this.selectedTopics = profile.followed_topics
           uni.setStorageSync(LOCAL_TOPICS_KEY, profile.followed_topics)
         }
-        } catch (error) {
+      } catch (error) {
+        // Only a real 401 means the session is gone. A timeout or a 5xx must
+        // keep the cached user so a flaky network cannot sign people out.
+        if (isUnauthorized(error)) {
           uni.removeStorageSync('jianwen_auth_token')
           uni.removeStorageSync('jianwen_auth_user')
           uni.removeStorageSync('jianwen_login_expires_at')
           this.authUser = null
         }
+      }
     },
     loadSettings() {
       const showSources = uni.getStorageSync('jianwen_show_sources')

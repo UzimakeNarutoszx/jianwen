@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view :class="['page auth-page', darkMode ? 'dark-mode' : '', `font-${fontSize}`]">
     <view class="auth-nav">
       <button class="back-button" @click="goBack">
@@ -283,13 +283,16 @@ export default {
     loadSavedLogin() {
       const saved = uni.getStorageSync(SAVED_LOGIN_KEY)
       if (!saved || typeof saved !== 'object') return
+      // Older builds stored the password in plain text; scrub it on sight.
+      if (Object.prototype.hasOwnProperty.call(saved, 'password')) {
+        uni.setStorageSync(SAVED_LOGIN_KEY, { phone: saved.phone || '', savedAt: saved.savedAt || Date.now() })
+      }
       if (!this.form.phone && saved.phone) this.form.phone = saved.phone
-      if (!this.form.password && saved.password) this.form.password = saved.password
     },
     saveLoginCredentials() {
+      // Remember the phone number only. Passwords never touch local storage.
       uni.setStorageSync(SAVED_LOGIN_KEY, {
         phone: this.form.phone,
-        password: this.form.password,
         savedAt: Date.now()
       })
     },
