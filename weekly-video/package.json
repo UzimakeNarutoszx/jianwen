@@ -31,6 +31,8 @@
     "prepare": "bash scripts/prepare-qwen.sh",
     "cover": "node scripts/export.mjs cover",
     "render": "node scripts/export.mjs video",
+    "render:smoke": "node scripts/export.mjs frames --frames=0,30,90",
+    "package": "node scripts/package.mjs",
     "test": "node --test ../webpage/tests/weekly-video.test.mjs",
     "prepare:macos": "python3 scripts/prepare.py",
     "prepare:clone": "bash scripts/prepare-clone.sh"

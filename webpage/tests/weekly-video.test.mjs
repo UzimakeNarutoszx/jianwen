@@ -91,3 +91,31 @@ test('published catalog time fields match each episode timeline', async () => {
     assert.deepEqual(episode.chapters, timeline.chapters.map(({title, seconds}) => ({title, seconds})), `${episode.id}: catalog chapters match timeline`)
   }
 })
+
+test('published captions are ordered, non-overlapping and fit inside their episode', async () => {
+  const catalog = JSON.parse(await readFile(new URL('../data/weekly-videos.json', import.meta.url), 'utf8'))
+  const published = catalog.episodes.filter(episode => episode.status === 'published')
+  assert.ok(published.length >= 1)
+  for (const episode of published) {
+    const timeline = JSON.parse(await readFile(new URL(`../../weekly-video/episodes/${episode.id}/timeline.json`, import.meta.url), 'utf8'))
+    let previousEnd = 0
+    for (const [index, cue] of timeline.cues.entries()) {
+      assert.ok(Number.isFinite(cue.start) && cue.start >= 0, `${episode.id} cue ${index + 1}: start is a non-negative number`)
+      assert.ok(cue.start >= previousEnd - 0.2, `${episode.id} cue ${index + 1}: starts ${(previousEnd - cue.start).toFixed(3)}s before the previous cue ends`)
+      assert.ok(cue.end > cue.start, `${episode.id} cue ${index + 1}: end after start`)
+      assert.ok(cue.text.length <= 30, `${episode.id} cue ${index + 1}: text is ${cue.text.length} characters (>30)`)
+      assert.ok(cue.end <= episode.durationSeconds, `${episode.id} cue ${index + 1}: ends at ${cue.end}s after duration ${episode.durationSeconds}s`)
+      previousEnd = cue.end
+    }
+  }
+})
+
+test('every published captions.vtt has exactly one entry per timeline cue', async () => {
+  const catalog = JSON.parse(await readFile(new URL('../data/weekly-videos.json', import.meta.url), 'utf8'))
+  for (const episode of catalog.episodes.filter(item => item.status === 'published')) {
+    const timeline = JSON.parse(await readFile(new URL(`../../weekly-video/episodes/${episode.id}/timeline.json`, import.meta.url), 'utf8'))
+    const vtt = await readFile(new URL(`../assets/weekly-video/${episode.id}/captions.vtt`, import.meta.url), 'utf8')
+    const entries = vtt.split(/\r?\n/).filter(line => line.includes('-->')).length
+    assert.equal(entries, timeline.cues.length, `${episode.id}: VTT entries match cues`)
+  }
+})
